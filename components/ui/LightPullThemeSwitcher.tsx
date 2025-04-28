@@ -1,6 +1,12 @@
 import { motion } from "framer-motion";
 
-export function LightPullThemeSwitcher({ onSwitch }: { onSwitch: () => void }) {
+export function LightPullThemeSwitcher({ 
+  onSwitch,
+  "data-pomodoro": dataPomodoro 
+}: { 
+  onSwitch: () => void;
+  "data-pomodoro": boolean;
+}) {
   // Play click sound
   const handleSwitch = () => {
     const audio = new Audio("/paper.mp3");
@@ -24,9 +30,10 @@ export function LightPullThemeSwitcher({ onSwitch }: { onSwitch: () => void }) {
         whileDrag={{ cursor: "grabbing" }}
         className="relative bottom-0 w-8 h-8 rounded-full 
              bg-[radial-gradient(circle_at_center,_#facc15,_#fcd34d,_#fef9c3)] 
-             dark:bg-[radial-gradient(circle_at_center,_#4b5563,_#1f2937,_#000)] 
+             data-[pomodoro=true]:bg-[radial-gradient(circle_at_center,_#4b5563,_#1f2937,_#000)] 
              shadow-[0_0_20px_8px_rgba(250,204,21,0.5)] 
-             dark:shadow-[0_0_20px_6px_rgba(31,41,55,0.7)]"
+             data-[pomodoro=true]:shadow-[0_0_20px_6px_rgba(31,41,55,0.7)]"
+        data-pomodoro={dataPomodoro}
       >
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-0.5 h-[9999px] bg-neutral-200 dark:bg-neutral-700"></div>
       </motion.div>

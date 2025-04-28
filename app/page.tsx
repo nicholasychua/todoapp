@@ -259,17 +259,23 @@ export default function TaskManager() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-start py-12 px-4 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-start py-8 px-4 relative">
       {/* Light Pull Switch at the top */}
       <div className="fixed top-4 right-4 z-50">
-        <LightPullThemeSwitcher onSwitch={() => setShowPomodoro((v) => !v)} />
+        <LightPullThemeSwitcher onSwitch={() => setShowPomodoro((v) => !v)} data-pomodoro={showPomodoro} />
       </div>
 
       {/* Main content area with animation */}
       <div className="flex-1 w-full max-w-md flex flex-col justify-center items-center">
         <AnimatePresence mode="wait">
           {showPomodoro ? (
-            <PomodoroTimer key="pomodoro" />
+            <PomodoroTimer 
+              key="pomodoro" 
+              tasks={tasks}
+              toggleTaskCompletion={toggleTaskCompletion}
+              deleteTask={deleteTask}
+              formatTextWithTags={formatTextWithTags}
+            />
           ) : (
             <motion.div
               key="todo"
@@ -277,10 +283,10 @@ export default function TaskManager() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -40 }}
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="w-full"
+              className="w-full space-y-6"
             >
-              <div className="mb-8 flex items-center justify-between">
-                <h1 className="text-xl font-medium text-gray-900">Tasks</h1>
+              <div className="flex items-center justify-between">
+                <h1>hi, i'm tami 👋</h1>
                 <div className="flex items-center gap-2">
                   {showSearch ? (
                     <div className="relative">
@@ -289,12 +295,12 @@ export default function TaskManager() {
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
                         placeholder="Search tasks..."
-                        className="h-9 w-48 border-gray-200"
+                        className="w-48"
                       />
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-0 top-0 h-full text-gray-400 hover:text-gray-600"
+                        className="absolute right-0 top-0 h-full"
                         onClick={() => {
                           setSearchText("")
                           setShowSearch(false)
@@ -304,14 +310,14 @@ export default function TaskManager() {
                       </Button>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="icon" className="text-gray-500" onClick={() => setShowSearch(true)}>
+                    <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)}>
                       <Search className="h-5 w-5" />
                       <span className="sr-only">Search</span>
                     </Button>
                   )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-gray-500">
+                      <Button variant="ghost" size="icon">
                         <MoreHorizontal className="h-5 w-5" />
                         <span className="sr-only">More options</span>
                       </Button>
@@ -325,8 +331,8 @@ export default function TaskManager() {
                 </div>
               </div>
 
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-4">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
                   <Input
                     ref={inputRef}
                     value={newTaskText}
@@ -337,26 +343,17 @@ export default function TaskManager() {
                       }
                     }}
                     placeholder="Add a new task... Use #tags"
-                    className="flex-1 border-gray-200 focus-visible:ring-gray-400"
+                    className="flex-1"
                   />
-                  <Button onClick={() => addTask(newTaskText, newTaskDate)} className="bg-gray-900 hover:bg-gray-800 text-white">
+                  <Button onClick={() => addTask(newTaskText, newTaskDate)}>
                     <Plus className="h-4 w-4" />
                   </Button>
-                </div>
-
-                <div className="mb-2">
-                  <Calendar
-                    mode="single"
-                    selected={newTaskDate}
-                    onSelect={setNewTaskDate}
-                    className="rounded-md border"
-                  />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Switch id="focus-mode" checked={focusMode} onCheckedChange={setFocusMode} />
-                    <label htmlFor="focus-mode" className="text-sm font-medium text-gray-600">
+                    <label htmlFor="focus-mode" className="text-sm font-medium">
                       Focus Mode
                     </label>
                   </div>
@@ -364,7 +361,6 @@ export default function TaskManager() {
                     variant="outline"
                     size="sm"
                     onClick={startRecording}
-                    className="text-gray-600 border-gray-200 hover:bg-gray-50"
                   >
                     <Mic className="h-4 w-4 mr-1" />
                     Voice
@@ -372,13 +368,13 @@ export default function TaskManager() {
                 </div>
               </div>
 
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-medium text-gray-500">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-medium text-muted-foreground">
                   {filter === "all" ? "All Tasks" : filter === "active" ? "Active Tasks" : "Completed Tasks"}
                 </h2>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 text-gray-500 -mr-2">
+                    <Button variant="ghost" size="sm" className="h-8 -mr-2">
                       Sort
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </Button>
@@ -391,8 +387,8 @@ export default function TaskManager() {
                 </DropdownMenu>
               </div>
 
-              <Card className="border-gray-200 shadow-sm overflow-hidden">
-                <div className="divide-y divide-gray-100">
+              <Card className="overflow-visible">
+                <div className="divide-y divide-border">
                   <AnimatePresence initial={false}>
                     {filteredTasks.map((task) => (
                       <motion.div
@@ -405,35 +401,45 @@ export default function TaskManager() {
                       >
                         <div
                           className={cn(
-                            "flex items-start gap-3 p-4 group hover:bg-gray-50 transition-colors",
-                            task.completed ? "bg-gray-50/50" : "",
+                            "flex items-center gap-3 px-3 py-2 group hover:bg-accent/50 transition-colors min-h-0 relative",
+                            task.completed ? "bg-muted/50" : "",
+                            "relative"
                           )}
                         >
                           <Checkbox
                             checked={task.completed}
                             onCheckedChange={() => toggleTaskCompletion(task.id)}
                             className={cn(
-                              "mt-0.5 transition-colors",
-                              task.completed ? "border-gray-400 data-[state=checked]:bg-gray-500" : "",
+                              "mt-0.5 h-4 w-4 min-h-4 min-w-4 transition-colors",
+                              task.completed ? "border-muted-foreground data-[state=checked]:bg-muted-foreground" : "",
                             )}
                           />
-
                           <div
                             className={cn(
-                              "flex-1 transition-opacity",
-                              task.completed ? "text-gray-400 line-through opacity-70" : "",
+                              "flex-1 flex items-center justify-between gap-2 transition-opacity",
+                              task.completed ? "text-muted-foreground line-through opacity-70" : "",
                             )}
                           >
-                            {formatTextWithTags(task.text)}
-                            <div className="text-xs text-gray-400 mt-1">
-                              {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                            <span className="text-xs font-normal truncate max-w-[60%]">{formatTextWithTags(task.text)}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                              </span>
+                              {task.tags.length > 0 && (
+                                <div className="flex gap-1 flex-nowrap">
+                                  {task.tags.map((tag) => (
+                                    <Badge key={tag} variant="secondary" className="text-[10px] px-1 py-0 whitespace-nowrap">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
-
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() => deleteTask(task.id)}
                           >
                             <X className="h-4 w-4" />
@@ -445,9 +451,9 @@ export default function TaskManager() {
                   </AnimatePresence>
 
                   {filteredTasks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
-                      <div className="rounded-full bg-gray-100 p-3 mb-3">
-                        <Check className="h-6 w-6 text-gray-400" />
+                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                      <div className="rounded-full bg-muted p-3 mb-3">
+                        <Check className="h-6 w-6" />
                       </div>
                       <p>No tasks found</p>
                     </div>
@@ -456,14 +462,14 @@ export default function TaskManager() {
               </Card>
 
               {allTags.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Tags</h3>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">Tags</h3>
                   <div className="flex flex-wrap gap-2">
                     {allTags.map((tag) => (
                       <Badge
                         key={tag}
                         variant="outline"
-                        className="cursor-pointer hover:bg-gray-50 transition-colors border-gray-200 text-gray-600"
+                        className="cursor-pointer hover:bg-accent transition-colors"
                       >
                         #{tag}
                       </Badge>
@@ -475,45 +481,6 @@ export default function TaskManager() {
           )}
         </AnimatePresence>
       </div>
-
-      {/* Only show tasks at the bottom in Pomodoro mode */}
-      {showPomodoro && (
-        <div className="fixed bottom-0 left-0 w-full bg-white dark:bg-gray-900 shadow-lg z-40 px-4 py-2">
-          <div className="max-w-md mx-auto">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Tasks</h3>
-            <div className="flex flex-col gap-2">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-2 rounded bg-gray-100 dark:bg-gray-800"
-                >
-                  {/* Checkbox and text */}
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggleTaskCompletion(task.id)}
-                    className="mr-2"
-                  />
-                  <span className={`truncate flex-1 ${task.completed ? "line-through text-gray-400" : ""}`}>
-                    {task.text}
-                  </span>
-                  {/* Delete button */}
-                  <button
-                    onClick={() => deleteTask(task.id)}
-                    className="ml-2 text-red-500 hover:text-red-700"
-                    aria-label="Delete"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              {tasks.length === 0 && (
-                <div className="text-gray-400 text-center py-2">No tasks yet</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Voice Transcription Overlay */}
       {isRecording && (
@@ -579,7 +546,17 @@ export default function TaskManager() {
   )
 }
 
-function PomodoroTimer() {
+function PomodoroTimer({ 
+  tasks, 
+  toggleTaskCompletion, 
+  deleteTask, 
+  formatTextWithTags 
+}: { 
+  tasks: Task[]; 
+  toggleTaskCompletion: (id: string) => void; 
+  deleteTask: (id: string) => void; 
+  formatTextWithTags: (text: string) => React.ReactNode; 
+}) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
 
@@ -595,33 +572,86 @@ function PomodoroTimer() {
   const secs = seconds % 60;
 
   return (
-    <motion.div
-      key="pomodoro"
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -40 }}
-      transition={{ type: "spring", stiffness: 200, damping: 20 }}
-      className="flex flex-col items-center justify-center h-full"
-    >
-      <h2 className="text-3xl font-bold mb-4">Pomodoro Timer</h2>
-      <div className="text-6xl font-mono mb-6">
-        {minutes.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
+    <div className="w-screen h-screen flex">
+      {/* Left: Timer */}
+      <div className="flex flex-1 items-center justify-center px-20">
+        <div className="flex flex-col items-center justify-center">
+          <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
+          <div className="mb-8">
+            <div className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+              {minutes.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
+            </div>
+          </div>
+          <div className="flex gap-4 mt-2">
+            <Button
+              onClick={() => setRunning((r) => !r)}
+              className="px-8 py-2 text-base rounded-md font-medium"
+            >
+              {running ? "Pause" : "Start"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSeconds(25 * 60);
+                setRunning(false);
+              }}
+              className="px-8 py-2 text-base rounded-md font-medium"
+            >
+              Reset
+            </Button>
+          </div>
+        </div>
       </div>
-      <button
-        onClick={() => setRunning((r) => !r)}
-        className="mb-2 px-4 py-2 rounded bg-blue-500 text-white"
-      >
-        {running ? "Pause" : "Start"}
-      </button>
-      <button
-        onClick={() => {
-          setSeconds(25 * 60);
-          setRunning(false);
-        }}
-        className="px-4 py-2 rounded border"
-      >
-        Reset
-      </button>
-    </motion.div>
+      {/* Divider */}
+      <div className="w-px bg-gray-200 h-[70%] self-center" />
+      {/* Right: Task List */}
+      <div className="flex flex-1 items-center justify-center px-20">
+        <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none">
+          <div className="py-4">
+            <div className="flex flex-col gap-0">
+              {tasks.map((task, idx) => (
+                <div
+                  key={task.id}
+                  className={cn(
+                    "flex items-center px-4 py-2",
+                    idx !== tasks.length - 1 && "border-b border-gray-200",
+                    task.completed ? "bg-muted/50" : ""
+                  )}
+                >
+                  <Checkbox
+                    checked={task.completed}
+                    onCheckedChange={() => toggleTaskCompletion(task.id)}
+                    className="h-4 w-4 min-h-4 min-w-4 flex-shrink-0 mr-3"
+                  />
+                  <div className={cn(
+                    "flex-1 flex items-center min-w-0 gap-2",
+                    task.completed ? "text-muted-foreground line-through opacity-70" : ""
+                  )}>
+                    <span className="text-sm font-normal truncate min-w-0">
+                      {formatTextWithTags(task.text)}
+                    </span>
+                    {task.tags.length > 0 && (
+                      <span className="text-sm text-gray-400 font-normal ml-2">
+                        {task.tags.map((tag, i) => (
+                          <span key={tag} className="mr-1">#{tag}</span>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap mr-3">
+                    {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </span>
+                  {task.tags.length > 0 && (
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5 font-bold bg-gray-100 text-black rounded-xl">
+                      {task.tags[0]}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }
