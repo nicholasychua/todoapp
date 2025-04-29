@@ -15,7 +15,12 @@ export function LightPullThemeSwitcher({
   };
 
   return (
-    <div className="relative py-16 p-6 overflow-hidden">
+    <motion.div
+      initial={{ y: -80, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 120, damping: 18, duration: 0.4 }}
+      className="relative py-16 p-6"
+    >
       <motion.div
         drag="y"
         dragDirectionLock
@@ -37,6 +42,9 @@ export function LightPullThemeSwitcher({
       >
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-0.5 h-[9999px] bg-neutral-200 dark:bg-neutral-700"></div>
       </motion.div>
-    </div>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground font-medium">
+        {dataPomodoro ? "Pull down to add tasks" : "Pull down to lock in"}
+      </div>
+    </motion.div>
   );
 }

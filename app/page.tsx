@@ -10,8 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
-import { AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
 import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
@@ -23,6 +22,50 @@ type Task = {
   completed: boolean
   tags: string[]
   createdAt: Date
+}
+
+// Sound wave animation component
+function SoundWave() {
+  return (
+    <div className="flex items-center gap-0.5 h-3">
+      <motion.div
+        className="w-0.5 h-full bg-red-500 rounded-full"
+        animate={{
+          height: ["60%", "100%", "60%"]
+        }}
+        transition={{
+          duration: 0.8,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0
+        }}
+      />
+      <motion.div
+        className="w-0.5 h-full bg-red-500 rounded-full"
+        animate={{
+          height: ["100%", "60%", "100%"]
+        }}
+        transition={{
+          duration: 0.8,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0.2
+        }}
+      />
+      <motion.div
+        className="w-0.5 h-full bg-red-500 rounded-full"
+        animate={{
+          height: ["60%", "100%", "60%"]
+        }}
+        transition={{
+          duration: 0.8,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 0.4
+        }}
+      />
+    </div>
+  )
 }
 
 export default function TaskManager() {
@@ -53,10 +96,8 @@ export default function TaskManager() {
 
   const [newTaskText, setNewTaskText] = useState("")
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(new Date())
-  const [focusMode, setFocusMode] = useState(false)
   const [searchText, setSearchText] = useState("")
   const [isRecording, setIsRecording] = useState(false)
-  const [transcription, setTranscription] = useState("")
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
   const [showSearch, setShowSearch] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
@@ -64,9 +105,7 @@ export default function TaskManager() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const recognitionRef = useRef<any>(null);
-  const transcriptionRef = useRef<HTMLTextAreaElement>(null);
-  const [textareaHeight, setTextareaHeight] = useState(48); // px, initial min height
+  const recognitionRef = useRef<any>(null)
 
   // Focus search input when search is shown
   useEffect(() => {
@@ -74,6 +113,29 @@ export default function TaskManager() {
       searchInputRef.current.focus()
     }
   }, [showSearch])
+
+  // Handle keyboard events for voice control
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && !isRecording) {
+        startRecording()
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && isRecording) {
+        stopRecording()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isRecording])
 
   // Parse tags from text (words starting with #)
   const parseTagsFromText = (text: string): string[] => {
@@ -131,100 +193,64 @@ export default function TaskManager() {
 
   // Start voice recording and transcription
   const startRecording = () => {
-    // Stop previous instance if it exists
     if (recognitionRef.current) {
-      recognitionRef.current.onend = null; // Remove old event listeners
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onresult = null;
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+      recognitionRef.current.onend = null
+      recognitionRef.current.onerror = null
+      recognitionRef.current.onresult = null
+      recognitionRef.current.stop()
+      recognitionRef.current = null
     }
-    setIsRecording(true);
-    setTranscription(""); // Clear previous transcription
+    setIsRecording(true)
 
-    // Check for browser support
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      alert("Sorry, your browser does not support Speech Recognition.");
-      setIsRecording(false);
-      return;
+      alert("Sorry, your browser does not support Speech Recognition.")
+      setIsRecording(false)
+      return
     }
 
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
+    const recognition = new SpeechRecognition()
+    recognitionRef.current = recognition
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = "en-US"
 
     recognition.onresult = (event: any) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
+      let interimTranscript = ""
+      let finalTranscript = ""
+      
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript;
+        const transcript = event.results[i][0].transcript
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+          finalTranscript += transcript
         } else {
-          interimTranscript += transcript;
+          interimTranscript += transcript
         }
       }
-      setTranscription(finalTranscript + (interimTranscript ? " " + interimTranscript : ""));
-    };
+      
+      const newText = finalTranscript + (interimTranscript ? " " + interimTranscript : "")
+      setNewTaskText(newText)
+    }
 
     recognition.onerror = (event: any) => {
-      setIsRecording(false);
-      recognition.stop();
-    };
+      setIsRecording(false)
+      recognition.stop()
+    }
 
-    recognition.start();
-  };
+    recognition.start()
+  }
 
   // Stop voice recording
   const stopRecording = () => {
-    setIsRecording(false);
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-    };
-  }, []);
-
-  // Save transcription as a task
-  const saveTranscription = () => {
-    if (transcription.trim()) {
-      addTask(transcription, newTaskDate);
-      setTranscription("");
-      setIsRecording(false);
-      // Stop the speech recognition if it's still running
-      if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
-      }
-    }
-  }
-
-  // Cancel transcription
-  const cancelTranscription = () => {
-    setTranscription("")
     setIsRecording(false)
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+    }
   }
 
-  // Filter tasks based on filter, search text, and focus mode
+  // Filter tasks based on filter and search text
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch = searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true
-    const matchesFocus = focusMode ? !task.completed : true
 
     let matchesFilter = true
     if (filter === "completed") {
@@ -233,20 +259,11 @@ export default function TaskManager() {
       matchesFilter = !task.completed
     }
 
-    return matchesSearch && matchesFocus && matchesFilter
+    return matchesSearch && matchesFilter
   })
 
   // Get all unique tags
   const allTags = Array.from(new Set(tasks.flatMap((task) => task.tags)))
-
-  useEffect(() => {
-    if (transcriptionRef.current) {
-      transcriptionRef.current.style.height = "auto";
-      const newHeight = Math.min(transcriptionRef.current.scrollHeight, 240); // max 240px
-      transcriptionRef.current.style.height = newHeight + "px";
-      setTextareaHeight(newHeight);
-    }
-  }, [transcription]);
 
   const handleLightSwitch = () => {
     if (theme === "light") {
@@ -259,9 +276,9 @@ export default function TaskManager() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-start py-8 px-4 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-start px-4 relative">
       {/* Light Pull Switch at the top */}
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed top-0 right-8 z-50">
         <LightPullThemeSwitcher onSwitch={() => setShowPomodoro((v) => !v)} data-pomodoro={showPomodoro} />
       </div>
 
@@ -350,21 +367,46 @@ export default function TaskManager() {
                   </Button>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Switch id="focus-mode" checked={focusMode} onCheckedChange={setFocusMode} />
-                    <label htmlFor="focus-mode" className="text-sm font-medium">
-                      Focus Mode
-                    </label>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={startRecording}
+                <div className="flex items-center">
+                  <motion.div
+                    layout
+                    initial={false}
                   >
-                    <Mic className="h-4 w-4 mr-1" />
-                    Voice
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "transition-all duration-200",
+                        isRecording ? "bg-red-50 px-6" : "px-4"
+                      )}
+                    >
+                      <AnimatePresence mode="wait">
+                        {isRecording ? (
+                          <motion.div
+                            key="listening"
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            className="flex items-center"
+                          >
+                            <SoundWave />
+                            <span className="ml-2 text-red-500">Listening...</span>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="hold"
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            className="flex items-center"
+                          >
+                            <Mic className="h-4 w-4 mr-1" />
+                            Hold Ctrl
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Button>
+                  </motion.div>
                 </div>
               </div>
 
@@ -481,67 +523,6 @@ export default function TaskManager() {
           )}
         </AnimatePresence>
       </div>
-
-      {/* Voice Transcription Overlay */}
-      {isRecording && (
-        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-50">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Card className="w-full max-w-md mx-4 border-gray-200 shadow-sm">
-              <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Voice Input</h3>
-                  <div className="flex h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-                </div>
-
-                <div className="relative">
-                  <motion.div
-                    layout
-                    initial={false}
-                    animate={{ height: textareaHeight }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="relative w-full overflow-hidden rounded-md border border-gray-200 bg-white"
-                    style={{ minHeight: 48, maxHeight: 240 }}
-                  >
-                    <textarea
-                      ref={transcriptionRef}
-                      value={transcription}
-                      onChange={(e) => setTranscription(e.target.value)}
-                      placeholder="Listening..."
-                      className="w-full resize-none overflow-hidden bg-transparent p-2 text-base outline-none"
-                      rows={1}
-                      style={{ height: textareaHeight, minHeight: 48, maxHeight: 240 }}
-                    />
-                    {transcription && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-2 h-6 w-6 text-gray-400 hover:text-gray-600"
-                        onClick={() => setTranscription("")}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </motion.div>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={cancelTranscription} className="border-gray-200 text-gray-600">
-                    Cancel
-                  </Button>
-                  <Button onClick={saveTranscription} className="bg-gray-900 hover:bg-gray-800 text-white">
-                    Add Task
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        </div>
-      )}
     </div>
   )
 }
