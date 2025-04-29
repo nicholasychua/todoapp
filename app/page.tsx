@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
 import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
+import Link from "next/link"
 
 // Types
 type Task = {
@@ -106,6 +107,8 @@ export default function TaskManager() {
   const inputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [textareaHeight, setTextareaHeight] = useState(40)
 
   // Focus search input when search is shown
   useEffect(() => {
@@ -136,6 +139,15 @@ export default function TaskManager() {
       window.removeEventListener('keyup', handleKeyUp)
     }
   }, [isRecording])
+
+  useLayoutEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = textareaRef.current.scrollHeight;
+      setTextareaHeight(newHeight);
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [newTaskText])
 
   // Parse tags from text (words starting with #)
   const parseTagsFromText = (text: string): string[] => {
@@ -276,14 +288,17 @@ export default function TaskManager() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-start px-4 relative">
-      {/* Light Pull Switch at the top */}
-      <div className="fixed top-0 right-8 z-50">
-        <LightPullThemeSwitcher onSwitch={() => setShowPomodoro((v) => !v)} data-pomodoro={showPomodoro} />
+    <div className="relative min-h-screen flex items-center justify-center bg-background">
+      {/* Top-left login button */}
+      <div className="absolute top-4 left-4 z-10">
+        <Link href="/signin">
+          <Button variant="outline" size="sm" className="px-4 py-1 text-sm font-medium">
+            Log in
+          </Button>
+        </Link>
       </div>
-
       {/* Main content area with animation */}
-      <div className="flex-1 w-full max-w-md flex flex-col justify-center items-center">
+      <div className="w-full max-w-md flex flex-col justify-center items-center">
         <AnimatePresence mode="wait">
           {showPomodoro ? (
             <PomodoroTimer 
@@ -350,18 +365,27 @@ export default function TaskManager() {
 
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <Input
-                    ref={inputRef}
-                    value={newTaskText}
-                    onChange={(e) => setNewTaskText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        addTask(newTaskText, newTaskDate)
-                      }
-                    }}
-                    placeholder="Add a new task... Use #tags"
-                    className="flex-1"
-                  />
+                  <motion.div
+                    animate={{ height: textareaHeight }}
+                    transition={{ type: "spring", stiffness: 180, damping: 18, duration: 0.3 }}
+                    className="flex-1 min-h-[40px]"
+                  >
+                    <textarea
+                      ref={textareaRef}
+                      value={newTaskText}
+                      onChange={(e) => setNewTaskText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          addTask(newTaskText, newTaskDate)
+                        }
+                      }}
+                      placeholder="Add a new task... Use #tags"
+                      rows={1}
+                      className="w-full resize-none bg-transparent outline-none border border-input rounded-md px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus:border-primary"
+                      style={{ height: textareaHeight }}
+                    />
+                  </motion.div>
                   <Button onClick={() => addTask(newTaskText, newTaskDate)}>
                     <Plus className="h-4 w-4" />
                   </Button>
