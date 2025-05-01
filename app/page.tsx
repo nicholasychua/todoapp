@@ -550,7 +550,6 @@ export default function TaskManager() {
     </div>
   )
 }
-
 function PomodoroTimer({ 
   tasks, 
   toggleTaskCompletion, 
@@ -660,3 +659,4 @@ function PomodoroTimer({
     </div>
   );
 }
+

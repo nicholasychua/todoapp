@@ -45,7 +45,9 @@ export default function SignInPage() {
     <div className="min-h-screen flex flex-col bg-background px-6">
       {/* Logo at top left */}
       <div className="pt-10 pl-8 pb-2">
-        <span className="text-3xl font-bold tracking-tight">calmi</span>
+        <Link href="/landing" className="focus:outline-none">
+          <span className="text-3xl font-bold tracking-tight hover:underline transition-colors">tami</span>
+        </Link>
       </div>
       {/* Centered form with animation */}
       <div className="flex-1 flex flex-col items-center justify-center">
@@ -61,7 +63,7 @@ export default function SignInPage() {
             {/* Heading (fixed height for consistency) */}
             <motion.div variants={itemVariants} className="text-center mb-2" style={{ minHeight: '56px' }}>
               <h1 className="text-xl font-semibold mb-1">ready when you are</h1>
-              <p className="text-muted-foreground text-base">your safe space, one convo at a time</p>
+              <p className="text-muted-foreground text-base">all your tasks, all in one place</p>
             </motion.div>
             {/* Form */}
             <motion.form variants={itemVariants} onSubmit={handleSubmit} className="flex flex-col gap-4">
