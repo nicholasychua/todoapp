@@ -42,7 +42,7 @@ export function LightPullThemeSwitcher({
       >
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-0.5 h-[9999px] bg-neutral-200 dark:bg-neutral-700"></div>
       </motion.div>
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground font-medium">
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground font-medium">
         {dataPomodoro ? "Pull down to add tasks" : "Pull down to lock in"}
       </div>
     </motion.div>

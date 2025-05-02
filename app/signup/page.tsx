@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import Image from "next/image"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 
 const containerVariants = {
@@ -28,12 +29,16 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   // Placeholder submit handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => setLoading(false), 1000)
+    setTimeout(() => {
+      setLoading(false)
+      router.push("/")
+    }, 1000)
   }
 
   return (

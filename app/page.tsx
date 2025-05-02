@@ -109,6 +109,7 @@ export default function TaskManager() {
   const recognitionRef = useRef<any>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [textareaHeight, setTextareaHeight] = useState(40)
+  const [speechDraft, setSpeechDraft] = useState("")
 
   // Focus search input when search is shown
   useEffect(() => {
@@ -176,22 +177,22 @@ export default function TaskManager() {
   }
 
   // Add a new task
-  const addTask = (text: string, date?: Date) => {
-    if (!text.trim()) return
-
-    const tags = parseTagsFromText(text)
+  const addTask = (text?: string, date?: Date) => {
+    const value = isRecording ? speechDraft : (typeof text === "string" ? text : newTaskText);
+    if (!value.trim()) return;
+    const tags = parseTagsFromText(value);
     const newTask: Task = {
       id: Date.now().toString(),
-      text,
+      text: value,
       completed: false,
       tags,
       createdAt: date || new Date(),
-    }
-
-    setTasks([newTask, ...tasks])
-    setNewTaskText("")
-    setNewTaskDate(new Date())
-  }
+    };
+    setTasks([newTask, ...tasks]);
+    setNewTaskText("");
+    setSpeechDraft("");
+    setNewTaskDate(new Date());
+  };
 
   // Toggle task completion
   const toggleTaskCompletion = (taskId: string) => {
@@ -206,51 +207,45 @@ export default function TaskManager() {
   // Start voice recording and transcription
   const startRecording = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.onend = null
-      recognitionRef.current.onerror = null
-      recognitionRef.current.onresult = null
-      recognitionRef.current.stop()
-      recognitionRef.current = null
+      recognitionRef.current.onend = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onresult = null;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
     }
-    setIsRecording(true)
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    setIsRecording(true);
+    setSpeechDraft("");
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("Sorry, your browser does not support Speech Recognition.")
-      setIsRecording(false)
-      return
+      alert("Sorry, your browser does not support Speech Recognition.");
+      setIsRecording(false);
+      return;
     }
-
-    const recognition = new SpeechRecognition()
-    recognitionRef.current = recognition
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = "en-US"
-
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
     recognition.onresult = (event: any) => {
-      let interimTranscript = ""
-      let finalTranscript = ""
-      
+      let interimTranscript = "";
+      let finalTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript
+        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript
+          finalTranscript += transcript;
         } else {
-          interimTranscript += transcript
+          interimTranscript += transcript;
         }
       }
-      
-      const newText = finalTranscript + (interimTranscript ? " " + interimTranscript : "")
-      setNewTaskText(newText)
-    }
-
+      const newText = finalTranscript + (interimTranscript ? " " + interimTranscript : "");
+      setSpeechDraft(newText);
+    };
     recognition.onerror = (event: any) => {
-      setIsRecording(false)
-      recognition.stop()
-    }
-
-    recognition.start()
-  }
+      setIsRecording(false);
+      recognition.stop();
+    };
+    recognition.start();
+  };
 
   // Stop voice recording
   const stopRecording = () => {
@@ -278,14 +273,13 @@ export default function TaskManager() {
   const allTags = Array.from(new Set(tasks.flatMap((task) => task.tags)))
 
   const handleLightSwitch = () => {
-    if (theme === "light") {
-      setTheme("dark")
-      setShowPomodoro(true)
-    } else {
-      setTheme("light")
-      setShowPomodoro(false)
-    }
-  }
+    setShowPomodoro((prev) => !prev);
+  };
+
+  // Force light theme on component mount
+  useEffect(() => {
+    setTheme("light")
+  }, [setTheme])
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background">
@@ -299,15 +293,28 @@ export default function TaskManager() {
       </div>
       {/* Main content area with animation */}
       <div className="w-full max-w-md flex flex-col justify-center items-center">
+        <div className="absolute top-4 right-4 mr-6 md:mr-10">
+          <LightPullThemeSwitcher 
+            onSwitch={handleLightSwitch}
+            data-pomodoro={showPomodoro}
+          />
+        </div>
         <AnimatePresence mode="wait">
           {showPomodoro ? (
-            <PomodoroTimer 
-              key="pomodoro" 
-              tasks={tasks}
-              toggleTaskCompletion={toggleTaskCompletion}
-              deleteTask={deleteTask}
-              formatTextWithTags={formatTextWithTags}
-            />
+            <motion.div
+              key="pomodoro"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -40 }}
+              transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            >
+              <PomodoroTimer 
+                tasks={tasks}
+                toggleTaskCompletion={toggleTaskCompletion}
+                deleteTask={deleteTask}
+                formatTextWithTags={formatTextWithTags}
+              />
+            </motion.div>
           ) : (
             <motion.div
               key="todo"
@@ -372,12 +379,18 @@ export default function TaskManager() {
                   >
                     <textarea
                       ref={textareaRef}
-                      value={newTaskText}
-                      onChange={(e) => setNewTaskText(e.target.value)}
+                      value={isRecording ? speechDraft : newTaskText}
+                      onChange={(e) => {
+                        if (isRecording) {
+                          setSpeechDraft(e.target.value);
+                        } else {
+                          setNewTaskText(e.target.value);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault()
-                          addTask(newTaskText, newTaskDate)
+                          e.preventDefault();
+                          addTask();
                         }
                       }}
                       placeholder="Add a new task... Use #tags"
@@ -386,7 +399,7 @@ export default function TaskManager() {
                       style={{ height: textareaHeight }}
                     />
                   </motion.div>
-                  <Button onClick={() => addTask(newTaskText, newTaskDate)}>
+                  <Button onClick={() => addTask()}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -482,12 +495,12 @@ export default function TaskManager() {
                           />
                           <div
                             className={cn(
-                              "flex-1 flex items-center justify-between gap-2 transition-opacity",
+                              "flex-1 flex items-center gap-2 transition-opacity",
                               task.completed ? "text-muted-foreground line-through opacity-70" : "",
                             )}
                           >
-                            <span className="text-xs font-normal truncate max-w-[60%]">{formatTextWithTags(task.text)}</span>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <span className="flex-1 min-w-0 text-xs font-normal break-words whitespace-pre-line">{formatTextWithTags(task.text)}</span>
+                            <div className="shrink-0 flex items-center gap-2">
                               <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                 {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                               </span>
