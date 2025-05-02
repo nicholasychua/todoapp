@@ -578,11 +578,23 @@ function PomodoroTimer({
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running) {
+      document.title = "tami";
+      return;
+    }
     const interval = setInterval(() => {
-      setSeconds((s) => (s > 0 ? s - 1 : 0));
+      setSeconds((s) => {
+        const newSeconds = s > 0 ? s - 1 : 0;
+        const minutes = Math.floor(newSeconds / 60);
+        const secs = newSeconds % 60;
+        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - tami`;
+        return newSeconds;
+      });
     }, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      document.title = "tami";
+    };
   }, [running]);
 
   const minutes = Math.floor(seconds / 60);
