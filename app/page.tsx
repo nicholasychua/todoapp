@@ -15,6 +15,10 @@ import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
 import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import { useTaskService } from "@/hooks/useTaskService"
+import { toast } from "sonner"
 
 // Types
 type Task = {
@@ -23,6 +27,7 @@ type Task = {
   completed: boolean
   tags: string[]
   createdAt: Date
+  userId: string
 }
 
 // Sound wave animation component
@@ -70,31 +75,19 @@ function SoundWave() {
 }
 
 export default function TaskManager() {
-  // State
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: "1",
-      text: "Complete project proposal #work",
-      completed: false,
-      tags: ["work"],
-      createdAt: new Date(),
-    },
-    {
-      id: "2",
-      text: "Buy groceries #shopping",
-      completed: false,
-      tags: ["shopping"],
-      createdAt: new Date(),
-    },
-    {
-      id: "3",
-      text: "Schedule dentist appointment #health",
-      completed: true,
-      tags: ["health"],
-      createdAt: new Date(Date.now() - 86400000),
-    },
-  ])
+  const { user, loading, logout } = useAuth()
+  const router = useRouter()
+  const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
+  
+  // Redirect to signin if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/signin')
+    }
+  }, [user, loading, router])
 
+  // State
+  const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskText, setNewTaskText] = useState("")
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(new Date())
   const [searchText, setSearchText] = useState("")
@@ -103,6 +96,23 @@ export default function TaskManager() {
   const [showSearch, setShowSearch] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
   const { theme, setTheme } = useTheme()
+
+  // Reset all state when user changes
+  useEffect(() => {
+    // Only run after initial loading is complete
+    if (!loading) {
+      setTasks([]);
+      setNewTaskText("");
+      setNewTaskDate(new Date());
+      setSearchText("");
+      setIsRecording(false);
+      setFilter("all");
+      setShowSearch(false);
+      setShowPomodoro(false);
+      setTheme("light");
+      console.log("Reset all state for user:", user?.uid);
+    }
+  }, [user?.uid, loading]);
 
   const inputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -176,32 +186,64 @@ export default function TaskManager() {
     })
   }
 
+  // Subscribe to tasks
+  useEffect(() => {
+    if (!user) return
+
+    const unsubscribe = subscribeToTasks((newTasks) => {
+      setTasks(newTasks)
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
   // Add a new task
-  const addTask = (text?: string, date?: Date) => {
+  const addTask = async (text?: string, date?: Date) => {
+    if (!user) return
+    
     const value = isRecording ? speechDraft : (typeof text === "string" ? text : newTaskText);
     if (!value.trim()) return;
-    const tags = parseTagsFromText(value);
-    const newTask: Task = {
-      id: Date.now().toString(),
-      text: value,
-      completed: false,
-      tags,
-      createdAt: date || new Date(),
-    };
-    setTasks([newTask, ...tasks]);
-    setNewTaskText("");
-    setSpeechDraft("");
-    setNewTaskDate(new Date());
+    
+    try {
+      const tags = parseTagsFromText(value);
+      await createTask({
+        text: value,
+        completed: false,
+        tags
+      });
+      setNewTaskText("");
+      setSpeechDraft("");
+      setNewTaskDate(new Date());
+      toast.success("Task added successfully!");
+    } catch (error) {
+      toast.error("Failed to add task");
+    }
   };
 
   // Toggle task completion
-  const toggleTaskCompletion = (taskId: string) => {
-    setTasks(tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)))
+  const toggleTaskCompletion = async (taskId: string) => {
+    if (!user) return
+    
+    try {
+      const task = tasks.find(t => t.id === taskId)
+      if (task) {
+        await updateTask(taskId, { completed: !task.completed })
+      }
+    } catch (error) {
+      toast.error("Failed to update task");
+    }
   }
 
   // Delete a task
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter((task) => task.id !== taskId))
+  const deleteTaskHandler = async (taskId: string) => {
+    if (!user) return
+    
+    try {
+      await deleteTask(taskId)
+      toast.success("Task deleted successfully!");
+    } catch (error) {
+      toast.error("Failed to delete task");
+    }
   }
 
   // Start voice recording and transcription
@@ -281,15 +323,37 @@ export default function TaskManager() {
     setTheme("light")
   }, [setTheme])
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
+
+  if (!user) {
+    return null
+  }
+
+  // Function to handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Note: The state will be reset by our effect hook when user changes
+      console.log("User logged out successfully");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background">
       {/* Top-left login button */}
       <div className="absolute top-4 left-4 z-10">
-        <Link href="/signin">
-          <Button variant="outline" size="sm" className="px-4 py-1 text-sm font-medium">
-            Log in
-          </Button>
-        </Link>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="px-4 py-1 text-sm font-medium"
+          onClick={handleLogout}
+        >
+          log out
+        </Button>
       </div>
       {/* Main content area with animation */}
       <div className="w-full max-w-md flex flex-col justify-center items-center">
@@ -311,7 +375,7 @@ export default function TaskManager() {
               <PomodoroTimer 
                 tasks={tasks}
                 toggleTaskCompletion={toggleTaskCompletion}
-                deleteTask={deleteTask}
+                deleteTask={deleteTaskHandler}
                 formatTextWithTags={formatTextWithTags}
               />
             </motion.div>
@@ -519,7 +583,7 @@ export default function TaskManager() {
                             variant="ghost"
                             size="icon"
                             className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={() => deleteTask(task.id)}
+                            onClick={() => deleteTaskHandler(task.id)}
                           >
                             <X className="h-4 w-4" />
                             <span className="sr-only">Delete</span>

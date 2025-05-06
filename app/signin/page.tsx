@@ -9,6 +9,8 @@ import Image from "next/image"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 const containerVariants = {
   hidden: {},
@@ -26,20 +28,40 @@ const itemVariants = {
 }
 
 export default function SignInPage() {
+  const { signIn, signInWithGoogle, error } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  // Placeholder submit handler
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    
+    try {
+      await signIn(email, password)
+      toast.success("Logged in successfully!")
       router.push("/")
-    }, 1000)
+    } catch (error: any) {
+      toast.error(error.message || "Failed to log in")
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      toast.success("Signed in with Google successfully!");
+      router.push("/");
+    } catch (error: any) {
+      // Error is already handled in the auth context
+      console.error("Google sign-in error in component:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background px-6">
@@ -67,13 +89,34 @@ export default function SignInPage() {
             </motion.div>
             {/* Form */}
             <motion.form variants={itemVariants} onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {error && (
+                <div className="mb-2 px-4 py-2 rounded bg-red-50 text-red-600 text-sm border border-red-200 text-center" role="alert">
+                  {error}
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <Label htmlFor="email">email</Label>
-                <Input id="email" type="email" autoComplete="email" placeholder="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  autoComplete="email" 
+                  placeholder="email" 
+                  value={email} 
+                  onChange={e => setEmail(e.target.value)} 
+                  required 
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="password">password</Label>
-                <Input id="password" type="password" autoComplete="current-password" placeholder="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  autoComplete="current-password" 
+                  placeholder="password" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  required 
+                />
               </div>
               <Button type="submit" className="mt-2" disabled={loading} variant="outline">
                 {loading ? "logging in..." : "log in"}
@@ -92,7 +135,12 @@ export default function SignInPage() {
             </motion.div>
             {/* Google button (logo inside button, button animates in) */}
             <motion.div variants={itemVariants}>
-              <Button variant="outline" className="w-full flex items-center justify-center gap-2 mt-0 mb-0" type="button">
+              <Button 
+                variant="outline" 
+                className="w-full flex items-center justify-center gap-2 mt-0 mb-0" 
+                type="button"
+                onClick={handleGoogleSignIn}
+              >
                 <span className="flex items-center justify-center mx-auto">
                   <Image src="/google.svg" alt="Google" width={20} height={20} />
                 </span>
