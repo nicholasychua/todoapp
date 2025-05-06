@@ -19,6 +19,8 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useTaskService } from "@/hooks/useTaskService"
 import { toast } from "sonner"
+import { DatePicker } from "@/components/ui/date-picker"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 // Types
 type Task = {
@@ -209,7 +211,8 @@ export default function TaskManager() {
       await createTask({
         text: value,
         completed: false,
-        tags
+        tags,
+        createdAt: newTaskDate || new Date() // Use the selected date or default to current date
       });
       setNewTaskText("");
       setSpeechDraft("");
@@ -323,6 +326,18 @@ export default function TaskManager() {
     setTheme("light")
   }, [setTheme])
 
+  // Update task with new date
+  const updateTaskDate = async (taskId: string, newDate: Date) => {
+    if (!user) return
+    
+    try {
+      await updateTask(taskId, { createdAt: newDate });
+      toast.success("Task date updated!");
+    } catch (error) {
+      toast.error("Failed to update task date");
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
@@ -377,6 +392,7 @@ export default function TaskManager() {
                 toggleTaskCompletion={toggleTaskCompletion}
                 deleteTask={deleteTaskHandler}
                 formatTextWithTags={formatTextWithTags}
+                updateTaskDate={updateTaskDate}
               />
             </motion.div>
           ) : (
@@ -435,7 +451,7 @@ export default function TaskManager() {
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <motion.div
                     animate={{ height: textareaHeight }}
                     transition={{ type: "spring", stiffness: 180, damping: 18, duration: 0.3 }}
@@ -463,7 +479,11 @@ export default function TaskManager() {
                       style={{ height: textareaHeight }}
                     />
                   </motion.div>
-                  <Button onClick={() => addTask()}>
+                  <DatePicker 
+                    date={newTaskDate} 
+                    setDate={setNewTaskDate}
+                  />
+                  <Button onClick={() => addTask()} size="icon" className="h-10 w-10 shrink-0 rounded-md">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -565,9 +585,21 @@ export default function TaskManager() {
                           >
                             <span className="flex-1 min-w-0 text-xs font-normal break-words whitespace-pre-line">{formatTextWithTags(task.text)}</span>
                             <div className="shrink-0 flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                              </span>
+                              <Popover>
+                                <PopoverTrigger>
+                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors">
+                                    {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                  </span>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar
+                                    mode="single"
+                                    selected={task.createdAt}
+                                    onSelect={(date) => date && updateTaskDate(task.id, date)}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
                               {task.tags.length > 0 && (
                                 <div className="flex gap-1 flex-nowrap">
                                   {task.tags.map((tag) => (
@@ -627,16 +659,19 @@ export default function TaskManager() {
     </div>
   )
 }
+
 function PomodoroTimer({ 
   tasks, 
   toggleTaskCompletion, 
   deleteTask, 
-  formatTextWithTags 
+  formatTextWithTags,
+  updateTaskDate
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
   deleteTask: (id: string) => void; 
-  formatTextWithTags: (text: string) => React.ReactNode; 
+  formatTextWithTags: (text: string) => React.ReactNode;
+  updateTaskDate: (id: string, date: Date) => void;
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -731,9 +766,21 @@ function PomodoroTimer({
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap mr-3">
-                    {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
+                  <Popover>
+                    <PopoverTrigger>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap mr-3 cursor-pointer hover:text-foreground transition-colors">
+                        {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={task.createdAt}
+                        onSelect={(date) => date && updateTaskDate(task.id, date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {task.tags.length > 0 && (
                     <Badge variant="secondary" className="text-xs px-2 py-0.5 font-bold bg-gray-100 text-black rounded-xl">
                       {task.tags[0]}

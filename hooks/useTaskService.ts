@@ -10,7 +10,7 @@ import {
 export function useTaskService() {
   const { user } = useAuth();
 
-  async function createTask(task: Omit<Task, 'id' | 'createdAt' | 'userId'>) {
+  async function createTask(task: Omit<Task, 'id' | 'userId'>) {
     if (!user) throw new Error('Not signed in');
     return createTaskFirestore(task, user.uid);
   }
