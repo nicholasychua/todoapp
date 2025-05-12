@@ -38,6 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Skip auth state listener during SSR
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       setUser(user);
       setLoading(false);
@@ -46,7 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // Skip actual authentication in SSR
+  const isBrowser = typeof window !== 'undefined';
+
   const signIn = async (email: string, password: string) => {
+    if (!isBrowser) return;
+    
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setError(null);
@@ -63,10 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
+    if (!isBrowser) return;
     await createUserWithEmailAndPassword(auth, email, password);
   };
 
   const signInWithGoogle = async () => {
+    if (!isBrowser) return;
+    
     try {
       const provider = new GoogleAuthProvider();
       // Try popup first
@@ -95,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    if (!isBrowser) return;
     await signOut(auth);
   };
 
