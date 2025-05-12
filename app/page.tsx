@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
-import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,6 +21,16 @@ import { useTaskService } from "@/hooks/useTaskService"
 import { toast } from "sonner"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { SlidingMenu } from "@/components/ui/sliding-menu"
+import { useTabGroupService } from "@/hooks/useTabGroupService"
+import { TabGroupManager } from "@/components/ui/tab-group-manager"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { TabGroup } from "@/lib/tabgroups"
 
 // Types
 type Task = {
@@ -80,6 +90,7 @@ export default function TaskManager() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
   const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
+  const { subscribeToTabGroups } = useTabGroupService();
   
   // Redirect to signin if not authenticated
   useEffect(() => {
@@ -98,6 +109,7 @@ export default function TaskManager() {
   const [showSearch, setShowSearch] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
   const { theme, setTheme } = useTheme()
+  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
 
   // Reset all state when user changes
   useEffect(() => {
@@ -198,6 +210,26 @@ export default function TaskManager() {
 
     return () => unsubscribe()
   }, [user])
+
+  // Subscribe to tab groups
+  useEffect(() => {
+    if (!user) return
+
+    console.log("Setting up tab groups subscription in main component");
+    try {
+      const unsubscribe = subscribeToTabGroups((newTabGroups) => {
+        console.log("Tab groups updated in main component:", newTabGroups.length);
+        setTabGroups(newTabGroups);
+      });
+
+      return () => {
+        console.log("Cleaning up tab groups subscription in main component");
+        unsubscribe();
+      }
+    } catch (error) {
+      console.error("Error subscribing to tab groups in main component:", error);
+    }
+  }, [user, subscribeToTabGroups]);
 
   // Add a new task
   const addTask = async (text?: string, date?: Date) => {
@@ -370,6 +402,12 @@ export default function TaskManager() {
           log out
         </Button>
       </div>
+
+      {/* Sliding Menu */}
+      <SlidingMenu>
+        <TabGroupManager />
+      </SlidingMenu>
+
       {/* Main content area with animation */}
       <div className="w-full max-w-md flex flex-col justify-center items-center">
         <div className="absolute top-4 right-4 mr-6 md:mr-10">
@@ -393,6 +431,7 @@ export default function TaskManager() {
                 deleteTask={deleteTaskHandler}
                 formatTextWithTags={formatTextWithTags}
                 updateTaskDate={updateTaskDate}
+                tabGroups={tabGroups}
               />
             </motion.div>
           ) : (
@@ -635,23 +674,6 @@ export default function TaskManager() {
                   )}
                 </div>
               </Card>
-
-              {allTags.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-muted-foreground">Tags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {allTags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="outline"
-                        className="cursor-pointer hover:bg-accent transition-colors"
-                      >
-                        #{tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -665,16 +687,19 @@ function PomodoroTimer({
   toggleTaskCompletion, 
   deleteTask, 
   formatTextWithTags,
-  updateTaskDate
+  updateTaskDate,
+  tabGroups
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
   deleteTask: (id: string) => void; 
   formatTextWithTags: (text: string) => React.ReactNode;
   updateTaskDate: (id: string, date: Date) => void;
+  tabGroups: TabGroup[];
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const { launchTabGroup } = useTabGroupService();
 
   useEffect(() => {
     if (!running) {
@@ -727,6 +752,45 @@ function PomodoroTimer({
             >
               Reset
             </Button>
+          </div>
+          
+          {/* Tab Groups Section */}
+          <div className="mt-8 w-full max-w-md">
+            <div className="flex items-center mb-3">
+              <h3 className="text-sm font-medium">Quick Launch</h3>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-1">
+                      <Settings className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs max-w-52">Configure tab groups in the side menu to quickly launch multiple websites at once</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            {tabGroups.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {tabGroups.map((group) => (
+                  <Button
+                    key={group.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => launchTabGroup(group)}
+                    className="text-xs h-8"
+                  >
+                    {group.name} ({group.tabs.length})
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground bg-accent/50 p-3 rounded-md">
+                Create tab groups from the side menu to quickly launch multiple websites together. Perfect for study sessions or projects!
+              </div>
+            )}
           </div>
         </div>
       </div>
