@@ -16,15 +16,15 @@ const containerVariants = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.05,
+      staggerChildren: 0.05,
+      delayChildren: 0.03,
     },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: -18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] } },
+  hidden: { opacity: 0, y: -12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
 }
 
 export default function SignInPage() {
@@ -36,6 +36,20 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Basic validation
+    if (!email || !password) {
+      toast.error("Please fill in all fields")
+      return
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+
     setLoading(true)
     
     try {
@@ -43,25 +57,27 @@ export default function SignInPage() {
       toast.success("Logged in successfully!")
       router.push("/")
     } catch (error: any) {
-      toast.error(error.message || "Failed to log in")
+      const errorMessage = error?.message || "Failed to log in"
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      await signInWithGoogle();
-      toast.success("Signed in with Google successfully!");
-      router.push("/");
+      await signInWithGoogle()
+      toast.success("Signed in with Google successfully!")
+      router.push("/")
     } catch (error: any) {
-      // Error is already handled in the auth context
-      console.error("Google sign-in error in component:", error);
+      const errorMessage = error?.message || "Failed to sign in with Google"
+      toast.error(errorMessage)
+      console.error("Google sign-in error:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background px-6">
@@ -102,8 +118,10 @@ export default function SignInPage() {
                   autoComplete="email" 
                   placeholder="email" 
                   value={email} 
-                  onChange={e => setEmail(e.target.value)} 
+                  onChange={e => setEmail(e.target.value.trim())}
                   required 
+                  disabled={loading}
+                  className="transition-opacity"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -116,10 +134,25 @@ export default function SignInPage() {
                   value={password} 
                   onChange={e => setPassword(e.target.value)} 
                   required 
+                  disabled={loading}
+                  className="transition-opacity"
+                  minLength={6}
                 />
               </div>
-              <Button type="submit" className="mt-2" disabled={loading} variant="outline">
-                {loading ? "logging in..." : "log in"}
+              <Button 
+                type="submit" 
+                className="mt-2 transition-all" 
+                disabled={loading} 
+                variant="outline"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin">⟳</span>
+                    logging in...
+                  </span>
+                ) : (
+                  "log in"
+                )}
               </Button>
             </motion.form>
             {/* Links (fixed height for consistency) */}
@@ -137,12 +170,17 @@ export default function SignInPage() {
             <motion.div variants={itemVariants}>
               <Button 
                 variant="outline" 
-                className="w-full flex items-center justify-center gap-2 mt-0 mb-0" 
+                className="w-full flex items-center justify-center gap-2 mt-0 mb-0 transition-all" 
                 type="button"
                 onClick={handleGoogleSignIn}
+                disabled={loading}
               >
                 <span className="flex items-center justify-center mx-auto">
-                  <Image src="/google.svg" alt="Google" width={20} height={20} />
+                  {loading ? (
+                    <span className="animate-spin">⟳</span>
+                  ) : (
+                    <Image src="/google.svg" alt="Google" width={20} height={20} priority />
+                  )}
                 </span>
               </Button>
             </motion.div>

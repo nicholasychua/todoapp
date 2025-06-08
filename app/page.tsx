@@ -444,7 +444,7 @@ export default function TaskManager() {
               className="w-full space-y-6"
             >
               <div className="flex items-center justify-between">
-                <h1>hi, i'm subspace 👋</h1>
+                <h1>hi, i'm tami 👋</h1>
                 <div className="flex items-center gap-2">
                   {showSearch ? (
                     <div className="relative">
@@ -703,7 +703,7 @@ function PomodoroTimer({
 
   useEffect(() => {
     if (!running) {
-      document.title = "subspace";
+      document.title = "tami";
       return;
     }
     const interval = setInterval(() => {
@@ -711,13 +711,13 @@ function PomodoroTimer({
         const newSeconds = s > 0 ? s - 1 : 0;
         const minutes = Math.floor(newSeconds / 60);
         const secs = newSeconds % 60;
-        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - subspace`;
+        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - tami`;
         return newSeconds;
       });
     }, 1000);
     return () => {
       clearInterval(interval);
-      document.title = "subspace";
+      document.title = "tami";
     };
   }, [running]);
 
