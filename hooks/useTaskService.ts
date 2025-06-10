@@ -7,6 +7,8 @@ import {
   Task
 } from '@/lib/tasks';
 
+export type { Task };  // Re-export the Task type
+
 export function useTaskService() {
   const { user } = useAuth();
 

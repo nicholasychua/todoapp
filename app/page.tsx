@@ -82,10 +82,10 @@ export default function TaskManager() {
   const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
   const { subscribeToTabGroups } = useTabGroupService();
   
-  // Redirect to signin if not authenticated
+  // Redirect to coming soon page if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/signin')
+      router.push('/coming-soon')
     } else if (!loading && user) {
       // If user is authenticated, stay on the main page
       console.log("User authenticated:", user.uid)
@@ -684,7 +684,7 @@ export default function TaskManager() {
                               </Popover>
                               {task.tags.length > 0 && (
                                 <div className="flex gap-1 flex-nowrap">
-                                  {task.tags.map((tag) => (
+                                  {task.tags.map((tag: string) => (
                                     <Badge key={tag} variant="secondary" className="text-[10px] px-1 py-0 whitespace-nowrap">
                                       {tag}
                                     </Badge>
@@ -965,7 +965,7 @@ function PomodoroTimer({
                     </span>
                     {task.tags.length > 0 && (
                       <span className="text-sm text-gray-400 font-normal ml-2">
-                        {task.tags.map((tag, i) => (
+                        {task.tags.map((tag: string, i: number) => (
                           <span key={tag} className="mr-1">#{tag}</span>
                         ))}
                       </span>
