@@ -21,6 +21,7 @@ export interface Task {
   tags: string[];
   createdAt: Date;
   userId: string;
+  group: "master" | "today";
 }
 
 export async function createTaskFirestore(task: Omit<Task, 'id' | 'userId'>, userId: string) {

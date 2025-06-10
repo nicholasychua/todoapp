@@ -17,7 +17,7 @@ import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
-import { useTaskService } from "@/hooks/useTaskService"
+import { useTaskService, Task } from "@/hooks/useTaskService"
 import { toast } from "sonner"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -31,16 +31,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { TabGroup } from "@/lib/tabgroups"
-
-// Types
-type Task = {
-  id: string
-  text: string
-  completed: boolean
-  tags: string[]
-  createdAt: Date
-  userId: string
-}
 
 // Sound wave animation component
 function SoundWave() {
@@ -96,6 +86,9 @@ export default function TaskManager() {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/signin')
+    } else if (!loading && user) {
+      // If user is authenticated, stay on the main page
+      console.log("User authenticated:", user.uid)
     }
   }, [user, loading, router])
 
@@ -105,11 +98,16 @@ export default function TaskManager() {
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(new Date())
   const [searchText, setSearchText] = useState("")
   const [isRecording, setIsRecording] = useState(false)
+  const [isRecordingComplete, setIsRecordingComplete] = useState(false)
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
   const [showSearch, setShowSearch] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
   const { theme, setTheme } = useTheme()
   const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false)
+  const [voiceRaw, setVoiceRaw] = useState("")
+  const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm'>('listening');
+  const [activeGroup, setActiveGroup] = useState("master");
 
   // Reset all state when user changes
   useEffect(() => {
@@ -120,6 +118,7 @@ export default function TaskManager() {
       setNewTaskDate(new Date());
       setSearchText("");
       setIsRecording(false);
+      setIsRecordingComplete(false);
       setFilter("all");
       setShowSearch(false);
       setShowPomodoro(false);
@@ -134,6 +133,7 @@ export default function TaskManager() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [textareaHeight, setTextareaHeight] = useState(40)
   const [speechDraft, setSpeechDraft] = useState("")
+  const finalTranscriptRef = useRef("");
 
   // Focus search input when search is shown
   useEffect(() => {
@@ -244,7 +244,8 @@ export default function TaskManager() {
         text: value,
         completed: false,
         tags,
-        createdAt: newTaskDate || new Date() // Use the selected date or default to current date
+        createdAt: newTaskDate || new Date(),
+        group: "master"
       });
       setNewTaskText("");
       setSpeechDraft("");
@@ -291,7 +292,9 @@ export default function TaskManager() {
       recognitionRef.current = null;
     }
     setIsRecording(true);
+    setIsRecordingComplete(false);
     setSpeechDraft("");
+    finalTranscriptRef.current = "";
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Sorry, your browser does not support Speech Recognition.");
@@ -314,37 +317,39 @@ export default function TaskManager() {
           interimTranscript += transcript;
         }
       }
-      const newText = finalTranscript + (interimTranscript ? " " + interimTranscript : "");
-      setSpeechDraft(newText);
+      const combined = finalTranscript + (interimTranscript ? " " + interimTranscript : "");
+      setSpeechDraft(combined);
+      finalTranscriptRef.current = combined;
     };
     recognition.onerror = (event: any) => {
       setIsRecording(false);
+      setIsRecordingComplete(false);
       recognition.stop();
     };
+    recognition.onend = () => {
+      setIsRecording(false);
+      setIsRecordingComplete(true);
+      setVoiceRaw(finalTranscriptRef.current);
+      setVoiceStep('confirm');
+      setShowVoiceMenu(true);
+    };
     recognition.start();
+    setVoiceStep('listening');
   };
 
   // Stop voice recording
   const stopRecording = () => {
-    setIsRecording(false)
     if (recognitionRef.current) {
-      recognitionRef.current.stop()
+      recognitionRef.current.stop();
     }
   }
 
   // Filter tasks based on filter and search text
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true
-
-    let matchesFilter = true
-    if (filter === "completed") {
-      matchesFilter = task.completed
-    } else if (filter === "active") {
-      matchesFilter = !task.completed
-    }
-
-    return matchesSearch && matchesFilter
-  })
+  const filteredTasks = tasks.filter(task =>
+    (activeGroup === "master" ? true : task.group === "today") &&
+    (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
+    (filter === "completed" ? task.completed : filter === "active" ? !task.completed : true)
+  );
 
   // Get all unique tags
   const allTags = Array.from(new Set(tasks.flatMap((task) => task.tags)))
@@ -444,7 +449,7 @@ export default function TaskManager() {
               className="w-full space-y-6"
             >
               <div className="flex items-center justify-between">
-                <h1>hi, i'm tami 👋</h1>
+                <h1>hi, i'm subspace 👋</h1>
                 <div className="flex items-center gap-2">
                   {showSearch ? (
                     <div className="relative">
@@ -527,47 +532,80 @@ export default function TaskManager() {
                   </Button>
                 </div>
 
-                <div className="flex items-center">
-                  <motion.div
-                    layout
-                    initial={false}
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "transition-all duration-200",
-                        isRecording ? "bg-red-50 px-6" : "px-4"
-                      )}
+                <AnimatePresence mode="wait">
+                  {isRecording && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center"
                     >
-                      <AnimatePresence mode="wait">
-                        {isRecording ? (
-                          <motion.div
-                            key="listening"
-                            initial={{ opacity: 0, width: 0 }}
-                            animate={{ opacity: 1, width: "auto" }}
-                            exit={{ opacity: 0, width: 0 }}
-                            className="flex items-center"
-                          >
-                            <SoundWave />
-                            <span className="ml-2 text-red-500">Listening...</span>
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="hold"
-                            initial={{ opacity: 0, width: 0 }}
-                            animate={{ opacity: 1, width: "auto" }}
-                            exit={{ opacity: 0, width: 0 }}
-                            className="flex items-center"
-                          >
-                            <Mic className="h-4 w-4 mr-1" />
-                            Hold Ctrl
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </Button>
-                  </motion.div>
-                </div>
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        className="absolute inset-0 bg-background/95 backdrop-blur-sm"
+                      />
+                      <motion.div
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 20, opacity: 0 }}
+                        className="relative z-10 w-full max-w-2xl mx-4"
+                      >
+                        <div className="bg-card rounded-3xl shadow-2xl overflow-hidden">
+                          <div className="p-8">
+                            <div className="flex flex-col items-center space-y-8">
+                              <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center">
+                                <div className="scale-150">
+                                  <SoundWave />
+                                </div>
+                              </div>
+                              <div className="text-center space-y-4">
+                                <h3 className="text-2xl font-semibold">Listening...</h3>
+                                <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
+                                  <p className="text-lg text-muted-foreground">
+                                    {speechDraft || "Speak now..."}
+                                  </p>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Release Ctrl to stop recording
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {!isRecording && (
+                  <div className="flex items-center">
+                    <motion.div
+                      layout
+                      initial={false}
+                      transition={{
+                        type: "spring",
+                        stiffness: 200,
+                        damping: 25,
+                        duration: 0.15
+                      }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                    >
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="px-4 transition-colors duration-150"
+                      >
+                        <div className="flex items-center">
+                          <Mic className="h-4 w-4 mr-1" />
+                          Hold Ctrl
+                        </div>
+                      </Button>
+                    </motion.div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between">
@@ -587,6 +625,11 @@ export default function TaskManager() {
                     <DropdownMenuItem>Alphabetical</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <Button variant={activeGroup === "master" ? "default" : "outline"} onClick={() => setActiveGroup("master")}>Master</Button>
+                <Button variant={activeGroup === "today" ? "default" : "outline"} onClick={() => setActiveGroup("today")}>Today</Button>
               </div>
 
               <Card className="overflow-visible">
@@ -659,6 +702,24 @@ export default function TaskManager() {
                             <X className="h-4 w-4" />
                             <span className="sr-only">Delete</span>
                           </Button>
+                          {activeGroup === "master" && task.group !== "today" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => updateTask(task.id, { group: "today" })}
+                            >
+                              Move to Today
+                            </Button>
+                          )}
+                          {activeGroup === "today" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => updateTask(task.id, { group: "master" })}
+                            >
+                              Move to Master
+                            </Button>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -678,6 +739,86 @@ export default function TaskManager() {
           )}
         </AnimatePresence>
       </div>
+      {showVoiceMenu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <motion.div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 p-8 flex flex-col gap-6"
+            layoutId="voice-modal"
+            transition={{ type: "spring", duration: 0.4 }}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              {voiceStep === 'listening' ? (
+                <motion.div
+                  key="listening"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <h2 className="text-2xl font-semibold mb-2">Listening...</h2>
+                  <div className="flex flex-col items-center space-y-8 mt-6 mb-2">
+                    <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center">
+                      <div className="scale-150">
+                        <SoundWave />
+                      </div>
+                    </div>
+                    <div className="text-center space-y-4">
+                      <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
+                        <p className="text-lg text-muted-foreground">
+                          {speechDraft || "Speak now..."}
+                        </p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Release Ctrl to stop recording
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <h2 className="text-2xl font-semibold mb-2">Voice Input</h2>
+                  <div>
+                    <div className="text-sm font-medium mb-1">Raw Transcription</div>
+                    <textarea
+                      className="w-full border rounded-md p-2 text-base bg-gray-50"
+                      rows={2}
+                      value={voiceRaw}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium mb-1">Parsed Task Preview</div>
+                    <div className="flex items-center gap-2 border rounded-md p-3 bg-gray-50">
+                      <input type="checkbox" className="mr-2" />
+                      <span className="flex-1 text-base">Buy milk and eggs at for the grocery store <span className="text-blue-600 font-medium">#shopping</span></span>
+                      <span className="text-xs text-gray-500">Jun 11</span>
+                      <span className="text-xs text-gray-500">3pm</span>
+                      <span className="text-xs text-gray-400">no category</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
+                    <Button
+                      onClick={() => {
+                        addTask("Buy milk and eggs at for the grocery store #shopping");
+                        setShowVoiceMenu(false);
+                      }}
+                    >
+                      Add Task
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
@@ -703,7 +844,7 @@ function PomodoroTimer({
 
   useEffect(() => {
     if (!running) {
-      document.title = "tami";
+      document.title = "subspace";
       return;
     }
     const interval = setInterval(() => {
@@ -711,13 +852,13 @@ function PomodoroTimer({
         const newSeconds = s > 0 ? s - 1 : 0;
         const minutes = Math.floor(newSeconds / 60);
         const secs = newSeconds % 60;
-        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - tami`;
+        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - subspace`;
         return newSeconds;
       });
     }, 1000);
     return () => {
       clearInterval(interval);
-      document.title = "tami";
+      document.title = "subspace";
     };
   }, [running]);
 
