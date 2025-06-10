@@ -555,13 +555,21 @@ export default function TaskManager() {
                         <div className="bg-card rounded-3xl shadow-2xl overflow-hidden">
                           <div className="p-8">
                             <div className="flex flex-col items-center space-y-8">
-                              <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center">
+                              <motion.div 
+                                className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center"
+                              >
                                 <div className="scale-150">
                                   <SoundWave />
                                 </div>
-                              </div>
-                              <div className="text-center space-y-4">
-                                <h3 className="text-2xl font-semibold">Listening...</h3>
+                              </motion.div>
+                              <motion.div 
+                                className="text-center space-y-4"
+                              >
+                                <motion.h3 
+                                  className="text-2xl font-semibold"
+                                >
+                                  Listening...
+                                </motion.h3>
                                 <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
                                   <p className="text-lg text-muted-foreground">
                                     {speechDraft || "Speak now..."}
@@ -570,7 +578,7 @@ export default function TaskManager() {
                                 <p className="text-sm text-muted-foreground">
                                   Release Ctrl to stop recording
                                 </p>
-                              </div>
+                              </motion.div>
                             </div>
                           </div>
                         </div>
@@ -742,33 +750,34 @@ export default function TaskManager() {
       {showVoiceMenu && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <motion.div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 p-8 flex flex-col gap-6"
-            layoutId="voice-modal"
-            transition={{ type: "spring", duration: 0.4 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 p-8"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
           >
             <AnimatePresence mode="wait" initial={false}>
               {voiceStep === 'listening' ? (
                 <motion.div
                   key="listening"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col"
                 >
-                  <h2 className="text-2xl font-semibold mb-2">Listening...</h2>
-                  <div className="flex flex-col items-center space-y-8 mt-6 mb-2">
-                    <div className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center">
-                      <div className="scale-150">
-                        <SoundWave />
-                      </div>
+                  <h2 className="text-2xl font-semibold mb-6">Listening...</h2>
+                  <div className="flex flex-col items-center space-y-6">
+                    <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center">
+                      <SoundWave />
                     </div>
-                    <div className="text-center space-y-4">
-                      <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
-                        <p className="text-lg text-muted-foreground">
+                    <div className="text-center space-y-3">
+                      <div className="min-h-[60px] px-4 py-3 bg-gray-50 rounded-xl max-w-sm">
+                        <p className="text-base text-gray-600">
                           {speechDraft || "Speak now..."}
                         </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-gray-500">
                         Release Ctrl to stop recording
                       </p>
                     </div>
@@ -777,32 +786,40 @@ export default function TaskManager() {
               ) : (
                 <motion.div
                   key="confirm"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col space-y-6"
                 >
-                  <h2 className="text-2xl font-semibold mb-2">Voice Input</h2>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Raw Transcription</div>
-                    <textarea
-                      className="w-full border rounded-md p-2 text-base bg-gray-50"
-                      rows={2}
-                      value={voiceRaw}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Parsed Task Preview</div>
-                    <div className="flex items-center gap-2 border rounded-md p-3 bg-gray-50">
-                      <input type="checkbox" className="mr-2" />
-                      <span className="flex-1 text-base">Buy milk and eggs at for the grocery store <span className="text-blue-600 font-medium">#shopping</span></span>
-                      <span className="text-xs text-gray-500">Jun 11</span>
-                      <span className="text-xs text-gray-500">3pm</span>
-                      <span className="text-xs text-gray-400">no category</span>
+                  <h2 className="text-2xl font-semibold">Voice Input</h2>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm font-medium mb-2">Raw Transcription</div>
+                      <div className="w-full border rounded-lg p-3 bg-gray-50">
+                        <textarea
+                          className="w-full bg-transparent outline-none resize-none text-sm"
+                          rows={2}
+                          value={voiceRaw}
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="text-sm font-medium mb-2">Parsed Task Preview</div>
+                      <div className="flex items-center gap-2 border rounded-lg p-3 bg-gray-50">
+                        <input type="checkbox" className="mr-2" />
+                        <span className="flex-1 text-sm">Buy milk and eggs at for the grocery store <span className="text-blue-600 font-medium">#shopping</span></span>
+                        <span className="text-xs text-gray-500">Jun 11</span>
+                        <span className="text-xs text-gray-500">3pm</span>
+                        <span className="text-xs text-gray-400">no category</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-6">
+                  
+                  <div className="flex justify-end gap-3">
                     <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
                     <Button
                       onClick={() => {
