@@ -31,6 +31,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { TabGroup } from "@/lib/tabgroups"
+import {
+  Category,
+  subscribeToCategories,
+  addCategory,
+  deleteCategory,
+} from "@/lib/categories"
 
 // Sound wave animation component
 function SoundWave() {
@@ -108,6 +114,12 @@ export default function TaskManager() {
   const [voiceRaw, setVoiceRaw] = useState("")
   const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm'>('listening');
   const [activeGroup, setActiveGroup] = useState("master");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editCategoriesMode, setEditCategoriesMode] = useState(false);
+  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
+  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
 
   // Reset all state when user changes
   useEffect(() => {
@@ -123,6 +135,7 @@ export default function TaskManager() {
       setShowSearch(false);
       setShowPomodoro(false);
       setTheme("light");
+      setSelectedTags([]);
       console.log("Reset all state for user:", user?.uid);
     }
   }, [user?.uid, loading]);
@@ -230,6 +243,13 @@ export default function TaskManager() {
       console.error("Error subscribing to tab groups in main component:", error);
     }
   }, [user, subscribeToTabGroups]);
+
+  // Subscribe to categories
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToCategories(user.uid, (cats) => setCategories(cats));
+    return () => unsubscribe();
+  }, [user]);
 
   // Add a new task
   const addTask = async (text?: string, date?: Date) => {
@@ -344,15 +364,29 @@ export default function TaskManager() {
     }
   }
 
-  // Filter tasks based on filter and search text
+  // Filter tasks based on filter, search text, and selected tags
   const filteredTasks = tasks.filter(task =>
     (activeGroup === "master" ? true : task.group === "today") &&
     (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-    (filter === "completed" ? task.completed : filter === "active" ? !task.completed : true)
+    (filter === "completed" ? task.completed : filter === "active" ? !task.completed : true) &&
+    (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true)
   );
 
-  // Get all unique tags
-  const allTags = Array.from(new Set(tasks.flatMap((task) => task.tags)))
+  // Get all unique tags with their counts
+  const tagCounts = tasks.reduce((acc, task) => {
+    task.tags.forEach(tag => {
+      acc[tag] = (acc[tag] || 0) + 1;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Merge tags from tasks and categories
+  const allTags = Array.from(new Set([
+    ...Object.keys(tagCounts),
+    ...categories.map((cat) => cat.name),
+  ]))
+    .filter(tag => tag !== 'tag' && tag !== 'shopping')
+    .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
 
   const handleLightSwitch = () => {
     setShowPomodoro((prev) => !prev);
@@ -373,6 +407,16 @@ export default function TaskManager() {
     } catch (error) {
       toast.error("Failed to update task date");
     }
+  };
+
+  // Helper to reorder categories
+  const moveCategory = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
+    const updated = [...categories];
+    const [removed] = updated.splice(from, 1);
+    updated.splice(to, 0, removed);
+    setCategories(updated);
+    // TODO: Optionally update backend order here
   };
 
   if (loading) {
@@ -414,7 +458,7 @@ export default function TaskManager() {
       </SlidingMenu>
 
       {/* Main content area with animation */}
-      <div className="w-full max-w-md flex flex-col justify-center items-center">
+      <div className="w-full max-w-md flex flex-col justify-center items-center pt-32 pb-32">
         <div className="absolute top-4 right-4 mr-6 md:mr-10">
           <LightPullThemeSwitcher 
             onSwitch={handleLightSwitch}
@@ -638,6 +682,137 @@ export default function TaskManager() {
               <div className="flex gap-2 mb-4">
                 <Button variant={activeGroup === "master" ? "default" : "outline"} onClick={() => setActiveGroup("master")}>Master</Button>
                 <Button variant={activeGroup === "today" ? "default" : "outline"} onClick={() => setActiveGroup("today")}>Today</Button>
+              </div>
+
+              {/* Tag Management Section */}
+              <div className="mb-8 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-muted-foreground">Browse by Category</h3>
+                  <div className="ml-4">
+                    <AnimatePresence initial={false} mode="wait">
+                      {!editCategoriesMode ? (
+                        <motion.div
+                          key="edit-btn"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Button
+                            variant="outline"
+                            className="rounded-full px-4 py-2 text-xs font-medium min-h-7"
+                            onClick={() => setEditCategoriesMode(true)}
+                          >
+                            Edit Categories
+                          </Button>
+                        </motion.div>
+                      ) : (
+                        <motion.form
+                          key="input"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="relative flex items-center"
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
+                              await addCategory(newTaskText.trim(), user.uid);
+                              setNewTaskText("");
+                            }
+                          }}
+                        >
+                          <Input
+                            autoFocus
+                            placeholder="New category..."
+                            className="h-7 text-xs rounded-full pr-8 min-w-[120px]"
+                            value={newTaskText}
+                            onChange={e => setNewTaskText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Escape') {
+                                setEditCategoriesMode(false);
+                                setNewTaskText('');
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                            type="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setEditCategoriesMode(false);
+                              setNewTaskText('');
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </motion.form>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-3 items-center px-1">
+                  {allTags.map((tag, idx) => {
+                    const catObj = categories.find((c) => c.name === tag);
+                    const catIdx = categories.findIndex((c) => c.name === tag);
+                    return (
+                      <div
+                        key={tag}
+                        className="relative flex items-center"
+                        draggable={editCategoriesMode && catObj ? true : false}
+                        onDragStart={editCategoriesMode && catObj ? () => setDraggedCatIdx(catIdx) : undefined}
+                        onDragOver={editCategoriesMode && catObj ? (e) => { e.preventDefault(); setDragOverCatIdx(catIdx); } : undefined}
+                        onDrop={editCategoriesMode && catObj ? (e) => {
+                          e.preventDefault();
+                          if (draggedCatIdx !== null && dragOverCatIdx !== null && draggedCatIdx !== dragOverCatIdx) {
+                            moveCategory(draggedCatIdx, dragOverCatIdx);
+                          }
+                          setDraggedCatIdx(null);
+                          setDragOverCatIdx(null);
+                        } : undefined}
+                        onDragEnd={editCategoriesMode && catObj ? () => { setDraggedCatIdx(null); setDragOverCatIdx(null); } : undefined}
+                      >
+                        <Button
+                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          className={cn(
+                            "flex items-center justify-center rounded-full text-[10px] font-medium shadow-none transition-all duration-200",
+                            editCategoriesMode ? "pl-4 pr-2 min-w-[90px] cursor-move" : "px-4",
+                            "py-[2px]"
+                          )}
+                          onClick={() => {
+                            if (!editCategoriesMode) {
+                              setSelectedTags((prev) =>
+                                prev.includes(tag)
+                                  ? prev.filter((t) => t !== tag)
+                                  : [...prev, tag]
+                              );
+                            }
+                          }}
+                          disabled={editCategoriesMode}
+                          type="button"
+                        >
+                          <span className="truncate">{tag}</span>
+                          {editCategoriesMode && catObj && (
+                            <span
+                              className="ml-2 flex items-center cursor-pointer text-destructive hover:text-destructive/80 focus:outline-none"
+                              tabIndex={0}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await deleteCategory(catObj.id);
+                              }}
+                              role="button"
+                              aria-label={`Delete ${tag}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </span>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <Card className="overflow-visible">
