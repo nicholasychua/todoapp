@@ -33,4 +33,6 @@ export function useTaskService() {
   }
 
   return { createTask, updateTask, deleteTask, subscribeToTasks };
-} 
+}
+
+export {} 

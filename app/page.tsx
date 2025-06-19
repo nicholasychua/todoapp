@@ -17,7 +17,8 @@ import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
-import { useTaskService, Task } from "@/hooks/useTaskService"
+import { useTaskService } from "@/hooks/useTaskService"
+import type { Task } from "@/lib/tasks"
 import { toast } from "sonner"
 import { DatePicker } from "@/components/ui/date-picker"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -37,6 +38,7 @@ import {
   addCategory,
   deleteCategory,
 } from "@/lib/categories"
+import { processVoiceInput, type ProcessedTask } from "@/lib/ai-service"
 
 // Sound wave animation component
 function SoundWave() {
@@ -120,6 +122,7 @@ export default function TaskManager() {
   const [editCategoriesMode, setEditCategoriesMode] = useState(false);
   const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
+  const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(null);
 
   // Reset all state when user changes
   useEffect(() => {
@@ -217,7 +220,7 @@ export default function TaskManager() {
   useEffect(() => {
     if (!user) return
 
-    const unsubscribe = subscribeToTasks((newTasks) => {
+    const unsubscribe = subscribeToTasks((newTasks: Task[]) => {
       setTasks(newTasks)
     })
 
@@ -358,9 +361,12 @@ export default function TaskManager() {
   };
 
   // Stop voice recording
-  const stopRecording = () => {
+  const stopRecording = async () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
+      // Process the voice input with AI
+      const result = await processVoiceInput(finalTranscriptRef.current);
+      setProcessedTask(result);
     }
   }
 
@@ -374,7 +380,7 @@ export default function TaskManager() {
 
   // Get all unique tags with their counts
   const tagCounts = tasks.reduce((acc, task) => {
-    task.tags.forEach(tag => {
+    task.tags.forEach((tag: string) => {
       acc[tag] = (acc[tag] || 0) + 1;
     });
     return acc;
@@ -781,17 +787,18 @@ export default function TaskManager() {
                             editCategoriesMode ? "pl-4 pr-2 min-w-[90px] cursor-move" : "px-4",
                             "py-[2px]"
                           )}
-                          onClick={() => {
-                            if (!editCategoriesMode) {
-                              setSelectedTags((prev) =>
-                                prev.includes(tag)
-                                  ? prev.filter((t) => t !== tag)
-                                  : [...prev, tag]
-                              );
-                            }
-                          }}
-                          disabled={editCategoriesMode}
+                          onClick={editCategoriesMode
+                            ? (e) => e.preventDefault()
+                            : () => {
+                                setSelectedTags((prev) =>
+                                  prev.includes(tag)
+                                    ? prev.filter((t) => t !== tag)
+                                    : [...prev, tag]
+                                );
+                              }
+                          }
                           type="button"
+                          tabIndex={0}
                         >
                           <span className="truncate">{tag}</span>
                           {editCategoriesMode && catObj && (
@@ -880,7 +887,10 @@ export default function TaskManager() {
                             variant="ghost"
                             size="icon"
                             className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={() => deleteTaskHandler(task.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTaskHandler(task.id);
+                            }}
                           >
                             <X className="h-4 w-4" />
                             <span className="sr-only">Delete</span>
@@ -982,23 +992,44 @@ export default function TaskManager() {
                       </div>
                     </div>
                     
-                    <div>
-                      <div className="text-sm font-medium mb-2">Parsed Task Preview</div>
-                      <div className="flex items-center gap-2 border rounded-lg p-3 bg-gray-50">
-                        <input type="checkbox" className="mr-2" />
-                        <span className="flex-1 text-sm">Buy milk and eggs at for the grocery store <span className="text-blue-600 font-medium">#shopping</span></span>
-                        <span className="text-xs text-gray-500">Jun 11</span>
-                        <span className="text-xs text-gray-500">3pm</span>
-                        <span className="text-xs text-gray-400">no category</span>
+                    {processedTask && (
+                      <div>
+                        <div className="text-sm font-medium mb-2">Processed Task</div>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 border rounded-lg p-3 bg-gray-50">
+                            <input type="checkbox" className="mr-2" />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">{processedTask.taskName}</div>
+                              <div className="text-xs text-gray-500 mt-1">{processedTask.description}</div>
+                            </div>
+                            {processedTask.date && (
+                              <span className="text-xs text-gray-500 whitespace-nowrap">
+                                {new Date(processedTask.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                              </span>
+                            )}
+                            {processedTask.tags.length > 0 && (
+                              <div className="flex gap-1">
+                                {processedTask.tags.map((tag) => (
+                                  <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-end gap-3">
                     <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
                     <Button
                       onClick={() => {
-                        addTask("Buy milk and eggs at for the grocery store #shopping");
+                        if (processedTask) {
+                          const taskText = `${processedTask.taskName} ${processedTask.tags.map(tag => `#${tag}`).join(' ')}`;
+                          addTask(taskText, processedTask.date ? new Date(processedTask.date) : undefined);
+                        }
                         setShowVoiceMenu(false);
                       }}
                     >
