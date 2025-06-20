@@ -114,7 +114,7 @@ export default function TaskManager() {
   const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
   const [showVoiceMenu, setShowVoiceMenu] = useState(false)
   const [voiceRaw, setVoiceRaw] = useState("")
-  const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm'>('listening');
+  const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm' | 'manual'>('listening');
   const [activeGroup, setActiveGroup] = useState("master");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -123,6 +123,7 @@ export default function TaskManager() {
   const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
   const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(null);
+  const [manualTaskText, setManualTaskText] = useState("");
 
   // Reset all state when user changes
   useEffect(() => {
@@ -267,7 +268,7 @@ export default function TaskManager() {
         text: value,
         completed: false,
         tags,
-        createdAt: newTaskDate || new Date(),
+        createdAt: date ?? (newTaskDate || new Date()),
         group: "master"
       });
       setNewTaskText("");
@@ -349,12 +350,27 @@ export default function TaskManager() {
       setIsRecordingComplete(false);
       recognition.stop();
     };
-    recognition.onend = () => {
+    recognition.onend = async () => {
       setIsRecording(false);
       setIsRecordingComplete(true);
       setVoiceRaw(finalTranscriptRef.current);
-      setVoiceStep('confirm');
       setShowVoiceMenu(true);
+
+      if (!finalTranscriptRef.current.trim()) {
+        setVoiceStep('manual');
+        setManualTaskText('');
+        return;
+      }
+
+      try {
+        const result = await processVoiceInput(finalTranscriptRef.current);
+        setProcessedTask(result);
+        setVoiceStep('confirm');
+      } catch (error) {
+        console.error("Failed to process voice input, switching to manual mode.", error);
+        setManualTaskText(finalTranscriptRef.current);
+        setVoiceStep('manual');
+      }
     };
     recognition.start();
     setVoiceStep('listening');
@@ -364,11 +380,22 @@ export default function TaskManager() {
   const stopRecording = async () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
-      // Process the voice input with AI
-      const result = await processVoiceInput(finalTranscriptRef.current);
-      setProcessedTask(result);
     }
   }
+
+  const handleManualGenerate = async () => {
+    if (!manualTaskText.trim()) return;
+
+    try {
+      const result = await processVoiceInput(manualTaskText);
+      setProcessedTask(result);
+      setVoiceRaw(manualTaskText);
+      setVoiceStep('confirm');
+    } catch (error) {
+      console.error("Failed to process manual input:", error);
+      toast.error("Failed to generate task. Please try again.");
+    }
+  };
 
   // Filter tasks based on filter, search text, and selected tags
   const filteredTasks = tasks.filter(task =>
@@ -857,21 +884,26 @@ export default function TaskManager() {
                           >
                             <span className="flex-1 min-w-0 text-xs font-normal break-words whitespace-pre-line">{formatTextWithTags(task.text)}</span>
                             <div className="shrink-0 flex items-center gap-2">
-                              <Popover>
-                                <PopoverTrigger>
-                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors">
-                                    {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                                  </span>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="end">
-                                  <Calendar
-                                    mode="single"
-                                    selected={task.createdAt}
-                                    onSelect={(date) => date && updateTaskDate(task.id, date)}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
+                              <div className="flex flex-col items-end">
+                                <Popover>
+                                  <PopoverTrigger>
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors">
+                                      {task.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}
+                                    </span>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                      mode="single"
+                                      selected={task.createdAt}
+                                      onSelect={(date) => date && updateTaskDate(task.id, date)}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                <span className="text-[10px] font-semibold text-gray-800 whitespace-nowrap">
+                                  {task.createdAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true, timeZone: 'America/Los_Angeles' })}
+                                </span>
+                              </div>
                               {task.tags.length > 0 && (
                                 <div className="flex gap-1 flex-nowrap">
                                   {task.tags.map((tag: string) => (
@@ -968,7 +1000,7 @@ export default function TaskManager() {
                     </div>
                   </div>
                 </motion.div>
-              ) : (
+              ) : voiceStep === 'confirm' ? (
                 <motion.div
                   key="confirm"
                   initial={{ opacity: 0, y: 10 }}
@@ -996,17 +1028,35 @@ export default function TaskManager() {
                       <div>
                         <div className="text-sm font-medium mb-2">Processed Task</div>
                         <div className="space-y-3">
-                          <div className="flex items-center gap-2 border rounded-lg p-3 bg-gray-50">
-                            <input type="checkbox" className="mr-2" />
+                          <div className="flex items-start gap-2 border rounded-lg p-3 bg-gray-50">
+                            <input type="checkbox" className="mr-2 mt-1" />
                             <div className="flex-1">
                               <div className="text-sm font-medium">{processedTask.taskName}</div>
                               <div className="text-xs text-gray-500 mt-1">{processedTask.description}</div>
                             </div>
-                            {processedTask.date && (
-                              <span className="text-xs text-gray-500 whitespace-nowrap">
-                                {new Date(processedTask.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                              </span>
-                            )}
+                            <div className="flex-shrink-0 text-right">
+                              {processedTask.date && (
+                                <div className="text-xs text-gray-500 whitespace-nowrap">
+                                  {new Date(processedTask.date + 'T00:00:00').toLocaleDateString('en-US', { month: "short", day: "numeric", timeZone: 'America/Los_Angeles' })}
+                                </div>
+                              )}
+                              {processedTask.time && (
+                                <div className="text-xs font-semibold text-gray-800 whitespace-nowrap">
+                                  {(() => {
+                                    const [hours, minutes] = processedTask.time.split(':');
+                                    const d = new Date(0);
+                                    d.setHours(parseInt(hours, 10));
+                                    d.setMinutes(parseInt(minutes, 10));
+                                    return d.toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: 'numeric',
+                                      hour12: true,
+                                      timeZone: 'America/Los_Angeles'
+                                    });
+                                  })()}
+                                </div>
+                              )}
+                            </div>
                             {processedTask.tags.length > 0 && (
                               <div className="flex gap-1">
                                 {processedTask.tags.map((tag) => (
@@ -1028,12 +1078,53 @@ export default function TaskManager() {
                       onClick={() => {
                         if (processedTask) {
                           const taskText = `${processedTask.taskName} ${processedTask.tags.map(tag => `#${tag}`).join(' ')}`;
-                          addTask(taskText, processedTask.date ? new Date(processedTask.date) : undefined);
+                          
+                          let taskDate: Date | undefined = undefined;
+                          if (processedTask.date) {
+                            const timeString = processedTask.time || '00:00';
+                            taskDate = new Date(`${processedTask.date}T${timeString}`);
+                          }
+                          
+                          addTask(taskText, taskDate);
                         }
                         setShowVoiceMenu(false);
                       }}
                     >
                       Add Task
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="manual"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col space-y-6"
+                >
+                  <h2 className="text-2xl font-semibold">Manual Input</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm font-medium mb-2">What's on your mind?</div>
+                      <textarea
+                        className="w-full border rounded-lg p-3 bg-gray-50 outline-none resize-none text-sm min-h-[80px]"
+                        value={manualTaskText}
+                        onChange={(e) => setManualTaskText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleManualGenerate();
+                          }
+                        }}
+                        placeholder="Describe your task here..."
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
+                    <Button onClick={handleManualGenerate}>
+                      Generate Task
                     </Button>
                   </div>
                 </motion.div>
@@ -1197,7 +1288,7 @@ function PomodoroTimer({
                   <Popover>
                     <PopoverTrigger>
                       <span className="text-xs text-muted-foreground whitespace-nowrap mr-3 cursor-pointer hover:text-foreground transition-colors">
-                        {task.createdAt.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        {task.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}
                       </span>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="center">
