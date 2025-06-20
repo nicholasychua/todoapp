@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
-import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings, Calendar as CalendarIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
-import { LightPullThemeSwitcher } from "@/components/ui/LightPullThemeSwitcher"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
@@ -89,6 +88,13 @@ export default function TaskManager() {
   const router = useRouter()
   const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
   const { subscribeToTabGroups } = useTabGroupService();
+  
+  // Helper function to check if two dates are the same day
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
   
   // Redirect to coming soon page if not authenticated
   useEffect(() => {
@@ -181,15 +187,6 @@ export default function TaskManager() {
       window.removeEventListener('keyup', handleKeyUp)
     }
   }, [isRecording])
-
-  useLayoutEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const newHeight = textareaRef.current.scrollHeight;
-      setTextareaHeight(newHeight);
-      textareaRef.current.style.height = `${newHeight}px`;
-    }
-  }, [newTaskText])
 
   // Parse tags from text (words starting with #)
   const parseTagsFromText = (text: string): string[] => {
@@ -473,16 +470,30 @@ export default function TaskManager() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background">
-      {/* Top-left login button */}
-      <div className="absolute top-4 left-4 z-10">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="px-4 py-1 text-sm font-medium"
-          onClick={handleLogout}
-        >
-          log out
-        </Button>
+      {/* Custom Sidebar - ONLY Focus Session and Log out */}
+      <div className="absolute left-0 top-0 h-full w-48 bg-gray-50 p-4 flex flex-col">
+        {/* Logo and Title */}
+        <div className="flex items-center gap-2 mb-12 px-4 pt-6">
+          <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
+            <div className="w-3 h-3 bg-white rounded-sm"></div>
+          </div>
+          <span className="text-lg font-semibold text-gray-900">subspace</span>
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <button 
+            className="text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            onClick={handleLightSwitch}
+          >
+            Focus Session
+          </button>
+          <button 
+            className="text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            onClick={handleLogout}
+          >
+            Log out
+          </button>
+        </div>
       </div>
 
       {/* Sliding Menu */}
@@ -491,13 +502,7 @@ export default function TaskManager() {
       </SlidingMenu>
 
       {/* Main content area with animation */}
-      <div className="w-full max-w-md flex flex-col justify-center items-center pt-32 pb-32">
-        <div className="absolute top-4 right-4 mr-6 md:mr-10">
-          <LightPullThemeSwitcher 
-            onSwitch={handleLightSwitch}
-            data-pomodoro={showPomodoro}
-          />
-        </div>
+      <div className="w-full max-w-2xl flex flex-col justify-center items-center pt-32 pb-32">
         <AnimatePresence mode="wait">
           {showPomodoro ? (
             <motion.div
@@ -525,59 +530,41 @@ export default function TaskManager() {
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
               className="w-full space-y-6"
             >
-              <div className="flex items-center justify-between">
-                <h1>hi, i'm subspace 👋</h1>
-                <div className="flex items-center gap-2">
-                  {showSearch ? (
-                    <div className="relative">
-                      <Input
-                        ref={searchInputRef}
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        placeholder="Search tasks..."
-                        className="w-48"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full"
-                        onClick={() => {
-                          setSearchText("")
-                          setShowSearch(false)
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)}>
-                      <Search className="h-5 w-5" />
-                      <span className="sr-only">Search</span>
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-5 w-5" />
-                        <span className="sr-only">More options</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setFilter("all")}>View all tasks</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFilter("active")}>View active tasks</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFilter("completed")}>View completed tasks</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+              {/* Date Header */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold">
+                  {(() => {
+                    const date = new Date();
+                    const weekday = date.toLocaleDateString('en-US', { 
+                      weekday: 'long',
+                      timeZone: 'America/Los_Angeles'
+                    });
+                    const dateString = date.toLocaleDateString('en-US', { 
+                      day: 'numeric',
+                      month: 'long',
+                      timeZone: 'America/Los_Angeles'
+                    }).replace(/(\d+)/, (match) => {
+                      const num = parseInt(match);
+                      const suffix = num % 10 === 1 && num !== 11 ? 'st' : 
+                                     num % 10 === 2 && num !== 12 ? 'nd' : 
+                                     num % 10 === 3 && num !== 13 ? 'rd' : 'th';
+                      return `${num}${suffix}`;
+                    });
+                    
+                    return (
+                      <>
+                        <span className="text-gray-900">{weekday}, </span>
+                        <span className="text-gray-400">{dateString}</span>
+                      </>
+                    );
+                  })()}
+                </h1>
               </div>
 
+              {/* Add Task Input */}
               <div className="space-y-4">
-                <div className="flex items-center gap-1">
-                  <motion.div
-                    animate={{ height: textareaHeight }}
-                    transition={{ type: "spring", stiffness: 180, damping: 18, duration: 0.3 }}
-                    className="flex-1 min-h-[40px]"
-                  >
+                <div className="relative">
+                  <div className="relative">
                     <textarea
                       ref={textareaRef}
                       value={isRecording ? speechDraft : newTaskText}
@@ -594,19 +581,45 @@ export default function TaskManager() {
                           addTask();
                         }
                       }}
-                      placeholder="Add a new task... Use #tags"
+                      placeholder="Add new task"
                       rows={1}
-                      className="w-full resize-none bg-transparent outline-none border border-input rounded-md px-3 py-2 text-sm transition-colors placeholder:text-muted-foreground focus:border-primary"
-                      style={{ height: textareaHeight }}
+                      className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                     />
-                  </motion.div>
-                  <DatePicker 
-                    date={newTaskDate} 
-                    setDate={setNewTaskDate}
-                  />
-                  <Button onClick={() => addTask()} size="icon" className="h-10 w-10 shrink-0 rounded-md">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" className={cn(
+                            "h-8 text-gray-500 hover:text-gray-700 flex items-center justify-center",
+                            newTaskDate && !isSameDay(newTaskDate, new Date()) ? "px-2" : "w-8 px-0"
+                          )}>
+                            {newTaskDate && !isSameDay(newTaskDate, new Date()) ? (
+                              <span className="text-xs font-medium whitespace-nowrap">
+                                {newTaskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}
+                              </span>
+                            ) : (
+                              <CalendarIcon className="h-4 w-4" />
+                            )}
+                            <span className="sr-only">Select date for this task</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={newTaskDate}
+                            onSelect={(date) => setNewTaskDate(date || new Date())}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Button 
+                        onClick={() => addTask()} 
+                        size="icon" 
+                        className="h-8 w-8 shrink-0 rounded-lg bg-gray-900 hover:bg-gray-800 flex items-center justify-center"
+                      >
+                        <Plus className="h-4 w-4 text-white" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -666,55 +679,18 @@ export default function TaskManager() {
 
                 {!isRecording && (
                   <div className="flex items-center">
-                    <motion.div
-                      layout
-                      initial={false}
-                      transition={{
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 25,
-                        duration: 0.15
-                      }}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="px-4 transition-all duration-150 hover:scale-105 active:scale-95"
                     >
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="px-4 transition-colors duration-150"
-                      >
-                        <div className="flex items-center">
-                          <Mic className="h-4 w-4 mr-1" />
-                          Hold Ctrl
-                        </div>
-                      </Button>
-                    </motion.div>
+                      <div className="flex items-center">
+                        <Mic className="h-4 w-4 mr-1" />
+                        Hold Ctrl
+                      </div>
+                    </Button>
                   </div>
                 )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-medium text-muted-foreground">
-                  {filter === "all" ? "All Tasks" : filter === "active" ? "Active Tasks" : "Completed Tasks"}
-                </h2>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 -mr-2">
-                      Sort
-                      <ChevronDown className="ml-1 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>Newest first</DropdownMenuItem>
-                    <DropdownMenuItem>Oldest first</DropdownMenuItem>
-                    <DropdownMenuItem>Alphabetical</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <Button variant={activeGroup === "master" ? "default" : "outline"} onClick={() => setActiveGroup("master")}>Master</Button>
-                <Button variant={activeGroup === "today" ? "default" : "outline"} onClick={() => setActiveGroup("today")}>Today</Button>
               </div>
 
               {/* Tag Management Section */}
