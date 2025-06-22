@@ -59,10 +59,11 @@ export async function POST(request: Request) {
     console.log("Current date in PST:", today);
     console.log(
       "Using model:",
-      process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4.1"
+      process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4"
     );
 
     const response = await openai.chat.completions.create({
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
       messages: [
         {
           role: "system",
