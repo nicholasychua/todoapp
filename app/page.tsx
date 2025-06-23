@@ -39,6 +39,20 @@ import {
 } from "@/lib/categories"
 import { processVoiceInput, type ProcessedTask } from "@/lib/ai-service"
 
+// Define a color palette for categories
+const categoryColors = [
+  'text-orange-500',
+  'text-blue-500',
+  'text-green-500',
+  'text-red-500',
+  'text-purple-500',
+  'text-yellow-500',
+  'text-pink-500',
+  'text-cyan-500',
+  'text-indigo-500',
+  'text-amber-500',
+];
+
 // Sound wave animation component
 function SoundWave() {
   return (
@@ -81,6 +95,29 @@ function SoundWave() {
       />
     </div>
   )
+}
+
+// Create a custom styled checkbox component
+function StyledCheckbox({ checked, onCheckedChange, className }: { 
+  checked: boolean; 
+  onCheckedChange: () => void;
+  className?: string;
+}) {
+  return (
+    <div 
+      className={cn(
+        "h-4 w-4 min-h-4 min-w-4 rounded-full border border-gray-300 flex items-center justify-center transition-colors cursor-pointer",
+        checked ? "border-gray-400" : "bg-white",
+        className
+      )}
+      onClick={onCheckedChange}
+      data-task-checkbox
+    >
+      {checked && (
+        <div className="h-3.5 w-3.5 rounded-full bg-gray-400" style={{ boxShadow: '0 0 0 1px white inset' }} />
+      )}
+    </div>
+  );
 }
 
 // Sidebar component
@@ -185,7 +222,7 @@ export default function TaskManager() {
   // State
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskText, setNewTaskText] = useState("")
-  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(new Date())
+  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined)
   const [searchText, setSearchText] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isRecordingComplete, setIsRecordingComplete] = useState(false)
@@ -210,6 +247,8 @@ export default function TaskManager() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [backlogFilter, setBacklogFilter] = useState<"all" | "active" | "completed">("all");
   const [backlogSortBy, setBacklogSortBy] = useState<"date" | "alphabetical" | "category">("date");
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+  const [pendingCompletions, setPendingCompletions] = useState<Record<string, NodeJS.Timeout>>({});
 
   // Reset all state when user changes
   useEffect(() => {
@@ -217,7 +256,7 @@ export default function TaskManager() {
     if (!loading) {
       setTasks([]);
       setNewTaskText("");
-      setNewTaskDate(new Date());
+      setNewTaskDate(undefined);
       setSearchText("");
       setIsRecording(false);
       setIsRecordingComplete(false);
@@ -230,6 +269,8 @@ export default function TaskManager() {
       setBacklogSortBy("date");
       setTheme("light");
       setSelectedTags([]);
+      setCompletedTaskIds([]);
+      setPendingCompletions({});
       console.log("Reset all state for user:", user?.uid);
     }
   }, [user?.uid, loading]);
@@ -281,22 +322,9 @@ export default function TaskManager() {
 
   // Format text with colored tags
   const formatTextWithTags = (text: string) => {
-    const parts = text.split(/(#\w+)/)
-    return parts.map((part, index) => {
-      if (part.startsWith("#")) {
-        return (
-          <Badge
-            key={index}
-            variant="secondary"
-            className="mx-1 font-normal bg-transparent text-gray-500 hover:bg-gray-100"
-          >
-            {part}
-          </Badge>
-        )
-      }
-      return part
-    })
-  }
+    // Remove all #tags from the text
+    return text.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+  };
 
   // Subscribe to tasks
   useEffect(() => {
@@ -349,7 +377,7 @@ export default function TaskManager() {
         text: value,
         completed: false,
         tags,
-        createdAt: date ?? (newTaskDate || new Date()),
+        createdAt: (date ?? newTaskDate) || new Date(),
         group: "master"
       });
       setNewTaskText("");
@@ -361,19 +389,65 @@ export default function TaskManager() {
     }
   };
 
-  // Toggle task completion
+  // Toggle task completion with delay
   const toggleTaskCompletion = async (taskId: string) => {
-    if (!user) return
-    
-    try {
-      const task = tasks.find(t => t.id === taskId)
-      if (task) {
-        await updateTask(taskId, { completed: !task.completed })
+    if (!user) return;
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const isPending = !!pendingCompletions[taskId];
+
+    if (isPending) {
+      // If the task is in the pending state, cancel the completion
+      clearTimeout(pendingCompletions[taskId]);
+      setPendingCompletions((prev) => {
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
+      setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
+    } else if (task.completed) {
+      // If the task is already completed, uncheck it
+      try {
+        await updateTask(taskId, { completed: false });
+      } catch (error) {
+        toast.error("Failed to uncheck task.");
       }
-    } catch (error) {
-      toast.error("Failed to update task");
+    } else {
+      // If the task is not completed, check it and start the timer
+      setCompletedTaskIds((prev) => [...prev, taskId]);
+
+      const timeoutId = setTimeout(async () => {
+        try {
+          await updateTask(taskId, { completed: true });
+
+          setTimeout(() => {
+            setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
+            setPendingCompletions((prev) => {
+              const updated = { ...prev };
+              delete updated[taskId];
+              return updated;
+            });
+          }, 100);
+        } catch (error) {
+          toast.error("Failed to complete task.");
+          // Revert pending state on error
+          setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
+          setPendingCompletions((prev) => {
+            const updated = { ...prev };
+            delete updated[taskId];
+            return updated;
+          });
+        }
+      }, 4000);
+
+      setPendingCompletions((prev) => ({
+        ...prev,
+        [taskId]: timeoutId,
+      }));
     }
-  }
+  };
 
   // Toggle task selection
   const toggleTaskSelection = (taskId: string) => {
@@ -488,12 +562,21 @@ export default function TaskManager() {
   };
 
   // Filter tasks based on filter, search text, and selected tags
-  const filteredTasks = tasks.filter(task =>
-    (activeGroup === "master" ? true : task.group === "today") &&
-    (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-    (filter === "completed" ? task.completed : filter === "active" ? !task.completed : true) &&
-    (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true)
-  );
+  const filteredTasks = tasks.filter(task => {
+    // Check if task is in 4-second waiting period
+    const isInWaitingPeriod = completedTaskIds.includes(task.id);
+    // Determine effective completion status (local state takes priority)
+    const effectivelyCompleted = isInWaitingPeriod || task.completed;
+    
+    return (
+      (activeGroup === "master" ? true : task.group === "today") &&
+      (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
+      (filter === "completed" ? effectivelyCompleted : filter === "active" ? !effectivelyCompleted : true) &&
+      (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true) &&
+      // Hide completed tasks that are not in waiting period (only on home page)
+      (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true)
+    );
+  });
 
   // Get all unique tags with their counts
   const tagCounts = tasks.reduce((acc, task) => {
@@ -510,6 +593,20 @@ export default function TaskManager() {
   ]))
     .filter(tag => tag !== 'tag' && tag !== 'shopping')
     .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
+
+  // Helper function to get color for a tag
+  const getTagColor = (tag: string) => {
+    const index = allTags.indexOf(tag) % categoryColors.length;
+    return categoryColors[index].split(' ')[0]; // Get just the background color class to use as text color
+  };
+
+  // Helper function to convert bg color to text color
+  const getTagTextColor = (tag: string) => {
+    const index = allTags.indexOf(tag);
+    if (index === -1) return "text-gray-500";
+    const colorIndex = index % categoryColors.length;
+    return categoryColors[colorIndex];
+  };
 
   const handleLightSwitch = () => {
     setShowPomodoro((prev) => !prev);
@@ -547,6 +644,32 @@ export default function TaskManager() {
     // TODO: Optionally update backend order here
   };
 
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(pendingCompletions).forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, [pendingCompletions]);
+
+  // Handle clicks outside of task checkboxes to immediately complete pending tasks
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // Check if the click target is not a checkbox or its container
+    const target = e.target as HTMLElement;
+    const isCheckboxClick = target.closest('[data-task-checkbox]') || target.closest('.checkbox-container');
+    
+    if (!isCheckboxClick && Object.keys(pendingCompletions).length > 0) {
+      // Immediately complete all pending tasks
+      Object.keys(pendingCompletions).forEach(taskId => {
+        clearTimeout(pendingCompletions[taskId]);
+        updateTask(taskId, { completed: true });
+      });
+      setPendingCompletions({});
+      setCompletedTaskIds([]);
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
   }
@@ -567,7 +690,7 @@ export default function TaskManager() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="relative min-h-screen flex items-center justify-center bg-gray-50" onClick={handleContainerClick}>
       {/* Custom Sidebar - ONLY Focus Session, Backlog and Log out */}
       <Sidebar 
         showBacklog={showBacklog}
@@ -602,6 +725,9 @@ export default function TaskManager() {
                 formatTextWithTags={formatTextWithTags}
                 updateTaskDate={updateTaskDate}
                 tabGroups={tabGroups}
+                allTags={allTags}
+                completedTaskIds={completedTaskIds}
+                getTagTextColor={getTagTextColor}
               />
             </motion.div>
           ) : showBacklog ? (
@@ -631,6 +757,8 @@ export default function TaskManager() {
                 backlogSortBy={backlogSortBy}
                 setBacklogSortBy={setBacklogSortBy}
                 user={user}
+                completedTaskIds={completedTaskIds}
+                getTagTextColor={getTagTextColor}
               />
             </motion.div>
           ) : (
@@ -698,31 +826,21 @@ export default function TaskManager() {
                       className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className={cn(
-                            "h-8 text-gray-500 hover:text-gray-700 flex items-center justify-center",
-                            newTaskDate && !isSameDay(newTaskDate, new Date()) ? "px-2" : "w-8 px-0"
-                          )}>
-                            {newTaskDate && !isSameDay(newTaskDate, new Date()) ? (
-                              <span className="text-xs font-medium whitespace-nowrap">
-                                {newTaskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}
-                              </span>
-                            ) : (
-                              <CalendarIcon className="h-4 w-4" />
-                            )}
-                            <span className="sr-only">Select date for this task</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={newTaskDate}
-                            onSelect={(date) => setNewTaskDate(date || new Date())}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                      {!newTaskDate ? (
+                        <Button
+                          variant="ghost"
+                          className="h-8 w-8 flex items-center justify-center"
+                          onClick={() => setNewTaskDate(new Date())}
+                          aria-label="Select date"
+                        >
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <DatePicker
+                          date={newTaskDate}
+                          setDate={setNewTaskDate as (date: Date | undefined) => void}
+                        />
+                      )}
                       <Button
                         onClick={() => addTask()}
                         size="icon"
@@ -805,250 +923,94 @@ export default function TaskManager() {
                 )}
               </div>
 
-              {/* Tag Management Section */}
-              <div className="mb-8 mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-semibold text-muted-foreground">Browse by Category</h3>
-                  <div className="ml-4">
-                    <AnimatePresence initial={false} mode="wait">
-                      {!editCategoriesMode ? (
+              <Card className="overflow-visible">
+                <div className="divide-y divide-border relative">
+                  <AnimatePresence initial={false}>
+                    {filteredTasks.map((task, idx) => {
+                      // Date logic
+                      const hasDate = task.createdAt instanceof Date;
+                      const today = new Date();
+                      let isPastOrToday = false;
+                      let dateString = '';
+                      let timeString = '';
+                      if (hasDate) {
+                        const d = task.createdAt;
+                        dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                        isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                        // Only show time if not midnight (00:00 or 12:00 AM)
+                        const hours = d.getHours();
+                        const minutes = d.getMinutes();
+                        if (!(hours === 0 && minutes === 0)) {
+                          timeString = d.toLocaleTimeString('en-US', {
+                            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                          });
+                        }
+                      }
+                      
+                      // Determine effective completion status using local state
+                      const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                      const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                      
+                      return (
                         <motion.div
-                          key="edit-btn"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <Button
-                            variant="outline"
-                            className="rounded-full px-4 py-2 text-xs font-medium min-h-7"
-                            onClick={() => setEditCategoriesMode(true)}
-                          >
-                            Edit Categories
-                          </Button>
-                        </motion.div>
-                      ) : (
-                        <motion.form
-                          key="input"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          className="relative flex items-center"
-                          onSubmit={async (e) => {
-                            e.preventDefault();
-                            if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
-                              await addCategory(newTaskText.trim(), user.uid);
-                              setNewTaskText("");
+                          key={task.id}
+                          layout="position"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ 
+                            opacity: 0,
+                            transition: { 
+                              duration: 0.25, // quick fade
+                              ease: "easeInOut"
                             }
                           }}
-                        >
-                          <Input
-                            autoFocus
-                            placeholder="New category..."
-                            className="h-7 text-xs rounded-full pr-8 min-w-[120px]"
-                            value={newTaskText}
-                            onChange={e => setNewTaskText(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Escape') {
-                                setEditCategoriesMode(false);
-                                setNewTaskText('');
-                              }
-                            }}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                            type="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              setEditCategoriesMode(false);
-                              setNewTaskText('');
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </motion.form>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-3 items-center px-1">
-                  {allTags.map((tag, idx) => {
-                    const catObj = categories.find((c) => c.name === tag);
-                    const catIdx = categories.findIndex((c) => c.name === tag);
-                    return (
-                      <div
-                        key={tag}
-                        className="relative flex items-center"
-                        draggable={editCategoriesMode && catObj ? true : false}
-                        onDragStart={editCategoriesMode && catObj ? () => setDraggedCatIdx(catIdx) : undefined}
-                        onDragOver={editCategoriesMode && catObj ? (e) => { e.preventDefault(); setDragOverCatIdx(catIdx); } : undefined}
-                        onDrop={editCategoriesMode && catObj ? (e) => {
-                          e.preventDefault();
-                          if (draggedCatIdx !== null && dragOverCatIdx !== null && draggedCatIdx !== dragOverCatIdx) {
-                            moveCategory(draggedCatIdx, dragOverCatIdx);
-                          }
-                          setDraggedCatIdx(null);
-                          setDragOverCatIdx(null);
-                        } : undefined}
-                        onDragEnd={editCategoriesMode && catObj ? () => { setDraggedCatIdx(null); setDragOverCatIdx(null); } : undefined}
-                      >
-                        <Button
-                          variant={selectedTags.includes(tag) ? "default" : "outline"}
+                          transition={{ 
+                            duration: 0.4,
+                            ease: "easeOut"
+                          }}
                           className={cn(
-                            "flex items-center justify-center rounded-full text-[10px] font-medium shadow-none transition-all duration-200",
-                            editCategoriesMode ? "pl-4 pr-2 min-w-[90px] cursor-move" : "px-4",
-                            "py-[2px]"
-                          )}
-                          onClick={editCategoriesMode
-                            ? (e) => e.preventDefault()
-                            : () => {
-                                setSelectedTags((prev) =>
-                                  prev.includes(tag)
-                                    ? prev.filter((t) => t !== tag)
-                                    : [...prev, tag]
-                                );
-                              }
-                          }
-                          type="button"
-                          tabIndex={0}
-                        >
-                          <span className="truncate">{tag}</span>
-                          {editCategoriesMode && catObj && (
-                            <span
-                              className="ml-2 flex items-center cursor-pointer text-destructive hover:text-destructive/80 focus:outline-none"
-                              tabIndex={0}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                await deleteCategory(catObj.id);
-                              }}
-                              role="button"
-                              aria-label={`Delete ${tag}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </span>
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <Card className="overflow-visible">
-                <div className="divide-y divide-border">
-                  <AnimatePresence initial={false}>
-                    {filteredTasks.map((task) => (
-                      <motion.div
-                        key={task.id}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        layout
-                      >
-                        <div
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-2 group hover:bg-accent/50 transition-colors min-h-0 relative",
-                            task.completed ? "bg-muted/50" : "",
-                            "relative"
+                            "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                            idx !== tasks.length - 1 && "border-b border-gray-200",
+                            effectivelyCompleted ? "bg-muted/30" : ""
                           )}
                         >
-                          {/* Task Completion Checkbox */}
-                          <Checkbox
-                            checked={task.completed}
+                          {/* Checkbox */}
+                          <StyledCheckbox
+                            checked={effectivelyCompleted}
                             onCheckedChange={() => toggleTaskCompletion(task.id)}
-                            className={cn(
-                              "h-4 w-4 min-h-4 min-w-4 transition-colors",
-                              task.completed ? "border-muted-foreground data-[state=checked]:bg-muted-foreground" : "",
-                            )}
+                            className="flex-shrink-0 mt-0.5"
                           />
-                          
-                          {/* Task Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className={cn(
-                              "flex items-start gap-2 transition-opacity",
-                              task.completed ? "text-muted-foreground line-through opacity-70" : "",
-                            )}>
-                              <span className="flex-1 text-sm font-normal break-words whitespace-pre-line">
+                          {/* Main content: task name/date left, tags bottom right */}
+                          <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className={cn(
+                                "text-sm font-normal truncate transition-colors duration-200",
+                                effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                              )}>
                                 {formatTextWithTags(task.text)}
                               </span>
-                            </div>
-                            
-                            {/* Task Meta */}
-                            <div className="flex items-center gap-3 mt-2">
-                              <Popover>
-                                <PopoverTrigger>
-                                  <span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                                    {task.createdAt.toLocaleDateString('en-US', { 
-                                      month: 'short', 
-                                      day: 'numeric', 
-                                      year: task.createdAt.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
-                                      timeZone: 'America/Los_Angeles' 
-                                    })} at {task.createdAt.toLocaleTimeString('en-US', { 
-                                      hour: 'numeric', 
-                                      minute: 'numeric', 
-                                      hour12: true, 
-                                      timeZone: 'America/Los_Angeles' 
-                                    })}
-                                  </span>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={task.createdAt}
-                                    onSelect={(date) => date && updateTaskDate(task.id, date)}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              
-                              {task.tags.length > 0 && (
-                                <div className="flex gap-1 flex-wrap">
-                                  {task.tags.map((tag: string) => (
-                                    <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-                                      #{tag}
-                                    </Badge>
-                                  ))}
-                                </div>
+                              {hasDate && (
+                                <span className={cn(
+                                  "text-xs font-medium transition-colors duration-200 mt-0.5",
+                                  isPastOrToday ? "text-red-600" : "text-gray-400"
+                                )}>
+                                  {dateString}{timeString ? `, ${timeString}` : ''}
+                                </span>
                               )}
                             </div>
+                            {task.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
+                                {task.tags.map((tag) => (
+                                  <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                    <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTaskHandler(task.id);
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                          {activeGroup === "master" && task.group !== "today" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => updateTask(task.id, { group: "today" })}
-                            >
-                              Move to Today
-                            </Button>
-                          )}
-                          {activeGroup === "today" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => updateTask(task.id, { group: "master" })}
-                            >
-                              Move to Master
-                            </Button>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
 
                   {filteredTasks.length === 0 && (
@@ -1161,9 +1123,9 @@ export default function TaskManager() {
                             {processedTask.tags.length > 0 && (
                               <div className="flex gap-1">
                                 {processedTask.tags.map((tag) => (
-                                  <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-                                    {tag}
-                                  </Badge>
+                                  <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                    <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                  </span>
                                 ))}
                               </div>
                             )}
@@ -1256,7 +1218,9 @@ function BacklogView({
   setBacklogFilter,
   backlogSortBy,
   setBacklogSortBy,
-  user
+  user,
+  completedTaskIds,
+  getTagTextColor
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
@@ -1275,13 +1239,31 @@ function BacklogView({
   backlogSortBy: "date" | "alphabetical" | "category";
   setBacklogSortBy: (sort: "date" | "alphabetical" | "category") => void;
   user: any;
+  completedTaskIds: string[];
+  getTagTextColor: (tag: string) => string;
 }) {
   const [newTaskText, setNewTaskText] = useState("");
-  const [newTaskDate, setNewTaskDate] = useState<Date>(new Date());
+  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+
+  // Category management state (moved from TaskManager)
+  const [editCategoriesMode, setEditCategoriesMode] = useState(false);
+  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
+  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Helper to reorder categories (moved from TaskManager)
+  const moveCategory = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
+    const updated = [...categories];
+    const [removed] = updated.splice(from, 1);
+    updated.splice(to, 0, removed);
+    // This only updates locally; to persist, update backend as needed
+    // setCategories(updated); // Not available here, but backend update can be added if needed
+  };
 
   // Parse tags from text
   const parseTagsFromText = (text: string): string[] => {
@@ -1300,11 +1282,11 @@ function BacklogView({
         text: newTaskText,
         completed: false,
         tags,
-        createdAt: newTaskDate,
+        createdAt: newTaskDate || new Date(),
         group: "master"
       });
       setNewTaskText("");
-      setNewTaskDate(new Date());
+      setNewTaskDate(undefined);
       toast.success("Task added to backlog!");
     } catch (error) {
       toast.error("Failed to add task");
@@ -1429,21 +1411,21 @@ function BacklogView({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-xs">
-                    {newTaskDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={newTaskDate}
-                    onSelect={(date) => setNewTaskDate(date || new Date())}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              {!newTaskDate ? (
+                <Button
+                  variant="ghost"
+                  className="h-8 w-8 flex items-center justify-center"
+                  onClick={() => setNewTaskDate(new Date())}
+                  aria-label="Select date"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                </Button>
+              ) : (
+                <DatePicker
+                  date={newTaskDate}
+                  setDate={setNewTaskDate as (date: Date | undefined) => void}
+                />
+              )}
               <Button onClick={addTask} size="sm" className="text-xs">
                 <Plus className="h-3 w-3 mr-1" />
                 Add
@@ -1453,136 +1435,168 @@ function BacklogView({
         </div>
       </Card>
 
-      {/* Filters and Controls */}
-      <Card className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Filters & Controls</h3>
-            <div className="text-sm text-gray-500">
-              {filteredAndSortedTasks.length} of {tasks.length} tasks
-            </div>
+      {/* Category Management Section (moved from main page) */}
+      <div className="mb-8 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-semibold text-muted-foreground">Browse by Category</h3>
+          <div className="ml-4">
+            <AnimatePresence initial={false} mode="wait">
+              {!editCategoriesMode ? (
+                <motion.div
+                  key="edit-btn"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Button
+                    variant="outline"
+                    className="rounded-full px-4 py-2 text-xs font-medium min-h-7"
+                    onClick={() => setEditCategoriesMode(true)}
+                  >
+                    Edit Categories
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="input"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="relative flex items-center"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
+                      await addCategory(newTaskText.trim(), user.uid);
+                      setNewTaskText("");
+                    }
+                  }}
+                >
+                  <Input
+                    autoFocus
+                    placeholder="New category..."
+                    className="h-7 text-xs rounded-full pr-8 min-w-[120px]"
+                    value={newTaskText}
+                    onChange={e => setNewTaskText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') {
+                        setEditCategoriesMode(false);
+                        setNewTaskText('');
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                    type="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setEditCategoriesMode(false);
+                      setNewTaskText('');
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </motion.form>
+              )}
+            </AnimatePresence>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Search tasks..."
-                  className="pl-9 h-9 text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Status</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between h-9 text-sm">
-                    {backlogFilter === "all" ? "All Tasks" : backlogFilter === "active" ? "Active" : "Completed"}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full">
-                  <DropdownMenuItem onClick={() => setBacklogFilter("all")}>All Tasks</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBacklogFilter("active")}>Active</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBacklogFilter("completed")}>Completed</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Category Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Category</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between h-9 text-sm">
-                    {selectedCategory || "All Categories"}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full max-h-48 overflow-y-auto">
-                  <DropdownMenuItem onClick={() => setSelectedCategory("")}>All Categories</DropdownMenuItem>
-                  {allTags.map(tag => (
-                    <DropdownMenuItem key={tag} onClick={() => setSelectedCategory(tag)}>
-                      {tag}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Sort */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Sort By</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between h-9 text-sm">
-                    {backlogSortBy === "date" ? "Date" : backlogSortBy === "alphabetical" ? "A-Z" : "Category"}
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-full">
-                  <DropdownMenuItem onClick={() => setBacklogSortBy("date")}>Date</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBacklogSortBy("alphabetical")}>Alphabetical</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setBacklogSortBy("category")}>Category</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Bulk Actions */}
-          {selectedTaskIds.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="border-t pt-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-gray-700">
-                  {selectedTaskIds.length} task{selectedTaskIds.length !== 1 ? 's' : ''} selected
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={clearSelection}>
-                    Clear
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectAllTasks}>
-                    Select All
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={bulkComplete}>
-                    <Check className="h-3 w-3 mr-1" />
-                    Complete
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Add Tag
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {allTags.slice(0, 8).map(tag => (
-                        <DropdownMenuItem key={tag} onClick={() => bulkAddTag(tag)}>
-                          #{tag}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button variant="destructive" size="sm" onClick={bulkDelete}>
-                    <X className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
         </div>
-      </Card>
+        <div className="flex flex-wrap gap-x-3 gap-y-3 items-center px-1">
+          {allTags.map((tag, idx) => {
+            const catObj = categories.find((c) => c.name === tag);
+            const catIdx = categories.findIndex((c) => c.name === tag);
+            return (
+              <div
+                key={tag}
+                className="relative flex items-center"
+                draggable={editCategoriesMode && catObj ? true : false}
+                onDragStart={editCategoriesMode && catObj ? () => setDraggedCatIdx(catIdx) : undefined}
+                onDragOver={editCategoriesMode && catObj ? (e) => { e.preventDefault(); setDragOverCatIdx(catIdx); } : undefined}
+                onDrop={editCategoriesMode && catObj ? (e) => {
+                  e.preventDefault();
+                  if (draggedCatIdx !== null && dragOverCatIdx !== null && draggedCatIdx !== dragOverCatIdx) {
+                    moveCategory(draggedCatIdx, dragOverCatIdx);
+                  }
+                  setDraggedCatIdx(null);
+                  setDragOverCatIdx(null);
+                } : undefined}
+                onDragEnd={editCategoriesMode && catObj ? () => { setDraggedCatIdx(null); setDragOverCatIdx(null); } : undefined}
+              >
+                <Button
+                  variant={selectedTags.includes(tag) ? "default" : "outline"}
+                  className={cn(
+                    "flex items-center justify-center rounded-full text-[10px] font-medium shadow-none transition-all duration-200",
+                    editCategoriesMode ? "pl-4 pr-2 min-w-[90px] cursor-move" : "px-4",
+                    "py-[2px]"
+                  )}
+                  onClick={editCategoriesMode
+                    ? (e) => e.preventDefault()
+                    : () => {
+                        setSelectedTags((prev) =>
+                          prev.includes(tag)
+                            ? prev.filter((t) => t !== tag)
+                            : [...prev, tag]
+                        );
+                      }
+                  }
+                  type="button"
+                  tabIndex={0}
+                >
+                  <span className="truncate">{tag}</span>
+                  {editCategoriesMode && catObj && (
+                    <span
+                      className="ml-2 flex items-center cursor-pointer text-destructive hover:text-destructive/80 focus:outline-none"
+                      tabIndex={0}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await deleteCategory(catObj.id);
+                      }}
+                      role="button"
+                      aria-label={`Delete ${tag}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </span>
+                  )}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Task Filter */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={backlogFilter === "all" ? "default" : "outline"}
+            size="sm"
+            className="text-xs h-8"
+            onClick={() => setBacklogFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={backlogFilter === "active" ? "default" : "outline"}
+            size="sm"
+            className="text-xs h-8"
+            onClick={() => setBacklogFilter("active")}
+          >
+            Active
+          </Button>
+          <Button
+            variant={backlogFilter === "completed" ? "default" : "outline"}
+            size="sm"
+            className="text-xs h-8"
+            onClick={() => setBacklogFilter("completed")}
+          >
+            Completed
+          </Button>
+        </div>
+      </div>
 
       {/* Task List */}
       <Card className="overflow-hidden">
@@ -1597,110 +1611,93 @@ function BacklogView({
                 <p className="text-sm">Try adjusting your filters or add a new task above</p>
               </div>
             ) : (
-              filteredAndSortedTasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  layout
-                >
-                  <div
+              filteredAndSortedTasks.map((task, idx) => {
+                // Date logic
+                const hasDate = task.createdAt instanceof Date;
+                const today = new Date();
+                let isPastOrToday = false;
+                let dateString = '';
+                let timeString = '';
+                if (hasDate) {
+                  const d = task.createdAt;
+                  dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                  isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                  // Only show time if not midnight (00:00 or 12:00 AM)
+                  const hours = d.getHours();
+                  const minutes = d.getMinutes();
+                  if (!(hours === 0 && minutes === 0)) {
+                    timeString = d.toLocaleTimeString('en-US', {
+                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                    });
+                  }
+                }
+                
+                // Determine effective completion status using local state
+                const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                
+                return (
+                  <motion.div
+                    key={task.id}
+                    layout="position"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ 
+                      opacity: 0,
+                      transition: { 
+                        duration: 0.25, // quick fade
+                        ease: "easeInOut"
+                      }
+                    }}
+                    transition={{ 
+                      duration: 0.4,
+                      ease: "easeOut"
+                    }}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-3 group hover:bg-accent/50 transition-colors relative",
-                      task.completed ? "bg-muted/30" : "",
-                      selectedTaskIds.includes(task.id) ? "bg-blue-50 border-l-4 border-blue-500" : ""
+                      "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                      idx !== tasks.length - 1 && "border-b border-gray-200",
+                      effectivelyCompleted ? "bg-muted/30" : ""
                     )}
                   >
-                    {/* Task Completion Checkbox */}
-                    <Checkbox
-                      checked={task.completed}
-                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                      className={cn(
-                        "h-4 w-4 min-h-4 min-w-4 transition-colors",
-                        task.completed ? "border-muted-foreground data-[state=checked]:bg-muted-foreground" : "",
-                      )}
-                    />
-                    
-                    {/* Task Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className={cn(
-                        "flex items-start gap-2 transition-opacity",
-                        task.completed ? "text-muted-foreground line-through opacity-70" : "",
+                    {/* Checkbox and Task Name Row */}
+                    <div className="flex items-center min-w-0">
+                      <StyledCheckbox
+                        checked={effectivelyCompleted}
+                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                        className="flex-shrink-0 mr-3"
+                      />
+                      <span className={cn(
+                        "text-sm font-normal truncate transition-colors duration-200",
+                        effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
                       )}>
-                        <span className="flex-1 text-sm font-normal break-words whitespace-pre-line">
-                          {formatTextWithTags(task.text)}
+                        {formatTextWithTags(task.text)}
+                      </span>
+                    </div>
+                    {/* Date/Tags Row */}
+                    <div className="flex justify-between items-center mt-0.5">
+                      {/* Date and time (if present) */}
+                      {hasDate && (
+                        <span className={cn(
+                          "text-xs font-medium transition-colors duration-200",
+                          isPastOrToday ? "text-red-600" : "text-gray-400"
+                        )}>
+                          {dateString}{timeString ? `, ${timeString}` : ''}
                         </span>
-                      </div>
-                      
-                      {/* Task Meta */}
-                      <div className="flex items-center gap-3 mt-2">
-                        <Popover>
-                          <PopoverTrigger>
-                            <span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-                              {task.createdAt.toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric', 
-                                year: task.createdAt.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
-                                timeZone: 'America/Los_Angeles' 
-                              })} at {task.createdAt.toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: 'numeric', 
-                                hour12: true, 
-                                timeZone: 'America/Los_Angeles' 
-                              })}
+                      )}
+                      {/* Tags */}
+                      {task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {task.tags.map((tag) => (
+                            <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                              <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
                             </span>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={task.createdAt}
-                              onSelect={(date) => date && updateTaskDate(task.id, date)}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        
-                        {task.tags.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
-                            {task.tags.map((tag: string) => (
-                              <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-                                #{tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toggleTaskCompletion(task.id)}>
-                            {task.completed ? "Mark Incomplete" : "Mark Complete"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateTask(task.id, { group: task.group === "today" ? "master" : "today" })}>
-                            {task.group === "today" ? "Move to Master" : "Move to Today"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => deleteTask(task.id)}
-                          >
-                            Delete Task
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
+                  </motion.div>
+                );
+              })
             )}
           </AnimatePresence>
         </div>
@@ -1737,7 +1734,10 @@ function PomodoroTimer({
   deleteTask, 
   formatTextWithTags,
   updateTaskDate,
-  tabGroups
+  tabGroups,
+  allTags,
+  completedTaskIds,
+  getTagTextColor
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
@@ -1745,6 +1745,9 @@ function PomodoroTimer({
   formatTextWithTags: (text: string) => React.ReactNode;
   updateTaskDate: (id: string, date: Date) => void;
   tabGroups: TabGroup[];
+  allTags: string[];
+  completedTaskIds: string[];
+  getTagTextColor: (tag: string) => string;
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -1772,6 +1775,14 @@ function PomodoroTimer({
 
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
+
+  // Filter tasks similar to main view - hide completed tasks that are not in waiting period
+  const filteredTasks = tasks.filter(task => {
+    const isInWaitingPeriod = completedTaskIds.includes(task.id);
+    const effectivelyCompleted = isInWaitingPeriod || task.completed;
+    // Hide completed tasks that are not in waiting period
+    return !(effectivelyCompleted && !isInWaitingPeriod);
+  });
 
   return (
     <div className="w-screen h-screen flex">
@@ -1850,30 +1861,95 @@ function PomodoroTimer({
         <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none">
           <div className="py-4">
             <div className="flex flex-col gap-0">
-              {tasks.map((task, idx) => (
-                <div
-                  key={task.id}
-                  className={cn(
-                    "flex items-center px-4 py-2",
-                    idx !== tasks.length - 1 && "border-b border-gray-200",
-                    task.completed ? "bg-muted/50" : ""
-                  )}
-                >
-                  <Checkbox
-                    checked={task.completed}
-                    onCheckedChange={() => toggleTaskCompletion(task.id)}
-                    className="h-4 w-4 min-h-4 min-w-4 flex-shrink-0 mr-3"
-                  />
-                  <div className={cn(
-                    "flex-1 flex items-center min-w-0 gap-2",
-                    task.completed ? "text-muted-foreground line-through opacity-70" : ""
-                  )}>
-                    <span className="text-sm font-normal truncate min-w-0">
-                      {formatTextWithTags(task.text)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              <AnimatePresence initial={false}>
+                {filteredTasks.map((task, idx) => {
+                  // Date logic
+                  const hasDate = task.createdAt instanceof Date;
+                  const today = new Date();
+                  let isPastOrToday = false;
+                  let dateString = '';
+                  let timeString = '';
+                  if (hasDate) {
+                    const d = task.createdAt;
+                    dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                    isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                    // Only show time if not midnight (00:00 or 12:00 AM)
+                    const hours = d.getHours();
+                    const minutes = d.getMinutes();
+                    if (!(hours === 0 && minutes === 0)) {
+                      timeString = d.toLocaleTimeString('en-US', {
+                        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                      });
+                    }
+                  }
+                  
+                  // Determine effective completion status using local state
+                  const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                  const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                  
+                  return (
+                    <motion.div
+                      key={task.id}
+                      layout="position"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ 
+                        opacity: 0,
+                        transition: { 
+                          duration: 0.25, // quick fade
+                          ease: "easeInOut"
+                        }
+                      }}
+                      transition={{ 
+                        duration: 0.4,
+                        ease: "easeOut"
+                      }}
+                      className={cn(
+                        "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                        idx !== tasks.length - 1 && "border-b border-gray-200",
+                        effectivelyCompleted ? "bg-muted/30" : ""
+                      )}
+                    >
+                      {/* Checkbox and Task Name Row */}
+                      <div className="flex items-center min-w-0">
+                        <StyledCheckbox
+                          checked={effectivelyCompleted}
+                          onCheckedChange={() => toggleTaskCompletion(task.id)}
+                          className="flex-shrink-0 mr-3"
+                        />
+                        <span className={cn(
+                          "text-sm font-normal truncate transition-colors duration-200",
+                          effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                        )}>
+                          {formatTextWithTags(task.text)}
+                        </span>
+                      </div>
+                      {/* Date/Tags Row */}
+                      <div className="flex justify-between items-center mt-0.5">
+                        {/* Date and time (if present) */}
+                        {hasDate && (
+                          <span className={cn(
+                            "text-xs font-medium transition-colors duration-200",
+                            isPastOrToday ? "text-red-600" : "text-gray-400"
+                          )}>
+                            {dateString}{timeString ? `, ${timeString}` : ''}
+                          </span>
+                        )}
+                        {/* Tags */}
+                        {task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {task.tags.map((tag) => (
+                              <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           </div>
         </Card>
