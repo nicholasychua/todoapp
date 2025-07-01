@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
+import { FeatureSection } from "@/components/FeatureSection"
 
 export default function LandingPage() {
   // Subtle animation variants
@@ -122,6 +123,7 @@ export default function LandingPage() {
           </div>
         </motion.div>
       </main>
+      <FeatureSection />
     </motion.div>
   )
 } 

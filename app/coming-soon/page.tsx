@@ -3,290 +3,358 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
+import { ArrowRight, Check, Zap, Brain, Clock } from "lucide-react"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { addToWaitlist } from "@/lib/waitlist"
+import { useState } from "react"
+import { FeatureSection } from "@/components/FeatureSection"
 
 export default function ComingSoonPage() {
-  // Subtle animation variants
+  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.1,
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
       }
     }
   }
   
   const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
+    hidden: { opacity: 0, y: 20 },
     visible: { 
       opacity: 1, 
       y: 0,
       transition: { 
         type: "spring", 
-        stiffness: 50, 
-        mass: 0.5,
-        damping: 10
+        stiffness: 100, 
+        damping: 20
+      } 
+    }
+  }
+
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        duration: 0.6,
+        ease: [0.4, 0, 0.2, 1]
       } 
     }
   }
 
   return (
-    <motion.div 
-      className="min-h-screen flex flex-col bg-background"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <motion.header 
-        className="flex items-center justify-between px-4 sm:px-8 pt-4 sm:pt-6 md:pt-8 pb-2 md:pb-4"
+        className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6 max-w-7xl mx-auto"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
+        transition={{ duration: 0.5 }}
       >
-        <span className="text-2xl sm:text-3xl font-bold tracking-tight select-none">subspace</span>
-        <div className="flex gap-2 sm:gap-4">
-          <Button variant="secondary" className="px-3 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base font-semibold shadow-none bg-muted hover:bg-muted/80 text-foreground cursor-not-allowed opacity-50">
-            coming soon
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-black rounded-lg flex items-center justify-center">
+            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-white rounded-sm"></div>
+          </div>
+          <span className="text-lg sm:text-xl font-semibold text-gray-900">subspace</span>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button variant="ghost" className="text-xs sm:text-sm font-medium text-gray-600 hover:text-gray-900 px-2 sm:px-3">
+            Coming Soon
           </Button>
-          <Button className="px-3 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base font-semibold bg-yellow-400 hover:bg-yellow-300 text-black shadow-none cursor-not-allowed opacity-50">
-            coming soon
+          <Button className="bg-black text-white hover:bg-gray-800 text-xs sm:text-sm font-medium px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg">
+            Get Notified
           </Button>
         </div>
       </motion.header>
       
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row justify-center items-center px-4 sm:px-8 pb-16 sm:pb-24 gap-8 md:gap-16 mt-2 md:mt-6">
-        {/* Left: Text */}
-        <motion.div 
-          className="w-full md:w-1/2 max-w-xl mt-8 sm:mt-16 md:mt-0 flex flex-col justify-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
+      {/* Hero Section */}
+      <motion.section 
+        className="px-0 pt-2 sm:pt-4 pb-16 sm:pb-24 w-full text-center"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div
+          variants={itemVariants}
+          className="w-full flex justify-center"
         >
-          <motion.h1 
-            className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight tracking-tight text-foreground mb-2"
-            variants={itemVariants}
-          >
-            the simplest way<br />to get things done.
-          </motion.h1>
-          
-          <motion.p 
-            className="text-base sm:text-lg md:text-xl text-muted-foreground mt-4 sm:mt-5 mb-6 sm:mb-8 font-medium"
-            variants={itemVariants}
-          >
-            Meet subspace — your minimal to-do list; supercharged with AI. Automate tasks, set priorities, and stay locked in.
-          </motion.p>
-          
-          <motion.div variants={itemVariants}>
-            <Button 
-              className="bg-yellow-400 hover:bg-yellow-300 text-black text-sm sm:text-base font-bold px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl shadow-none transition-colors duration-300 flex items-center justify-center min-w-[160px] sm:min-w-[200px] cursor-not-allowed opacity-50"
-              disabled
-            >
-              <span className="font-bold">coming soon</span>
-            </Button>
-          </motion.div>
-          
-          <motion.div 
-            className="mt-8 sm:mt-10 text-muted-foreground text-sm sm:text-base font-medium opacity-60 tracking-tight" 
-            style={{letterSpacing: '-0.01em'}}
-            variants={itemVariants}
-          >
-            launching soon :)
-          </motion.div>
+          <div className="w-full bg-white py-6 sm:py-8 px-4 md:px-0">
+            <motion.div variants={itemVariants} className="mb-4 sm:mb-6">
+              <span className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs sm:text-sm font-medium">
+                <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+                AI-Powered Task Management
+              </span>
+            </motion.div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-black leading-tight tracking-tight text-center px-4" style={{wordBreak: 'break-word'}}>
+              All your tasks.<br />Tracked faster.
+            </h1>
+            <p className="mt-4 sm:mt-6 text-base sm:text-lg md:text-xl text-gray-500 max-w-2xl mx-auto text-center px-4">
+              Think Notion + Wispr Flow. Subspace is your intelligent workspace for tasks, notes, and focus.
+            </p>
+          </div>
         </motion.div>
         
-        {/* Right: Product Demo Image */}
-        <motion.div 
-          className="w-full md:w-1/2 flex justify-center items-center mt-8 sm:mt-12 md:mt-0"
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            delay: 0.7, 
-            duration: 0.8, 
-            ease: [0.165, 0.84, 0.44, 1]  // ease-out-cubic
-          }}
-        >
-          <div className="rounded-2xl shadow-lg bg-white/80 border border-gray-100 p-2 sm:p-3 md:p-4 max-w-[280px] sm:max-w-[350px] md:max-w-[400px] w-full">
-            <img
-              src="/demo-product.png"
-              alt="subspace product demo"
-              className="rounded-xl w-full h-auto object-cover"
-              style={{ boxShadow: '0 4px 32px 0 rgba(0,0,0,0.07)' }}
-            />
-          </div>
+        <motion.div variants={itemVariants} className="flex flex-col items-center gap-6 sm:gap-8">
+          <WaitlistInlineForm />
         </motion.div>
-      </main>
+      </motion.section>
+      <FeatureSection />
 
-      {/* Subspace Feature Section */}
-      <motion.section
-        className="w-full flex flex-col items-center px-4 md:px-0 mt-0 mb-16 sm:mb-20"
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.6 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      {/* Social Proof */}
+      {/* (Removed the Trusted by teams section) */}
+
+      {/* Features Grid */}
+      <motion.section 
+        className="px-4 sm:px-6 py-16 sm:py-20 max-w-6xl mx-auto"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
       >
-        <div className="w-full max-w-2xl flex flex-col items-center">
-          <div className="w-full flex justify-center mb-6 sm:mb-8">
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-muted flex items-center justify-center shadow-sm">
-              {/* Placeholder icon: replace with your own SVG/icon if desired */}
-              <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="sm:w-7 sm:h-7">
-                <rect x="4" y="8" width="20" height="12" rx="6" fill="#FDE68A" />
-                <rect x="9" y="4" width="10" height="20" rx="5" fill="#F59E42" />
-              </svg>
+        <motion.div 
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+        >
+          {/* Feature 1 */}
+          <motion.div variants={itemVariants} className="group">
+            <div className="p-6 sm:p-8 rounded-2xl border border-gray-200 hover:border-gray-300 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-blue-200 transition-colors">
+                <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">AI-Powered Intelligence</h3>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                Automatically categorize and prioritize tasks using advanced AI. Just describe what you need to do, and let subspace handle the rest.
+              </p>
             </div>
-          </div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-center mb-3 tracking-tight text-foreground">Subspace organizes your digital world.</h2>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground text-center max-w-xl mb-0 font-medium">
-            Subspace intelligently groups your tasks, notes, and resources into focused workspaces—so you always know where everything lives, and context-switching is effortless.
-          </p>
+          </motion.div>
+
+          {/* Feature 2 */}
+          <motion.div variants={itemVariants} className="group">
+            <div className="p-6 sm:p-8 rounded-2xl border border-gray-200 hover:border-gray-300 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-green-200 transition-colors">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">Smart Scheduling</h3>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                Intelligent time management that adapts to your workflow. Get personalized recommendations for when to tackle each task.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Feature 3 */}
+          <motion.div variants={itemVariants} className="group">
+            <div className="p-6 sm:p-8 rounded-2xl border border-gray-200 hover:border-gray-300 transition-colors">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:bg-purple-200 transition-colors">
+                <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 sm:mb-3">Lightning Fast</h3>
+              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
+                Built for speed and performance. Experience instant task creation, real-time updates, and seamless synchronization across all your devices.
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+      </motion.section>
+
+      {/* CTA Section */}
+      <motion.section 
+        className="px-4 sm:px-6 py-16 sm:py-20 bg-blue-50/60"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+      >
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.h2 
+            className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-gray-900 px-4"
+            variants={fadeInUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            Ready to transform your productivity?
+          </motion.h2>
+          
+          <motion.p 
+            className="text-lg sm:text-xl text-gray-700 mb-6 sm:mb-8 leading-relaxed px-4"
+            variants={fadeInUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            Join thousands of developers and teams who are already building the future with subspace.
+          </motion.p>
+          
+          <motion.div 
+            variants={fadeInUp}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center px-4"
+          >
+            <WaitlistCTA />
+          </motion.div>
         </div>
       </motion.section>
 
-      
-      {/* AI Feature Section - Redesigned for mobile */}
-      <motion.section
-        className="w-full flex flex-col items-center px-4 md:px-0 mb-16 sm:mb-20"
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.6 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      {/* Footer */}
+      <motion.footer 
+        className="px-4 sm:px-6 py-8 sm:py-12 border-t border-gray-200"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
       >
-        <div className="w-full max-w-4xl">
-          {/* Feature 1: Automated task tracking */}
-          <div className="mb-12 sm:mb-16">
-            <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8 md:gap-12">
-              {/* Image */}
-              <div className="w-full md:w-1/2 flex justify-center">
-                <div className="rounded-xl bg-muted border border-gray-100 w-full max-w-[280px] sm:max-w-[320px] h-[160px] sm:h-[180px] flex justify-center items-center">
-                  {/* Dashboard SVG mockup */}
-                  <svg width="200" height="100" viewBox="0 0 400 220" fill="none" xmlns="http://www.w3.org/2000/svg" className="sm:w-[240px] sm:h-[120px]">
-                    <rect width="400" height="220" rx="24" fill="#FAFAF9"/>
-                    <rect x="32" y="32" width="336" height="32" rx="8" fill="#E5E7EB"/>
-                    <rect x="32" y="80" width="240" height="20" rx="6" fill="#F3F4F6"/>
-                    <rect x="32" y="110" width="180" height="20" rx="6" fill="#F3F4F6"/>
-                    <rect x="32" y="140" width="120" height="20" rx="6" fill="#F3F4F6"/>
-                    <rect x="32" y="170" width="200" height="20" rx="6" fill="#F3F4F6"/>
-                    <rect x="280" y="80" width="88" height="110" rx="12" fill="#FDE68A"/>
-                    <rect x="300" y="100" width="48" height="12" rx="4" fill="#F59E42"/>
-                  </svg>
-                </div>
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-center">
+            <div className="flex items-center justify-center md:justify-start gap-2 sm:gap-3">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-black rounded-lg flex items-center justify-center">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-white rounded-sm"></div>
               </div>
-              {/* Text */}
-              <div className="w-full md:w-1/2 flex flex-col text-center md:text-left">
-                <div className="flex items-center justify-center md:justify-start mb-3">
-                  <div className="h-6 w-0.5 bg-blue-500 mr-3" style={{ minWidth: '2px' }} />
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">Automated task tracking</h3>
-                </div>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Tired of writing down your tasks? Subspace writes and categorizes your tasks; all from a simple sentence.
-                </p>
+              <span className="text-base sm:text-lg font-semibold text-gray-900">subspace</span>
+            </div>
+            <div className="flex justify-center">
+              <div className="flex gap-4 sm:gap-6">
+                <a href="https://x.com/nicholasychua" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-black transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-twitter-x w-5 h-5 sm:w-6 sm:h-6"><path d="M17.5 6.5L6.5 17.5"/><path d="m6.5 6.5 11 11"/></svg>
+                </a>
+                <a href="mailto:nicholaschua@berkeley.edu" className="text-gray-500 hover:text-black transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail w-5 h-5 sm:w-6 sm:h-6"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 6-8.97 6.66a2 2 0 0 1-2.36 0L2 6"/></svg>
+                </a>
               </div>
             </div>
-          </div>
-
-          {/* Feature 2: AI-powered task prioritization */}
-          <div className="mb-12 sm:mb-16">
-            <div className="flex flex-col md:flex-row-reverse items-center gap-6 sm:gap-8 md:gap-12">
-              {/* Image */}
-              <div className="w-full md:w-1/2 flex justify-center">
-                <div className="rounded-xl bg-muted border border-gray-100 w-full max-w-[280px] sm:max-w-[320px] h-[70px] sm:h-[80px] flex justify-center items-center">
-                  {/* Waveform SVG */}
-                  <svg width="240" height="50" viewBox="0 0 320 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="sm:w-[280px] sm:h-[60px]">
-                    <rect x="10" y="40" width="10" height="30" rx="5" fill="#F59E42"/>
-                    <rect x="30" y="30" width="10" height="50" rx="5" fill="#FDE68A"/>
-                    <rect x="50" y="20" width="10" height="60" rx="5" fill="#36C5F0"/>
-                    <rect x="70" y="10" width="10" height="70" rx="5" fill="#2EB67D"/>
-                    <rect x="90" y="20" width="10" height="60" rx="5" fill="#10B981"/>
-                    <rect x="110" y="30" width="10" height="50" rx="5" fill="#6366F1"/>
-                    <rect x="130" y="40" width="10" height="30" rx="5" fill="#F43F5E"/>
-                    <rect x="150" y="50" width="10" height="10" rx="5" fill="#F59E42"/>
-                    <rect x="170" y="40" width="10" height="30" rx="5" fill="#FDE68A"/>
-                    <rect x="190" y="30" width="10" height="50" rx="5" fill="#36C5F0"/>
-                    <rect x="210" y="20" width="10" height="60" rx="5" fill="#2EB67D"/>
-                    <rect x="230" y="10" width="10" height="70" rx="5" fill="#10B981"/>
-                    <rect x="250" y="20" width="10" height="60" rx="5" fill="#6366F1"/>
-                    <rect x="270" y="30" width="10" height="50" rx="5" fill="#F43F5E"/>
-                    <rect x="290" y="40" width="10" height="30" rx="5" fill="#F59E42"/>
-                  </svg>
-                </div>
-              </div>
-              {/* Text */}
-              <div className="w-full md:w-1/2 flex flex-col text-center md:text-left">
-                <div className="flex items-center justify-center md:justify-start mb-3">
-                  <div className="h-6 w-0.5 bg-blue-500 mr-3" style={{ minWidth: '2px' }} />
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-foreground">AI-powered task prioritization</h3>
-                </div>
-                <p className="text-sm sm:text-base text-muted-foreground">
-                  Subspace takes all of of your projects and tasks — their priorities, deadlines, durations, and more — and builds an optimized plan based on your preferences. 
-                </p>
-              </div>
+            <div className="text-xs sm:text-sm text-gray-500 text-center md:text-right">
+              © 2025 subspace. All rights reserved.
             </div>
           </div>
         </div>
-      </motion.section>
-
-      {/* Subspace Integrations Section */}
-      <section className="w-full flex flex-col items-center justify-center px-4" style={{ background: '#fcfbf7', minHeight: '280px' }}>
-        <div className="relative max-w-6xl w-full flex flex-col items-center text-center h-full justify-center py-12 sm:py-16">
-          {/* Integration Icons Cloud - Hidden on mobile for cleaner look */}
-          <div className="hidden lg:block absolute inset-0 pointer-events-none z-0">
-            {/* Far left, various vertical positions */}
-            <div className="absolute left-0 top-[12%]">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md">
-                <svg width="20" height="20" fill="none"><circle cx="10" cy="10" r="10" fill="#F59E42"/></svg>
-              </div>
-            </div>
-            <div className="absolute left-0 top-[65%]">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md">
-                <svg width="20" height="20" fill="none"><circle cx="10" cy="10" r="10" fill="#FDE68A"/></svg>
-              </div>
-            </div>
-            {/* Left, mid-high */}
-            <div className="absolute left-[8%] top-[28%]">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-md">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#fff"/><rect x="9" y="3" width="4" height="16" rx="2" fill="#36C5F0"/><rect x="3" y="9" width="16" height="4" rx="2" fill="#2EB67D"/></svg>
-              </div>
-            </div>
-            {/* Left, mid-low */}
-            <div className="absolute left-[10%] bottom-[28%]">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md">
-                <svg width="14" height="14" fill="none"><circle cx="7" cy="7" r="7" fill="#6366F1"/></svg>
-              </div>
-            </div>
-            {/* Right, various vertical positions */}
-            <div className="absolute right-0 top-[18%]">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md">
-                <svg width="20" height="20" fill="none"><circle cx="10" cy="10" r="10" fill="#10B981"/></svg>
-              </div>
-            </div>
-            <div className="absolute right-0 bottom-[25%]">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-md">
-                <svg width="20" height="20" fill="none"><circle cx="10" cy="10" r="10" fill="#F43F5E"/></svg>
-              </div>
-            </div>
-            {/* Right, mid-high */}
-            <div className="absolute right-[8%] top-[38%]">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-md">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="11" fill="#fff"/><rect x="9" y="3" width="4" height="16" rx="2" fill="#36C5F0"/><rect x="3" y="9" width="16" height="4" rx="2" fill="#2EB67D"/></svg>
-              </div>
-            </div>
-            {/* Right, mid-low */}
-            <div className="absolute right-[10%] bottom-[35%]">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md">
-                <svg width="14" height="14" fill="none"><circle cx="7" cy="7" r="7" fill="#F59E42"/></svg>
-              </div>
-            </div>
-          </div>
-          {/* Main Content */}
-          <div className="relative z-10 flex flex-col items-center justify-center h-full">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4 tracking-tight">Ready to organize 10x faster?</h2>
-            <button className="px-4 sm:px-5 py-2 rounded-lg bg-muted text-muted-foreground font-semibold text-sm sm:text-base shadow-sm opacity-60 cursor-not-allowed" disabled>coming soon</button>
-          </div>
-        </div>
-      </section>
-
-    </motion.div>
+      </motion.footer>
+    </div>
   )
+}
+
+function WaitlistInlineForm() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    setError("");
+    try {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Please enter a valid email address.");
+        setStatus("idle");
+        return;
+      }
+      await addToWaitlist(email);
+      setStatus("success");
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="w-full max-w-xl flex flex-col items-center px-4">
+      {status === "success" ? (
+        <div className="flex flex-col items-center justify-center py-6 sm:py-8 w-full">
+          <Check className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 mb-2" />
+          <div className="text-base sm:text-lg font-semibold mb-1">You're on the waitlist!</div>
+          <div className="text-gray-500 text-xs sm:text-sm mb-4 sm:mb-6">We'll let you know when we launch.</div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="w-full flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+          <Input
+            type="email"
+            placeholder="Enter your email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="flex-1 h-12 sm:h-14 text-base sm:text-lg px-4 sm:px-6 rounded-xl sm:rounded-2xl border border-gray-300 bg-white placeholder:text-gray-400 focus:border-gray-400 transition-all"
+            required
+            autoFocus
+          />
+          <Button
+            type="submit"
+            className="h-12 sm:h-14 px-6 sm:px-8 rounded-xl sm:rounded-2xl bg-white text-black hover:bg-gray-100 text-base sm:text-lg font-semibold shadow-none border border-gray-200 flex items-center gap-2 transition-all duration-200 w-full sm:w-auto"
+            disabled={status === "loading"}
+          >
+            {status === "loading" ? "Joining..." : <>Join waitlist <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /></>}
+          </Button>
+        </form>
+      )}
+      {error && <div className="text-red-500 text-xs sm:text-sm mt-2">{error}</div>}
+      <div className="flex items-center gap-2 mt-4 sm:mt-6">
+        <span className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-green-500 inline-block"></span>
+        <span className="text-gray-500 text-sm sm:text-base font-medium">128 people already joined</span>
+      </div>
+    </div>
+  );
+}
+
+function WaitlistCTA() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    setError("");
+    try {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Please enter a valid email address.");
+        setStatus("idle");
+        return;
+      }
+      await addToWaitlist(email);
+      setStatus("success");
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      setStatus("error");
+    }
+  }
+
+  if (status === "success") {
+    return (
+      <div className="flex flex-col items-center justify-center py-2 w-full">
+        <Check className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 mb-1" />
+        <div className="text-sm sm:text-base font-semibold mb-1">You're on the waitlist!</div>
+        <div className="text-gray-500 text-xs sm:text-sm mb-2">We'll let you know when we launch.</div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 justify-center items-center w-full">
+      <input
+        type="email"
+        placeholder="Enter your email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        className="h-10 sm:h-11 px-3 sm:px-4 rounded-lg sm:rounded-xl border border-gray-300 bg-white placeholder:text-gray-400 focus:border-gray-400 text-sm sm:text-base font-semibold transition-all w-full sm:w-[180px]"
+        required
+        autoFocus
+        disabled={status === "loading"}
+      />
+      <button
+        type="submit"
+        className="h-10 sm:h-11 px-3 sm:px-4 rounded-lg sm:rounded-xl bg-black text-white text-sm sm:text-base font-semibold shadow-none border border-black hover:bg-gray-900 flex items-center gap-2 transition-all duration-200 w-full sm:w-auto"
+        disabled={status === "loading"}
+      >
+        {status === "loading" ? "Joining..." : <>Join <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" /></>}
+      </button>
+      {error && <div className="text-red-500 text-xs sm:text-sm mt-2 w-full text-center">{error}</div>}
+    </form>
+  );
 } 
