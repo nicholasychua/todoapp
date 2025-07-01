@@ -671,7 +671,7 @@ export default function TaskManager() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return null
   }
 
   if (!user) {
