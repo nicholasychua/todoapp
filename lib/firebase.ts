@@ -11,6 +11,21 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
   };
+
+// Validate Firebase configuration
+function validateFirebaseConfig() {
+  const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+  const missingKeys = requiredKeys.filter(key => !firebaseConfig[key]);
+  
+  if (missingKeys.length > 0) {
+    console.error('Missing Firebase configuration keys:', missingKeys);
+    console.error('Current config:', firebaseConfig);
+    return false;
+  }
+  
+  console.log('Firebase configuration validated successfully');
+  return true;
+}
   
 // Initialize Firebase safely for SSR
 let app: FirebaseApp;
@@ -19,14 +34,26 @@ let db: Firestore;
 
 // Check if we're in a browser environment and not in SSR
 if (typeof window !== 'undefined') {
-  // Only initialize Firebase on the client side
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
+  // Validate config before initialization
+  if (validateFirebaseConfig()) {
+    // Only initialize Firebase on the client side
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+      console.log('Firebase app initialized successfully');
+    } else {
+      app = getApps()[0];
+      console.log('Using existing Firebase app');
+    }
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log('Firebase services initialized');
   } else {
-    app = getApps()[0];
+    console.error('Firebase configuration validation failed');
+    // Create mock objects to prevent crashes
+    app = {} as FirebaseApp;
+    auth = {} as Auth;
+    db = {} as Firestore;
   }
-  auth = getAuth(app);
-  db = getFirestore(app);
 } else {
   // Mock implementations for SSR
   app = {} as FirebaseApp;
