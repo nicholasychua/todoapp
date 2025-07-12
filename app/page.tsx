@@ -690,7 +690,7 @@ export default function TaskManager() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gray-50" onClick={handleContainerClick}>
+    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 overflow-hidden" onClick={handleContainerClick}>
       {/* Custom Sidebar - ONLY Focus Session, Backlog and Log out */}
       <Sidebar 
         showBacklog={showBacklog}
@@ -708,7 +708,7 @@ export default function TaskManager() {
       </SlidingMenu>
 
       {/* Main content area with animation */}
-      <div className="w-full max-w-2xl flex flex-col justify-center items-center pt-32 pb-32">
+      <div className="w-full max-w-2xl flex flex-col justify-center items-center h-full">
         <AnimatePresence mode="wait">
           {showPomodoro ? (
             <motion.div
@@ -717,6 +717,7 @@ export default function TaskManager() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -40 }}
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              className="flex justify-center items-center h-full"
             >
               <PomodoroTimer 
                 tasks={tasks}
@@ -980,7 +981,7 @@ export default function TaskManager() {
                             onCheckedChange={() => toggleTaskCompletion(task.id)}
                             className="flex-shrink-0 mt-0.5"
                           />
-                          {/* Main content: task name/date left, tags bottom right */}
+                          {/* Main content: flex-1 row, name/date left, tags bottom right */}
                           <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
                             <div className="flex flex-col min-w-0 flex-1">
                               <span className={cn(
@@ -1008,6 +1009,14 @@ export default function TaskManager() {
                               </div>
                             )}
                           </div>
+                          {/* Delete button (show on hover) */}
+                          <button
+                            onClick={() => deleteTask(task.id)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                            aria-label="Delete task"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </motion.div>
                       );
                     })}
@@ -1659,34 +1668,32 @@ function BacklogView({
                       effectivelyCompleted ? "bg-muted/30" : ""
                     )}
                   >
-                    {/* Checkbox and Task Name Row */}
-                    <div className="flex items-center min-w-0">
-                      <StyledCheckbox
-                        checked={effectivelyCompleted}
-                        onCheckedChange={() => toggleTaskCompletion(task.id)}
-                        className="flex-shrink-0 mr-3"
-                      />
-                      <span className={cn(
-                        "text-sm font-normal truncate transition-colors duration-200",
-                        effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                      )}>
-                        {formatTextWithTags(task.text)}
-                      </span>
-                    </div>
-                    {/* Date/Tags Row */}
-                    <div className="flex justify-between items-center mt-0.5">
-                      {/* Date and time (if present) */}
-                      {hasDate && (
+                    {/* Checkbox */}
+                    <StyledCheckbox
+                      checked={effectivelyCompleted}
+                      onCheckedChange={() => toggleTaskCompletion(task.id)}
+                      className="flex-shrink-0 mt-0.5"
+                    />
+                    {/* Main content: flex-1 row, name/date left, tags bottom right */}
+                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                      <div className="flex flex-col min-w-0 flex-1">
                         <span className={cn(
-                          "text-xs font-medium transition-colors duration-200",
-                          isPastOrToday ? "text-red-600" : "text-gray-400"
+                          "text-sm font-normal truncate transition-colors duration-200",
+                          effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
                         )}>
-                          {dateString}{timeString ? `, ${timeString}` : ''}
+                          {formatTextWithTags(task.text)}
                         </span>
-                      )}
-                      {/* Tags */}
+                        {hasDate && (
+                          <span className={cn(
+                            "text-xs font-medium transition-colors duration-200 mt-0.5",
+                            isPastOrToday ? "text-red-600" : "text-gray-400"
+                          )}>
+                            {dateString}{timeString ? `, ${timeString}` : ''}
+                          </span>
+                        )}
+                      </div>
                       {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-end">
+                        <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
                           {task.tags.map((tag) => (
                             <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
                               <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
@@ -1695,6 +1702,14 @@ function BacklogView({
                         </div>
                       )}
                     </div>
+                    {/* Delete button (show on hover) */}
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                      aria-label="Delete task"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </motion.div>
                 );
               })
@@ -1785,9 +1800,9 @@ function PomodoroTimer({
   });
 
   return (
-    <div className="w-screen h-screen flex">
+    <div className="w-screen h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
       {/* Left: Timer */}
-      <div className="flex flex-1 items-center justify-center px-20">
+      <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center justify-center">
           <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
           <div className="mb-8">
@@ -1813,7 +1828,6 @@ function PomodoroTimer({
               Reset
             </Button>
           </div>
-          
           {/* Tab Groups Section */}
           <div className="mt-8 w-full max-w-md">
             <div className="flex items-center mb-3">
@@ -1831,7 +1845,6 @@ function PomodoroTimer({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            
             {tabGroups.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {tabGroups.map((group) => (
@@ -1855,102 +1868,98 @@ function PomodoroTimer({
         </div>
       </div>
       {/* Divider */}
-      <div className="w-px bg-gray-200 h-[70%] self-center" />
+      <div className="w-px bg-gray-200 h-5/6 self-center mx-12" />
       {/* Right: Task List */}
-      <div className="flex flex-1 items-center justify-center px-20">
-        <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none">
-          <div className="py-4">
-            <div className="flex flex-col gap-0">
-              <AnimatePresence initial={false}>
-                {filteredTasks.map((task, idx) => {
-                  // Date logic
-                  const hasDate = task.createdAt instanceof Date;
-                  const today = new Date();
-                  let isPastOrToday = false;
-                  let dateString = '';
-                  let timeString = '';
-                  if (hasDate) {
-                    const d = task.createdAt;
-                    dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                    isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                    // Only show time if not midnight (00:00 or 12:00 AM)
-                    const hours = d.getHours();
-                    const minutes = d.getMinutes();
-                    if (!(hours === 0 && minutes === 0)) {
-                      timeString = d.toLocaleTimeString('en-US', {
-                        hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                      });
-                    }
+      <div className="flex flex-1 items-center justify-center">
+        <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
+          <div className="py-4 flex flex-col gap-0">
+            <AnimatePresence initial={false}>
+              {filteredTasks.map((task, idx) => {
+                // Date logic
+                const hasDate = task.createdAt instanceof Date;
+                const today = new Date();
+                let isPastOrToday = false;
+                let dateString = '';
+                let timeString = '';
+                if (hasDate) {
+                  const d = task.createdAt;
+                  dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                  isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                  // Only show time if not midnight (00:00 or 12:00 AM)
+                  const hours = d.getHours();
+                  const minutes = d.getMinutes();
+                  if (!(hours === 0 && minutes === 0)) {
+                    timeString = d.toLocaleTimeString('en-US', {
+                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                    });
                   }
-                  
-                  // Determine effective completion status using local state
-                  const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                  const effectivelyCompleted = isInWaitingPeriod || task.completed;
-                  
-                  return (
-                    <motion.div
-                      key={task.id}
-                      layout="position"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ 
-                        opacity: 0,
-                        transition: { 
-                          duration: 0.25, // quick fade
-                          ease: "easeInOut"
-                        }
-                      }}
-                      transition={{ 
-                        duration: 0.4,
-                        ease: "easeOut"
-                      }}
-                      className={cn(
-                        "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                        idx !== tasks.length - 1 && "border-b border-gray-200",
-                        effectivelyCompleted ? "bg-muted/30" : ""
-                      )}
-                    >
-                      {/* Checkbox and Task Name Row */}
-                      <div className="flex items-center min-w-0">
-                        <StyledCheckbox
-                          checked={effectivelyCompleted}
-                          onCheckedChange={() => toggleTaskCompletion(task.id)}
-                          className="flex-shrink-0 mr-3"
-                        />
+                }
+                
+                // Determine effective completion status using local state
+                const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                
+                return (
+                  <motion.div
+                    key={task.id}
+                    layout="position"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ 
+                      opacity: 0,
+                      transition: { 
+                        duration: 0.25, // quick fade
+                        ease: "easeInOut"
+                      }
+                    }}
+                    transition={{ 
+                      duration: 0.4,
+                      ease: "easeOut"
+                    }}
+                    className={cn(
+                      "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                      idx !== tasks.length - 1 && "border-b border-gray-200",
+                      effectivelyCompleted ? "bg-muted/30" : ""
+                    )}
+                  >
+                    {/* Checkbox */}
+                    <StyledCheckbox
+                      checked={effectivelyCompleted}
+                      onCheckedChange={() => toggleTaskCompletion(task.id)}
+                      className="flex-shrink-0 mr-3"
+                    />
+                    {/* Main content: flex-1 row, name/date left, tags bottom right */}
+                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                      <div className="flex flex-col min-w-0 flex-1">
                         <span className={cn(
                           "text-sm font-normal truncate transition-colors duration-200",
                           effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
                         )}>
                           {formatTextWithTags(task.text)}
                         </span>
-                      </div>
-                      {/* Date/Tags Row */}
-                      <div className="flex justify-between items-center mt-0.5">
-                        {/* Date and time (if present) */}
                         {hasDate && (
                           <span className={cn(
-                            "text-xs font-medium transition-colors duration-200",
+                            "text-xs font-medium transition-colors duration-200 mt-0.5",
                             isPastOrToday ? "text-red-600" : "text-gray-400"
                           )}>
                             {dateString}{timeString ? `, ${timeString}` : ''}
                           </span>
                         )}
-                        {/* Tags */}
-                        {task.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {task.tags.map((tag) => (
-                              <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+                      {task.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
+                          {task.tags.map((tag) => (
+                            <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                              <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         </Card>
       </div>
