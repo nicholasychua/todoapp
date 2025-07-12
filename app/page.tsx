@@ -690,7 +690,7 @@ export default function TaskManager() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 overflow-hidden" onClick={handleContainerClick}>
+    <div className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-hidden" onClick={handleContainerClick}>
       {/* Custom Sidebar - ONLY Focus Session, Backlog and Log out */}
       <Sidebar 
         showBacklog={showBacklog}
@@ -738,7 +738,7 @@ export default function TaskManager() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -40 }}
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="w-full max-w-4xl space-y-6"
+              className="w-full max-w-4xl space-y-6 pt-24 pb-8"
             >
               <BacklogView 
                 tasks={tasks}
@@ -769,269 +769,275 @@ export default function TaskManager() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -40 }}
               transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="w-full space-y-6"
+              className="w-full h-full flex flex-col"
             >
-              {/* Date Header */}
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold">
-                  {(() => {
-                    const date = new Date();
-                    const weekday = date.toLocaleDateString('en-US', { 
-                      weekday: 'long',
-                      timeZone: 'America/Los_Angeles'
-                    });
-                    const dateString = date.toLocaleDateString('en-US', { 
-                      day: 'numeric',
-                      month: 'long',
-                      timeZone: 'America/Los_Angeles'
-                    }).replace(/(\d+)/, (match) => {
-                      const num = parseInt(match);
-                      const suffix = num % 10 === 1 && num !== 11 ? 'st' : 
-                                     num % 10 === 2 && num !== 12 ? 'nd' : 
-                                     num % 10 === 3 && num !== 13 ? 'rd' : 'th';
-                      return `${num}${suffix}`;
-                    });
-                    
-                    return (
-                      <>
-                        <span className="text-gray-900">{weekday}, </span>
-                        <span className="text-gray-400">{dateString}</span>
-                      </>
-                    );
-                  })()}
-                </h1>
-              </div>
-
-              {/* Add Task Input */}
-              <div className="space-y-4">
-                <div className="relative">
-                  <div className="relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={isRecording ? speechDraft : newTaskText}
-                      onChange={(e) => {
-                        if (isRecording) {
-                          setSpeechDraft(e.target.value);
-                        } else {
-                          setNewTaskText(e.target.value);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          addTask();
-                        }
-                      }}
-                      placeholder="Add new task"
-                      rows={1}
-                      className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
-                    />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      {!newTaskDate ? (
-                        <Button
-                          variant="ghost"
-                          className="h-8 w-8 flex items-center justify-center"
-                          onClick={() => setNewTaskDate(new Date())}
-                          aria-label="Select date"
-                        >
-                          <CalendarIcon className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <DatePicker
-                          date={newTaskDate}
-                          setDate={setNewTaskDate as (date: Date | undefined) => void}
-                        />
-                      )}
-                      <Button
-                        onClick={() => addTask()}
-                        size="icon"
-                        className="h-8 w-8 shrink-0 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-                      >
-                        <Plus className="h-4 w-4 text-gray-500" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {isRecording && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-50 flex items-center justify-center"
-                    >
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.9, opacity: 0 }}
-                        className="absolute inset-0 bg-background/95 backdrop-blur-sm"
-                      />
-                      <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        exit={{ y: 20, opacity: 0 }}
-                        className="relative z-10 w-full max-w-2xl mx-4"
-                      >
-                        <div className="bg-card rounded-3xl shadow-2xl overflow-hidden">
-                          <div className="p-8">
-                            <div className="flex flex-col items-center space-y-8">
-                              <motion.div 
-                                className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center"
-                              >
-                                <div className="scale-150">
-                                  <SoundWave />
-                                </div>
-                              </motion.div>
-                              <motion.div 
-                                className="text-center space-y-4"
-                              >
-                                <motion.h3 
-                                  className="text-2xl font-semibold"
-                                >
-                                  Listening...
-                                </motion.h3>
-                                <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
-                                  <p className="text-lg text-muted-foreground">
-                                    {speechDraft || "Speak now..."}
-                                  </p>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Release Ctrl to stop recording
-                                </p>
-                              </motion.div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {!isRecording && (
-                  <div className="flex items-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="px-4 transition-all duration-150 hover:scale-105 active:scale-95"
-                    >
-                      <div className="flex items-center">
-                        <Mic className="h-4 w-4 mr-1" />
-                        Hold Ctrl
-                      </div>
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <Card className="overflow-visible">
-                <div className="divide-y divide-border relative">
-                  <AnimatePresence initial={false}>
-                    {filteredTasks.map((task, idx) => {
-                      // Date logic
-                      const hasDate = task.createdAt instanceof Date;
-                      const today = new Date();
-                      let isPastOrToday = false;
-                      let dateString = '';
-                      let timeString = '';
-                      if (hasDate) {
-                        const d = task.createdAt;
-                        dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                        isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                        // Only show time if not midnight (00:00 or 12:00 AM)
-                        const hours = d.getHours();
-                        const minutes = d.getMinutes();
-                        if (!(hours === 0 && minutes === 0)) {
-                          timeString = d.toLocaleTimeString('en-US', {
-                            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                          });
-                        }
-                      }
-                      
-                      // Determine effective completion status using local state
-                      const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                      const effectivelyCompleted = isInWaitingPeriod || task.completed;
+              {/* Fixed header + quick-add */}
+              <div className="flex-shrink-0 bg-gray-50 pt-36 pb-6 px-4">
+                {/* Date Header */}
+                <div className="text-center mb-6">
+                  <h1 className="text-4xl font-bold">
+                    {(() => {
+                      const date = new Date();
+                      const weekday = date.toLocaleDateString('en-US', { 
+                        weekday: 'long',
+                        timeZone: 'America/Los_Angeles'
+                      });
+                      const dateString = date.toLocaleDateString('en-US', { 
+                        day: 'numeric',
+                        month: 'long',
+                        timeZone: 'America/Los_Angeles'
+                      }).replace(/(\d+)/, (match) => {
+                        const num = parseInt(match);
+                        const suffix = num % 10 === 1 && num !== 11 ? 'st' : 
+                                       num % 10 === 2 && num !== 12 ? 'nd' : 
+                                       num % 10 === 3 && num !== 13 ? 'rd' : 'th';
+                        return `${num}${suffix}`;
+                      });
                       
                       return (
-                        <motion.div
-                          key={task.id}
-                          layout="position"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ 
-                            opacity: 0,
-                            transition: { 
-                              duration: 0.25, // quick fade
-                              ease: "easeInOut"
-                            }
-                          }}
-                          transition={{ 
-                            duration: 0.4,
-                            ease: "easeOut"
-                          }}
-                          className={cn(
-                            "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                            idx !== tasks.length - 1 && "border-b border-gray-200",
-                            effectivelyCompleted ? "bg-muted/30" : ""
-                          )}
-                        >
-                          {/* Checkbox */}
-                          <StyledCheckbox
-                            checked={effectivelyCompleted}
-                            onCheckedChange={() => toggleTaskCompletion(task.id)}
-                            className="flex-shrink-0 mt-0.5"
-                          />
-                          {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                          <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className={cn(
-                                "text-sm font-normal truncate transition-colors duration-200",
-                                effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                              )}>
-                                {formatTextWithTags(task.text)}
-                              </span>
-                              {hasDate && (
-                                <span className={cn(
-                                  "text-xs font-medium transition-colors duration-200 mt-0.5",
-                                  isPastOrToday ? "text-red-600" : "text-gray-400"
-                                )}>
-                                  {dateString}{timeString ? `, ${timeString}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            {task.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
-                                {task.tags.map((tag) => (
-                                  <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                    <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          {/* Delete button (show on hover) */}
-                          <button
-                            onClick={() => deleteTask(task.id)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
-                            aria-label="Delete task"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </motion.div>
+                        <>
+                          <span className="text-gray-900">{weekday}, </span>
+                          <span className="text-gray-400">{dateString}</span>
+                        </>
                       );
-                    })}
+                    })()}
+                  </h1>
+                </div>
+
+                {/* Add Task Input */}
+                <div className="space-y-4">
+                  <div className="relative">
+                    <div className="relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={isRecording ? speechDraft : newTaskText}
+                        onChange={(e) => {
+                          if (isRecording) {
+                            setSpeechDraft(e.target.value);
+                          } else {
+                            setNewTaskText(e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            addTask();
+                          }
+                        }}
+                        placeholder="Add new task"
+                        rows={1}
+                        className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        {!newTaskDate ? (
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 flex items-center justify-center"
+                            onClick={() => setNewTaskDate(new Date())}
+                            aria-label="Select date"
+                          >
+                            <CalendarIcon className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <DatePicker
+                            date={newTaskDate}
+                            setDate={setNewTaskDate as (date: Date | undefined) => void}
+                          />
+                        )}
+                        <Button
+                          onClick={() => addTask()}
+                          size="icon"
+                          className="h-8 w-8 shrink-0 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="h-4 w-4 text-gray-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <AnimatePresence mode="wait">
+                    {isRecording && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          className="absolute inset-0 bg-background/95 backdrop-blur-sm"
+                        />
+                        <motion.div
+                          initial={{ y: 20, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: 20, opacity: 0 }}
+                          className="relative z-10 w-full max-w-2xl mx-4"
+                        >
+                          <div className="bg-card rounded-3xl shadow-2xl overflow-hidden">
+                            <div className="p-8">
+                              <div className="flex flex-col items-center space-y-8">
+                                <motion.div 
+                                  className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center"
+                                >
+                                  <div className="scale-150">
+                                    <SoundWave />
+                                  </div>
+                                </motion.div>
+                                <motion.div 
+                                  className="text-center space-y-4"
+                                >
+                                  <motion.h3 
+                                    className="text-2xl font-semibold"
+                                  >
+                                    Listening...
+                                  </motion.h3>
+                                  <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
+                                    <p className="text-lg text-muted-foreground">
+                                      {speechDraft || "Speak now..."}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Release Ctrl to stop recording
+                                  </p>
+                                </motion.div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </motion.div>
+                    )}
                   </AnimatePresence>
 
-                  {filteredTasks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                      <div className="rounded-full bg-muted p-3 mb-3">
-                        <Check className="h-6 w-6" />
-                      </div>
-                      <p>No tasks found</p>
+                  {!isRecording && (
+                    <div className="flex items-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="px-4 transition-all duration-150 hover:scale-105 active:scale-95"
+                      >
+                        <div className="flex items-center">
+                          <Mic className="h-4 w-4 mr-1" />
+                          Hold Ctrl
+                        </div>
+                      </Button>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
+
+              {/* Scrollable Task List */}
+              <div className="flex-1 overflow-y-auto px-4 pb-8">
+                <Card className="overflow-visible">
+                  <div className="divide-y divide-border relative">
+                    <AnimatePresence initial={false}>
+                      {filteredTasks.map((task, idx) => {
+                        // Date logic
+                        const hasDate = task.createdAt instanceof Date;
+                        const today = new Date();
+                        let isPastOrToday = false;
+                        let dateString = '';
+                        let timeString = '';
+                        if (hasDate) {
+                          const d = task.createdAt;
+                          dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                          isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                          // Only show time if not midnight (00:00 or 12:00 AM)
+                          const hours = d.getHours();
+                          const minutes = d.getMinutes();
+                          if (!(hours === 0 && minutes === 0)) {
+                            timeString = d.toLocaleTimeString('en-US', {
+                              hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                            });
+                          }
+                        }
+                        
+                        // Determine effective completion status using local state
+                        const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                        const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                        
+                        return (
+                          <motion.div
+                            key={task.id}
+                            layout="position"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ 
+                              opacity: 0,
+                              transition: { 
+                                duration: 0.25, // quick fade
+                                ease: "easeInOut"
+                              }
+                            }}
+                            transition={{ 
+                              duration: 0.4,
+                              ease: "easeOut"
+                            }}
+                            className={cn(
+                              "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                              idx !== tasks.length - 1 && "border-b border-gray-200",
+                              effectivelyCompleted ? "bg-muted/30" : ""
+                            )}
+                          >
+                            {/* Checkbox */}
+                            <StyledCheckbox
+                              checked={effectivelyCompleted}
+                              onCheckedChange={() => toggleTaskCompletion(task.id)}
+                              className="flex-shrink-0 mt-0.5"
+                            />
+                            {/* Main content: flex-1 row, name/date left, tags bottom right */}
+                            <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className={cn(
+                                  "text-sm font-normal truncate transition-colors duration-200",
+                                  effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                                )}>
+                                  {formatTextWithTags(task.text)}
+                                </span>
+                                {hasDate && (
+                                  <span className={cn(
+                                    "text-xs font-medium transition-colors duration-200 mt-0.5",
+                                    isPastOrToday ? "text-red-600" : "text-gray-400"
+                                  )}>
+                                    {dateString}{timeString ? `, ${timeString}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              {task.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
+                                  {task.tags.map((tag) => (
+                                    <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                      <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {/* Delete button (show on hover) */}
+                            <button
+                              onClick={() => deleteTask(task.id)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                              aria-label="Delete task"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+
+                    {filteredTasks.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                        <div className="rounded-full bg-muted p-3 mb-3">
+                          <Check className="h-6 w-6" />
+                        </div>
+                        <p>No tasks found</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
