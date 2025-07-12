@@ -11,6 +11,7 @@ import {
   signInWithRedirect
 } from 'firebase/auth';
 import { auth } from './firebase';
+import { setupNewUserDefaults } from './default-setup';
 
 interface AuthContextType {
   user: User | null;
@@ -43,9 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       setUser(user);
       setLoading(false);
+      
+      // Set up defaults for new users
+      if (user) {
+        try {
+          await setupNewUserDefaults(user.uid);
+        } catch (error) {
+          console.error('Error setting up new user defaults:', error);
+          // Don't block the user experience if default setup fails
+        }
+      }
     });
 
     return () => unsubscribe();
@@ -82,27 +93,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       const provider = new GoogleAuthProvider();
+      
+      // Add additional scopes if needed
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      console.log('Attempting Google sign-in...');
+      
       // Try popup first
       try {
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
+        console.log('Google sign-in successful:', result.user.email);
+        setError(null);
       } catch (popupError: any) {
+        console.error('Popup error:', popupError);
+        
         // If popup fails, try redirect
-        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/popup-closed-by-user' ||
+            popupError.code === 'auth/cancelled-popup-request') {
+          console.log('Popup blocked, trying redirect...');
           await signInWithRedirect(auth, provider);
         } else {
           throw popupError;
         }
       }
+      
       setError(null);
     } catch (error: any) {
       console.error("Google sign-in error:", error);
-      if (error.code === 'auth/popup-blocked') {
-        setError("Please allow popups for this website to sign in with Google.");
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        setError("Sign-in was cancelled. Please try again.");
-      } else {
-        setError("Failed to sign in with Google. Please try again.");
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      
+      let errorMessage = "Failed to sign in with Google. Please try again.";
+      
+      switch (error.code) {
+        case 'auth/popup-blocked':
+          errorMessage = "Please allow popups for this website to sign in with Google.";
+          break;
+        case 'auth/popup-closed-by-user':
+          errorMessage = "Sign-in was cancelled. Please try again.";
+          break;
+        case 'auth/cancelled-popup-request':
+          errorMessage = "Sign-in was cancelled. Please try again.";
+          break;
+        case 'auth/unauthorized-domain':
+          errorMessage = "This domain is not authorized for Google sign-in. Please contact support.";
+          break;
+        case 'auth/operation-not-allowed':
+          errorMessage = "Google sign-in is not enabled. Please contact support.";
+          break;
+        case 'auth/invalid-api-key':
+          errorMessage = "Invalid API key. Please contact support.";
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = "Network error. Please check your connection and try again.";
+          break;
+        default:
+          errorMessage = `Sign-in failed: ${error.message}`;
       }
+      
+      setError(errorMessage);
       throw error; // Re-throw to be handled by the component
     }
   };
