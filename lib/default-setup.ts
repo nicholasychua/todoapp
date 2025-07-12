@@ -1,4 +1,5 @@
 import { createTabGroupFirestore } from './tabgroups';
+import { addCategory } from './categories';
 import { db } from './firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -12,6 +13,13 @@ const DEFAULT_TAB_GROUPS = [
       { url: "https://chatgpt.com/", title: "ChatGPT" },
     ]
   },
+];
+
+// Define default categories that all new users will get
+const DEFAULT_CATEGORIES = [
+  "Personal",
+  "Work", 
+  "Events"
 ];
 
 /**
@@ -28,6 +36,24 @@ async function hasExistingTabGroups(userId: string): Promise<boolean> {
     return querySnapshot.docs.length > 0;
   } catch (error) {
     console.error('Error checking existing tab groups:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a user has any existing categories
+ */
+async function hasExistingCategories(userId: string): Promise<boolean> {
+  try {
+    const categoriesQuery = query(
+      collection(db, 'categories'),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(categoriesQuery);
+    return querySnapshot.docs.length > 0;
+  } catch (error) {
+    console.error('Error checking existing categories:', error);
     return false;
   }
 }
@@ -73,16 +99,53 @@ export async function setupDefaultTabGroups(userId: string): Promise<void> {
 }
 
 /**
+ * Create default categories for a new user
+ */
+export async function setupDefaultCategories(userId: string): Promise<void> {
+  try {
+    console.log('Setting up default categories for user:', userId);
+    
+    // Check if user already has categories
+    const hasExisting = await hasExistingCategories(userId);
+    
+    if (hasExisting) {
+      console.log('User already has categories, skipping default setup');
+      return;
+    }
+    
+    // Create default categories
+    const promises = DEFAULT_CATEGORIES.map(async (categoryName) => {
+      try {
+        const result = await addCategory(categoryName, userId);
+        console.log(`Created default category: ${categoryName}`);
+        return result;
+      } catch (error) {
+        console.error(`Failed to create default category ${categoryName}:`, error);
+        throw error;
+      }
+    });
+    
+    await Promise.all(promises);
+    console.log('Successfully set up all default categories');
+    
+  } catch (error) {
+    console.error('Error setting up default categories:', error);
+    throw error;
+  }
+}
+
+/**
  * Setup default data for a new user (can be extended with more defaults)
  */
 export async function setupNewUserDefaults(userId: string): Promise<void> {
   try {
     console.log('Setting up defaults for new user:', userId);
     
-    // Set up default tab groups
-    await setupDefaultTabGroups(userId);
-    
-    // Add more default setups here in the future (categories, tasks, etc.)
+    // Set up default tab groups and categories in parallel for better performance
+    await Promise.all([
+      setupDefaultTabGroups(userId),
+      setupDefaultCategories(userId)
+    ]);
     
     console.log('Successfully set up all defaults for new user');
   } catch (error) {
