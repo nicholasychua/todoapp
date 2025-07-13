@@ -1022,8 +1022,110 @@ export default function HomePage() {
             </DropdownMenu>
           </div>
 
-          {/* Tag Filter */}
+          {/* Category Filter */}
           {allTags.length > 0 && (
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-700">Categories</h3>
+                <button 
+                  onClick={() => setSelectedTags([])}
+                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {allTags.slice(0, 6).map((tag, index) => {
+                  const isSelected = selectedTags.includes(tag);
+                  const colorClass = categoryColors[index % categoryColors.length];
+                  
+                  return (
+                    <motion.button
+                      key={tag}
+                      onClick={() => {
+                        setSelectedTags(prev => 
+                          prev.includes(tag) 
+                            ? prev.filter(t => t !== tag)
+                            : [...prev, tag]
+                        );
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "group relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 border",
+                        isSelected
+                          ? "bg-white border-gray-300 shadow-sm"
+                          : "bg-gray-50 border-gray-200 hover:bg-white hover:border-gray-300 hover:shadow-sm"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-2 h-2 rounded-full transition-colors",
+                        isSelected ? colorClass.replace('text-', 'bg-') : "bg-gray-400"
+                      )} />
+                      <span className={cn(
+                        "transition-colors",
+                        isSelected ? "text-gray-900" : "text-gray-600"
+                      )}>
+                        {tag}
+                      </span>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center ml-1"
+                        >
+                          <Check className="w-2.5 h-2.5 text-white" />
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  );
+                })}
+                
+                {allTags.length > 6 && (
+                  <button
+                    onClick={() => setShowTagManager(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 text-gray-600"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-gray-400" />
+                    <span>+{allTags.length - 6} more</span>
+                  </button>
+                )}
+              </div>
+              
+              {selectedTags.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2 pt-2 border-t border-gray-100"
+                >
+                  <span className="text-xs text-gray-500">
+                    Filtering by {selectedTags.length} categor{selectedTags.length === 1 ? 'y' : 'ies'}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTags.map((tag, index) => {
+                      const colorClass = categoryColors[allTags.indexOf(tag) % categoryColors.length];
+                      return (
+                        <span
+                          key={tag}
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-white border",
+                            colorClass.replace('text-', 'border-').replace('-500', '-200')
+                          )}
+                        >
+                          <div className={cn("w-1.5 h-1.5 rounded-full", colorClass.replace('text-', 'bg-'))} />
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
+
+          {/* Legacy Tag Filter - Hidden for cleaner design */}
+          {false && allTags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-4">
               {allTags.slice(0, 8).map((tag) => (
                 <button

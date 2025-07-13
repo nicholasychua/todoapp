@@ -15,10 +15,10 @@ export async function addToWaitlist(email: string) {
     
     console.log('Successfully added to waitlist with ID:', result.id);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error adding to waitlist:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
+    console.error('Error code:', error?.code);
+    console.error('Error message:', error?.message);
     throw error;
   }
 } 

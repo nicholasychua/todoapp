@@ -85,48 +85,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     if (!isBrowser) return;
-    await createUserWithEmailAndPassword(auth, email, password);
+    
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setError(null);
+    } catch (error: any) {
+      console.log("Sign-up error:", error);
+      if (error.code === "auth/email-already-in-use") {
+        setError("An account with this email already exists.");
+      } else if (error.code === "auth/weak-password") {
+        setError("Password should be at least 6 characters.");
+      } else if (error.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError("Failed to create account. Please try again.");
+      }
+      throw error;
+    }
   };
 
   const signInWithGoogle = async () => {
     if (!isBrowser) return;
-    
     try {
       const provider = new GoogleAuthProvider();
-      
-      // Add additional scopes if needed
       provider.addScope('email');
       provider.addScope('profile');
-      
       console.log('Attempting Google sign-in...');
-      
-      // Try popup first
-      try {
-        const result = await signInWithPopup(auth, provider);
-        console.log('Google sign-in successful:', result.user.email);
-        setError(null);
-      } catch (popupError: any) {
-        console.error('Popup error:', popupError);
-        
-        // If popup fails, try redirect
-        if (popupError.code === 'auth/popup-blocked' || 
-            popupError.code === 'auth/popup-closed-by-user' ||
-            popupError.code === 'auth/cancelled-popup-request') {
-          console.log('Popup blocked, trying redirect...');
-          await signInWithRedirect(auth, provider);
-        } else {
-          throw popupError;
-        }
-      }
-      
+      const result = await signInWithPopup(auth, provider);
+      console.log('Google sign-in successful:', result.user.email);
       setError(null);
     } catch (error: any) {
-      console.error("Google sign-in error:", error);
-      console.error("Error code:", error.code);
-      console.error("Error message:", error.message);
-      
+      console.error('Google sign-in error:', error);
       let errorMessage = "Failed to sign in with Google. Please try again.";
-      
       switch (error.code) {
         case 'auth/popup-blocked':
           errorMessage = "Please allow popups for this website to sign in with Google.";
@@ -152,7 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         default:
           errorMessage = `Sign-in failed: ${error.message}`;
       }
-      
       setError(errorMessage);
       throw error; // Re-throw to be handled by the component
     }
