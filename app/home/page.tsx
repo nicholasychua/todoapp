@@ -40,6 +40,104 @@ import {
 import { processVoiceInput, type ProcessedTask } from "@/lib/ai-service"
 import { NavigationSidebar } from "@/components/ui/navigation-sidebar"
 
+// Category Popup Component
+function CategoryPopup({ 
+  isOpen, 
+  onClose, 
+  onSelect, 
+  categories, 
+  position,
+  inputValue,
+  onInputChange
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (category: string) => void;
+  categories: Category[];
+  position: { top: number; left: number };
+  inputValue: string;
+  onInputChange: (value: string) => void;
+}) {
+  const [customInput, setCustomInput] = useState("");
+  
+  const filteredCategories = categories.filter(cat => 
+    cat.name.toLowerCase().includes(inputValue.toLowerCase())
+  );
+  
+  const handleSelect = (categoryName: string) => {
+    onSelect(categoryName);
+    onClose();
+  };
+  
+  const handleCustomSubmit = () => {
+    if (customInput.trim()) {
+      onSelect(customInput.trim());
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 p-2 min-w-[200px] max-w-[280px]"
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
+    >
+      <div className="space-y-1">
+        {/* Predefined Categories */}
+        {filteredCategories.map((category, index) => (
+          <button
+            key={category.id}
+            onClick={() => handleSelect(category.name)}
+            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm font-medium text-gray-700 flex items-center gap-2"
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            {category.name}
+          </button>
+        ))}
+        
+        {/* Custom Input */}
+        <div className="border-t border-gray-100 pt-2 mt-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleCustomSubmit();
+                }
+                if (e.key === 'Escape') {
+                  onClose();
+                }
+              }}
+              placeholder="Custom category..."
+              className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-blue-300 transition-colors"
+              autoFocus
+            />
+            <Button
+              onClick={handleCustomSubmit}
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={!customInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // Define a color palette for categories
 const categoryColors = [
   'text-orange-500',
@@ -170,6 +268,9 @@ export default function HomePage() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<Record<string, NodeJS.Timeout>>({});
+  const [showCategoryPopup, setShowCategoryPopup] = useState(false);
+  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
+  const [categoryInputValue, setCategoryInputValue] = useState("");
 
   // Reset all state when user changes
   useEffect(() => {
@@ -564,6 +665,66 @@ export default function HomePage() {
     setTheme("light")
   }, [setTheme])
 
+  // Handle category popup logic
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+    
+    setNewTaskText(value);
+    
+    // Check if user typed # and show category popup
+    const lastChar = value[cursorPosition - 1];
+    if (lastChar === '#' && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setCategoryPopupPosition({
+        top: rect.bottom + 8,
+        left: rect.left
+      });
+      setCategoryInputValue("");
+      setShowCategoryPopup(true);
+    } else {
+      setShowCategoryPopup(false);
+    }
+  };
+
+  const handleCategorySelect = (categoryName: string) => {
+    if (!inputRef.current) return;
+    
+    const currentValue = newTaskText;
+    const cursorPosition = inputRef.current.selectionStart || 0;
+    
+    // Find the last # position
+    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
+    if (lastHashIndex !== -1) {
+      const beforeHash = currentValue.substring(0, lastHashIndex);
+      const afterCursor = currentValue.substring(cursorPosition);
+      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
+      
+      setNewTaskText(newValue);
+      
+      // Set cursor position after the inserted category
+      setTimeout(() => {
+        if (inputRef.current) {
+          const newCursorPosition = lastHashIndex + categoryName.length + 2;
+          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          inputRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Close category popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCategoryPopup && inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setShowCategoryPopup(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCategoryPopup]);
+
   if (loading) {
     return null
   }
@@ -622,12 +783,15 @@ export default function HomePage() {
               <Input
                 ref={inputRef}
                 type="text"
-                placeholder="What needs to be done?"
+                placeholder="What needs to be done? (type # for categories)"
                 value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     addTask();
+                  }
+                  if (e.key === 'Escape') {
+                    setShowCategoryPopup(false);
                   }
                 }}
                 className="pr-20 text-base h-12 border-gray-200 focus:border-gray-300 focus:ring-0 rounded-xl"
@@ -655,6 +819,21 @@ export default function HomePage() {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+          
+          {/* Category Popup */}
+          <AnimatePresence>
+            {showCategoryPopup && (
+              <CategoryPopup
+                isOpen={showCategoryPopup}
+                onClose={() => setShowCategoryPopup(false)}
+                onSelect={handleCategorySelect}
+                categories={categories}
+                position={categoryPopupPosition}
+                inputValue={categoryInputValue}
+                onInputChange={setCategoryInputValue}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Voice Recording Modal */}

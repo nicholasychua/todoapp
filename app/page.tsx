@@ -196,30 +196,188 @@ function Sidebar({
   );
 }
 
+// Category Popup Component
+function CategoryPopup({ 
+  isOpen, 
+  onClose, 
+  onSelect, 
+  categories, 
+  position,
+  inputValue,
+  onInputChange
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (category: string) => void;
+  categories: Category[];
+  position: { top: number; left: number };
+  inputValue: string;
+  onInputChange: (value: string) => void;
+}) {
+  const [customInput, setCustomInput] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  const filteredCategories = categories.filter(cat => 
+    cat.name.toLowerCase().includes(inputValue.toLowerCase())
+  );
+  
+  const handleSelect = (categoryName: string) => {
+    onSelect(categoryName);
+    onClose();
+  };
+  
+  const handleCustomSubmit = () => {
+    if (customInput.trim()) {
+      onSelect(customInput.trim());
+      onClose();
+    }
+  };
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(prev => 
+            prev < filteredCategories.length - 1 ? prev + 1 : prev
+          );
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(prev => prev > 0 ? prev - 1 : prev);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (filteredCategories[selectedIndex]) {
+            handleSelect(filteredCategories[selectedIndex].name);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, filteredCategories, selectedIndex]);
+
+  // Reset selected index when filtered categories change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [filteredCategories.length]);
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed z-50 bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200 overflow-hidden min-w-[220px] max-w-[300px]"
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
+    >
+      <div className="p-2">
+        {/* Header */}
+        <div className="px-2 py-1 mb-2">
+          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            Choose Category
+          </div>
+        </div>
+        
+        {/* Predefined Categories */}
+        <div className="space-y-1 mb-2">
+          {filteredCategories.map((category, index) => (
+            <motion.button
+              key={category.id}
+              onClick={() => handleSelect(category.name)}
+              className={cn(
+                "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group",
+                index === selectedIndex
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                  : "text-gray-700 hover:bg-gray-50 border border-transparent"
+              )}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <span className={cn(
+                "w-2 h-2 rounded-full transition-colors",
+                index === selectedIndex ? "bg-blue-500" : "bg-gray-400"
+              )}></span>
+              <span className="flex-1">{category.name}</span>
+              {index === selectedIndex && (
+                <motion.div
+                  initial={{ opacity: 0, x: -5 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="text-xs text-blue-600 font-medium"
+                >
+                  ↵
+                </motion.div>
+              )}
+            </motion.button>
+          ))}
+        </div>
+        
+        {filteredCategories.length === 0 && (
+          <div className="px-3 py-2 text-sm text-gray-500 text-center">
+            No categories found
+          </div>
+        )}
+        
+        {/* Custom Input */}
+        <div className="border-t border-gray-100 pt-2">
+          <div className="px-1">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              Create New
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCustomSubmit();
+                  }
+                  e.stopPropagation(); // Prevent parent keyboard handling
+                }}
+                placeholder="Custom category..."
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-200 transition-all placeholder:text-gray-400"
+                autoFocus
+              />
+              <Button
+                onClick={handleCustomSubmit}
+                size="sm"
+                className="h-8 px-3 text-xs font-medium bg-blue-600 hover:bg-blue-700 transition-colors"
+                disabled={!customInput.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function TaskManager() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
   const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
   const { subscribeToTabGroups } = useTabGroupService();
+  const { theme, setTheme } = useTheme()
   
-  // Helper function to check if two dates are the same day
-  const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
-  };
-  
-  // Redirect to coming soon page if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/coming-soon')
-    } else if (!loading && user) {
-      // If user is authenticated, stay on the main page
-      console.log("User authenticated:", user.uid)
-    }
-  }, [user, loading, router])
-
-  // State
+  // All useState hooks first
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskText, setNewTaskText] = useState("")
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined)
@@ -229,7 +387,6 @@ export default function TaskManager() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
   const [showSearch, setShowSearch] = useState(false)
   const [showPomodoro, setShowPomodoro] = useState(false)
-  const { theme, setTheme } = useTheme()
   const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
   const [showVoiceMenu, setShowVoiceMenu] = useState(false)
   const [voiceRaw, setVoiceRaw] = useState("")
@@ -249,69 +406,25 @@ export default function TaskManager() {
   const [backlogSortBy, setBacklogSortBy] = useState<"date" | "alphabetical" | "category">("date");
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<Record<string, NodeJS.Timeout>>({});
+  const [showCategoryPopup, setShowCategoryPopup] = useState(false);
+  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
+  const [categoryInputValue, setCategoryInputValue] = useState("");
+  const [textareaHeight, setTextareaHeight] = useState(40)
+  const [speechDraft, setSpeechDraft] = useState("")
 
-  // Reset all state when user changes
-  useEffect(() => {
-    // Only run after initial loading is complete
-    if (!loading) {
-      setTasks([]);
-      setNewTaskText("");
-      setNewTaskDate(undefined);
-      setSearchText("");
-      setIsRecording(false);
-      setIsRecordingComplete(false);
-      setFilter("all");
-      setShowSearch(false);
-      setShowPomodoro(false);
-      setShowBacklog(false);
-      setSelectedTaskIds([]);
-      setBacklogFilter("all");
-      setBacklogSortBy("date");
-      setTheme("light");
-      setSelectedTags([]);
-      setCompletedTaskIds([]);
-      setPendingCompletions({});
-      console.log("Reset all state for user:", user?.uid);
-    }
-  }, [user?.uid, loading]);
-
+  // All useRef hooks
   const inputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [textareaHeight, setTextareaHeight] = useState(40)
-  const [speechDraft, setSpeechDraft] = useState("")
   const finalTranscriptRef = useRef("");
-
-  // Focus search input when search is shown
-  useEffect(() => {
-    if (showSearch && searchInputRef.current) {
-      searchInputRef.current.focus()
-    }
-  }, [showSearch])
-
-  // Handle keyboard events for voice control
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && !isRecording) {
-        startRecording()
-      }
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && isRecording) {
-        stopRecording()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [isRecording])
+  
+  // Helper function to check if two dates are the same day
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  };
 
   // Parse tags from text (words starting with #)
   const parseTagsFromText = (text: string): string[] => {
@@ -326,43 +439,72 @@ export default function TaskManager() {
     return text.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
   };
 
-  // Subscribe to tasks
-  useEffect(() => {
-    if (!user) return
-
-    const unsubscribe = subscribeToTasks((newTasks: Task[]) => {
-      setTasks(newTasks)
-    })
-
-    return () => unsubscribe()
-  }, [user])
-
-  // Subscribe to tab groups
-  useEffect(() => {
-    if (!user) return
-
-    console.log("Setting up tab groups subscription in main component");
+  // Function to handle logout
+  const handleLogout = async () => {
     try {
-      const unsubscribe = subscribeToTabGroups((newTabGroups) => {
-        console.log("Tab groups updated in main component:", newTabGroups.length);
-        setTabGroups(newTabGroups);
-      });
-
-      return () => {
-        console.log("Cleaning up tab groups subscription in main component");
-        unsubscribe();
-      }
+      await logout();
+      // Note: The state will be reset by our effect hook when user changes
+      console.log("User logged out successfully");
     } catch (error) {
-      console.error("Error subscribing to tab groups in main component:", error);
+      console.error("Error logging out:", error);
     }
-  }, [user, subscribeToTabGroups]);
+  };
 
-  // Subscribe to categories
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeToCategories(user.uid, (cats) => setCategories(cats));
-    return () => unsubscribe();
-  }, [user]);
+  // Handle category popup logic
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    if (isRecording) {
+      setSpeechDraft(value);
+    } else {
+      setNewTaskText(value);
+    }
+    
+    // Check if user typed # and show category popup
+    const lastChar = value[cursorPosition - 1];
+    if (lastChar === '#' && textareaRef.current) {
+      const rect = textareaRef.current.getBoundingClientRect();
+      setCategoryPopupPosition({
+        top: rect.bottom + 8,
+        left: rect.left
+      });
+      setCategoryInputValue("");
+      setShowCategoryPopup(true);
+    } else {
+      setShowCategoryPopup(false);
+    }
+  };
+
+  const handleCategorySelect = (categoryName: string) => {
+    if (!textareaRef.current) return;
+    
+    const currentValue = isRecording ? speechDraft : newTaskText;
+    const cursorPosition = textareaRef.current.selectionStart;
+    
+    // Find the last # position
+    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
+    if (lastHashIndex !== -1) {
+      const beforeHash = currentValue.substring(0, lastHashIndex);
+      const afterCursor = currentValue.substring(cursorPosition);
+      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
+      
+      if (isRecording) {
+        setSpeechDraft(newValue);
+      } else {
+        setNewTaskText(newValue);
+      }
+      
+      // Set cursor position after the inserted category
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newCursorPosition = lastHashIndex + categoryName.length + 2;
+          textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  };
 
   // Add a new task
   const addTask = async (text?: string, date?: Date) => {
@@ -617,11 +759,6 @@ export default function TaskManager() {
     setShowPomodoro(false);
   };
 
-  // Force light theme on component mount
-  useEffect(() => {
-    setTheme("light")
-  }, [setTheme])
-
   // Update task with new date
   const updateTaskDate = async (taskId: string, newDate: Date) => {
     if (!user) return
@@ -644,15 +781,6 @@ export default function TaskManager() {
     // TODO: Optionally update backend order here
   };
 
-  // Clean up timeouts on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(pendingCompletions).forEach(timeoutId => {
-        clearTimeout(timeoutId);
-      });
-    };
-  }, [pendingCompletions]);
-
   // Handle clicks outside of task checkboxes to immediately complete pending tasks
   const handleContainerClick = (e: React.MouseEvent) => {
     // Check if the click target is not a checkbox or its container
@@ -670,6 +798,137 @@ export default function TaskManager() {
     }
   };
 
+  // All useEffect hooks
+  // Redirect to coming soon page if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/coming-soon')
+    } else if (!loading && user) {
+      // If user is authenticated, stay on the main page
+      console.log("User authenticated:", user.uid)
+    }
+  }, [user, loading, router])
+
+  // Reset all state when user changes
+  useEffect(() => {
+    // Only run after initial loading is complete
+    if (!loading) {
+      setTasks([]);
+      setNewTaskText("");
+      setNewTaskDate(undefined);
+      setSearchText("");
+      setIsRecording(false);
+      setIsRecordingComplete(false);
+      setFilter("all");
+      setShowSearch(false);
+      setShowPomodoro(false);
+      setShowBacklog(false);
+      setSelectedTaskIds([]);
+      setBacklogFilter("all");
+      setBacklogSortBy("date");
+      setTheme("light");
+      setSelectedTags([]);
+      setCompletedTaskIds([]);
+      setPendingCompletions({});
+      console.log("Reset all state for user:", user?.uid);
+    }
+  }, [user?.uid, loading]);
+
+  // Focus search input when search is shown
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showSearch])
+
+  // Handle keyboard events for voice control
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && !isRecording) {
+        startRecording()
+      }
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' && isRecording) {
+        stopRecording()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isRecording])
+
+  // Subscribe to tasks
+  useEffect(() => {
+    if (!user) return
+
+    const unsubscribe = subscribeToTasks((newTasks: Task[]) => {
+      setTasks(newTasks)
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+  // Subscribe to tab groups
+  useEffect(() => {
+    if (!user) return
+
+    console.log("Setting up tab groups subscription in main component");
+    try {
+      const unsubscribe = subscribeToTabGroups((newTabGroups) => {
+        console.log("Tab groups updated in main component:", newTabGroups.length);
+        setTabGroups(newTabGroups);
+      });
+
+      return () => {
+        console.log("Cleaning up tab groups subscription in main component");
+        unsubscribe();
+      }
+    } catch (error) {
+      console.error("Error subscribing to tab groups in main component:", error);
+    }
+  }, [user, subscribeToTabGroups]);
+
+  // Subscribe to categories
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToCategories(user.uid, (cats) => setCategories(cats));
+    return () => unsubscribe();
+  }, [user]);
+
+  // Force light theme on component mount
+  useEffect(() => {
+    setTheme("light")
+  }, [setTheme])
+
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(pendingCompletions).forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, [pendingCompletions]);
+
+  // Close category popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCategoryPopup && textareaRef.current && !textareaRef.current.contains(event.target as Node)) {
+        setShowCategoryPopup(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCategoryPopup]);
+
+  // Early returns after all hooks
   if (loading) {
     return null
   }
@@ -677,17 +936,6 @@ export default function TaskManager() {
   if (!user) {
     return null
   }
-
-  // Function to handle logout
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Note: The state will be reset by our effect hook when user changes
-      console.log("User logged out successfully");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
 
   return (
     <div className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-hidden" onClick={handleContainerClick}>
@@ -760,6 +1008,7 @@ export default function TaskManager() {
                 user={user}
                 completedTaskIds={completedTaskIds}
                 getTagTextColor={getTagTextColor}
+                parseTagsFromText={parseTagsFromText}
               />
             </motion.div>
           ) : (
@@ -811,20 +1060,17 @@ export default function TaskManager() {
                       <textarea
                         ref={textareaRef}
                         value={isRecording ? speechDraft : newTaskText}
-                        onChange={(e) => {
-                          if (isRecording) {
-                            setSpeechDraft(e.target.value);
-                          } else {
-                            setNewTaskText(e.target.value);
-                          }
-                        }}
+                        onChange={handleTextareaChange}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
                             addTask();
                           }
+                          if (e.key === "Escape") {
+                            setShowCategoryPopup(false);
+                          }
                         }}
-                        placeholder="Add new task"
+                        placeholder="Add new task (type # for categories)"
                         rows={1}
                         className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                       />
@@ -853,6 +1099,21 @@ export default function TaskManager() {
                         </Button>
                       </div>
                     </div>
+                    
+                    {/* Category Popup */}
+                    <AnimatePresence>
+                      {showCategoryPopup && (
+                        <CategoryPopup
+                          isOpen={showCategoryPopup}
+                          onClose={() => setShowCategoryPopup(false)}
+                          onSelect={handleCategorySelect}
+                          categories={categories}
+                          position={categoryPopupPosition}
+                          inputValue={categoryInputValue}
+                          onInputChange={setCategoryInputValue}
+                        />
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   <AnimatePresence mode="wait">
@@ -1235,7 +1496,8 @@ function BacklogView({
   setBacklogSortBy,
   user,
   completedTaskIds,
-  getTagTextColor
+  getTagTextColor,
+  parseTagsFromText
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
@@ -1256,6 +1518,7 @@ function BacklogView({
   user: any;
   completedTaskIds: string[];
   getTagTextColor: (tag: string) => string;
+  parseTagsFromText: (text: string) => string[];
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
@@ -1270,6 +1533,12 @@ function BacklogView({
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
+  // Category popup state
+  const [showCategoryPopup, setShowCategoryPopup] = useState(false);
+  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
+  const [categoryInputValue, setCategoryInputValue] = useState("");
+  const backlogTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   // Helper to reorder categories (moved from TaskManager)
   const moveCategory = (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
@@ -1279,13 +1548,6 @@ function BacklogView({
     // This only updates locally; to persist, update backend as needed
     // setCategories(updated); // Not available here, but backend update can be added if needed
   };
-
-  // Parse tags from text
-  const parseTagsFromText = (text: string): string[] => {
-    const tagRegex = /#(\w+)/g
-    const matches = text.match(tagRegex) || []
-    return matches.map((tag) => tag.substring(1))
-  }
 
   // Add a new task to backlog
   const addTask = async () => {
@@ -1397,6 +1659,66 @@ function BacklogView({
     return groups;
   }, {} as Record<string, Task[]>);
 
+  // Handle category popup logic for backlog textarea
+  const handleBacklogTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    setNewTaskText(value);
+    
+    // Check if user typed # and show category popup
+    const lastChar = value[cursorPosition - 1];
+    if (lastChar === '#' && backlogTextareaRef.current) {
+      const rect = backlogTextareaRef.current.getBoundingClientRect();
+      setCategoryPopupPosition({
+        top: rect.bottom + 8,
+        left: rect.left
+      });
+      setCategoryInputValue("");
+      setShowCategoryPopup(true);
+    } else {
+      setShowCategoryPopup(false);
+    }
+  };
+
+  const handleBacklogCategorySelect = (categoryName: string) => {
+    if (!backlogTextareaRef.current) return;
+    
+    const currentValue = newTaskText;
+    const cursorPosition = backlogTextareaRef.current.selectionStart;
+    
+    // Find the last # position
+    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
+    if (lastHashIndex !== -1) {
+      const beforeHash = currentValue.substring(0, lastHashIndex);
+      const afterCursor = currentValue.substring(cursorPosition);
+      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
+      
+      setNewTaskText(newValue);
+      
+      // Set cursor position after the inserted category
+      setTimeout(() => {
+        if (backlogTextareaRef.current) {
+          const newCursorPosition = lastHashIndex + categoryName.length + 2;
+          backlogTextareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          backlogTextareaRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Close category popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCategoryPopup && backlogTextareaRef.current && !backlogTextareaRef.current.contains(event.target as Node)) {
+        setShowCategoryPopup(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCategoryPopup]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -1410,20 +1732,39 @@ function BacklogView({
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">Quick Add Task</h3>
           <div className="flex gap-3">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <textarea
+                ref={backlogTextareaRef}
                 value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
+                onChange={handleBacklogTextareaChange}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     addTask();
+                  }
+                  if (e.key === "Escape") {
+                    setShowCategoryPopup(false);
                   }
                 }}
                 placeholder="What's on your mind? Use #tags to categorize..."
                 rows={2}
                 className="w-full resize-none bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 focus:outline-none transition-colors"
               />
+              
+              {/* Category Popup for Backlog */}
+              <AnimatePresence>
+                {showCategoryPopup && (
+                  <CategoryPopup
+                    isOpen={showCategoryPopup}
+                    onClose={() => setShowCategoryPopup(false)}
+                    onSelect={handleBacklogCategorySelect}
+                    categories={categories}
+                    position={categoryPopupPosition}
+                    inputValue={categoryInputValue}
+                    onInputChange={setCategoryInputValue}
+                  />
+                )}
+              </AnimatePresence>
             </div>
             <div className="flex flex-col gap-2">
               {!newTaskDate ? (
