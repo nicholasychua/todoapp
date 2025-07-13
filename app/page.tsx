@@ -1539,6 +1539,20 @@ function BacklogView({
   const [categoryInputValue, setCategoryInputValue] = useState("");
   const backlogTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Add at the top of BacklogView, after other useState hooks:
+  const [cardStates, setCardStates] = useState<Record<string, { showAdd: boolean, input: string, date?: Date }>>({});
+
+  // Helper to get state for a card
+  const getCardState = (catName: string) => cardStates[catName] || { showAdd: false, input: "", date: undefined };
+
+  // Handler to update state for a card
+  const setCardState = (catName: string, newState: Partial<{ showAdd: boolean, input: string, date?: Date }>) => {
+    setCardStates(prev => ({
+      ...prev,
+      [catName]: { ...getCardState(catName), ...newState }
+    }));
+  };
+
   // Helper to reorder categories (moved from TaskManager)
   const moveCategory = (from: number, to: number) => {
     if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
@@ -1727,346 +1741,217 @@ function BacklogView({
         <p className="text-gray-500 text-sm">Your complete task brain dump and management center</p>
       </div>
 
-      {/* Quick Add Task */}
-      <Card className="p-4">
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Quick Add Task</h3>
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <textarea
-                ref={backlogTextareaRef}
-                value={newTaskText}
-                onChange={handleBacklogTextareaChange}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    addTask();
-                  }
-                  if (e.key === "Escape") {
-                    setShowCategoryPopup(false);
-                  }
-                }}
-                placeholder="What's on your mind? Use #tags to categorize..."
-                rows={2}
-                className="w-full resize-none bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 focus:outline-none transition-colors"
-              />
-              
-              {/* Category Popup for Backlog */}
+      {/* Create a new list (category) */}
+      <Card className="p-4 mb-4">
+        <form
+          className="flex gap-2 items-center"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
+              await addCategory(newTaskText.trim(), user.uid);
+              setNewTaskText("");
+            }
+          }}
+        >
+          <Input
+            placeholder="Create a new list..."
+            className="flex-1 text-sm rounded-lg"
+            value={newTaskText}
+            onChange={e => setNewTaskText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setNewTaskText('');
+            }}
+          />
+          <Button type="submit" size="sm" className="text-xs">
+            <Plus className="h-4 w-4 mr-1" />
+            Add
+          </Button>
+        </form>
+      </Card>
+
+      {/* Category Cards Grid */}
+      <div className="flex flex-wrap gap-6 justify-start items-start w-full overflow-x-auto pb-4">
+        {/* Render each category as a card */}
+        {[...categories.map(c => c.name), "Uncategorized"].map((catName, idx) => {
+          const isUncategorized = catName === "Uncategorized";
+          const catTasks = isUncategorized
+            ? filteredAndSortedTasks.filter(t => t.tags.length === 0)
+            : filteredAndSortedTasks.filter(t => t.tags[0] === catName);
+
+          // State for showing add input per card
+          const cardState = getCardState(catName);
+
+          // Add task handler for this card
+          const handleAddTask = async () => {
+            if (!user || !cardState.input.trim()) return;
+            try {
+              const tags = isUncategorized ? [] : [catName];
+              await createTask({
+                text: cardState.input,
+                completed: false,
+                tags,
+                createdAt: cardState.date || new Date(),
+                group: "master"
+              });
+              setCardState(catName, { input: "", date: undefined, showAdd: false });
+              toast.success("Task added!");
+            } catch {
+              toast.error("Failed to add task");
+            }
+          };
+
+          return (
+            <motion.div
+              key={catName}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-xl shadow border border-gray-200 min-w-[260px] max-w-xs flex flex-col p-4 relative"
+              tabIndex={0}
+              onClick={() => setCardState(catName, { showAdd: true })}
+              onBlur={() => setCardState(catName, { showAdd: false })}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold text-gray-900 truncate">{catName}</h2>
+                {/* Optionally: category color dot or menu */}
+              </div>
+              <div className="flex flex-col gap-2 mb-2 min-h-[40px]">
+                {catTasks.length === 0 && (
+                  <span className="text-xs text-gray-400 italic">No tasks</span>
+                )}
+                <AnimatePresence initial={false}>
+                  {catTasks.map((task, idx) => {
+                    const hasDate = task.createdAt instanceof Date;
+                    const today = new Date();
+                    let isPastOrToday = false;
+                    let dateString = '';
+                    let timeString = '';
+                    if (hasDate) {
+                      const d = task.createdAt;
+                      dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                      isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                      const hours = d.getHours();
+                      const minutes = d.getMinutes();
+                      if (!(hours === 0 && minutes === 0)) {
+                        timeString = d.toLocaleTimeString('en-US', {
+                          hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                        });
+                      }
+                    }
+                    const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                    const effectivelyCompleted = isInWaitingPeriod || task.completed;
+                    return (
+                      <motion.div
+                        key={task.id}
+                        layout="position"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        className={cn(
+                          "flex items-start px-2 py-1 min-h-[36px] group hover:bg-accent/40 transition-colors relative rounded-md",
+                          effectivelyCompleted ? "bg-muted/30" : ""
+                        )}
+                      >
+                        <StyledCheckbox
+                          checked={effectivelyCompleted}
+                          onCheckedChange={() => toggleTaskCompletion(task.id)}
+                          className="flex-shrink-0 mt-0.5"
+                        />
+                        <div className="flex flex-1 flex-row min-w-0 ml-2 items-end">
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className={cn(
+                              "text-sm font-normal truncate transition-colors duration-200",
+                              effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                            )}>
+                              {formatTextWithTags(task.text)}
+                            </span>
+                            {hasDate && (
+                              <span className={cn(
+                                "text-xs font-medium transition-colors duration-200 mt-0.5",
+                                isPastOrToday ? "text-red-600" : "text-gray-400"
+                              )}>
+                                {dateString}{timeString ? `, ${timeString}` : ''}
+                              </span>
+                            )}
+                          </div>
+                          {task.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 justify-end items-end ml-2">
+                              {task.tags.map((tag) => (
+                                <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                  <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                          aria-label="Delete task"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+              {/* Add Task Input (shown on click/focus) */}
               <AnimatePresence>
-                {showCategoryPopup && (
-                  <CategoryPopup
-                    isOpen={showCategoryPopup}
-                    onClose={() => setShowCategoryPopup(false)}
-                    onSelect={handleBacklogCategorySelect}
-                    categories={categories}
-                    position={categoryPopupPosition}
-                    inputValue={categoryInputValue}
-                    onInputChange={setCategoryInputValue}
-                  />
+                {cardState.showAdd && (
+                  <motion.form
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex gap-2 items-center mt-2"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      handleAddTask();
+                    }}
+                  >
+                    <Input
+                      autoFocus
+                      placeholder="Add a task..."
+                      className="flex-1 text-xs rounded-lg"
+                      value={cardState.input}
+                      onChange={e => setCardState(catName, { input: e.target.value })}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') setCardState(catName, { showAdd: false });
+                      }}
+                    />
+                    {!cardState.date ? (
+                      <Button
+                        variant="ghost"
+                        className="h-7 w-7 flex items-center justify-center"
+                        onClick={e => { e.stopPropagation(); setCardState(catName, { date: new Date() }); }}
+                        aria-label="Select date"
+                        type="button"
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <DatePicker
+                        date={cardState.date}
+                        setDate={(date) => setCardState(catName, { date })}
+                      />
+                    )}
+                    <Button type="submit" size="sm" className="text-xs">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add
+                    </Button>
+                  </motion.form>
                 )}
               </AnimatePresence>
-            </div>
-            <div className="flex flex-col gap-2">
-              {!newTaskDate ? (
-                <Button
-                  variant="ghost"
-                  className="h-8 w-8 flex items-center justify-center"
-                  onClick={() => setNewTaskDate(new Date())}
-                  aria-label="Select date"
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                </Button>
-              ) : (
-                <DatePicker
-                  date={newTaskDate}
-                  setDate={setNewTaskDate as (date: Date | undefined) => void}
-                />
-              )}
-              <Button onClick={addTask} size="sm" className="text-xs">
-                <Plus className="h-3 w-3 mr-1" />
-                Add
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Category Management Section (moved from main page) */}
-      <div className="mb-8 mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-muted-foreground">Browse by Category</h3>
-          <div className="ml-4">
-            <AnimatePresence initial={false} mode="wait">
-              {!editCategoriesMode ? (
-                <motion.div
-                  key="edit-btn"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button
-                    variant="outline"
-                    className="rounded-full px-4 py-2 text-xs font-medium min-h-7"
-                    onClick={() => setEditCategoriesMode(true)}
-                  >
-                    Edit Categories
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.form
-                  key="input"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="relative flex items-center"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
-                      await addCategory(newTaskText.trim(), user.uid);
-                      setNewTaskText("");
-                    }
-                  }}
-                >
-                  <Input
-                    autoFocus
-                    placeholder="New category..."
-                    className="h-7 text-xs rounded-full pr-8 min-w-[120px]"
-                    value={newTaskText}
-                    onChange={e => setNewTaskText(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') {
-                        setEditCategoriesMode(false);
-                        setNewTaskText('');
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                    type="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setEditCategoriesMode(false);
-                      setNewTaskText('');
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </motion.form>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-3 items-center px-1">
-          {allTags.map((tag, idx) => {
-            const catObj = categories.find((c) => c.name === tag);
-            const catIdx = categories.findIndex((c) => c.name === tag);
-            return (
-              <div
-                key={tag}
-                className="relative flex items-center"
-                draggable={editCategoriesMode && catObj ? true : false}
-                onDragStart={editCategoriesMode && catObj ? () => setDraggedCatIdx(catIdx) : undefined}
-                onDragOver={editCategoriesMode && catObj ? (e) => { e.preventDefault(); setDragOverCatIdx(catIdx); } : undefined}
-                onDrop={editCategoriesMode && catObj ? (e) => {
-                  e.preventDefault();
-                  if (draggedCatIdx !== null && dragOverCatIdx !== null && draggedCatIdx !== dragOverCatIdx) {
-                    moveCategory(draggedCatIdx, dragOverCatIdx);
-                  }
-                  setDraggedCatIdx(null);
-                  setDragOverCatIdx(null);
-                } : undefined}
-                onDragEnd={editCategoriesMode && catObj ? () => { setDraggedCatIdx(null); setDragOverCatIdx(null); } : undefined}
-              >
-                <Button
-                  variant={selectedTags.includes(tag) ? "default" : "outline"}
-                  className={cn(
-                    "flex items-center justify-center rounded-full text-[10px] font-medium shadow-none transition-all duration-200",
-                    editCategoriesMode ? "pl-4 pr-2 min-w-[90px] cursor-move" : "px-4",
-                    "py-[2px]"
-                  )}
-                  onClick={editCategoriesMode
-                    ? (e) => e.preventDefault()
-                    : () => {
-                        setSelectedTags((prev) =>
-                          prev.includes(tag)
-                            ? prev.filter((t) => t !== tag)
-                            : [...prev, tag]
-                        );
-                      }
-                  }
-                  type="button"
-                  tabIndex={0}
-                >
-                  <span className="truncate">{tag}</span>
-                  {editCategoriesMode && catObj && (
-                    <span
-                      className="ml-2 flex items-center cursor-pointer text-destructive hover:text-destructive/80 focus:outline-none"
-                      tabIndex={0}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await deleteCategory(catObj.id);
-                      }}
-                      role="button"
-                      aria-label={`Delete ${tag}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </span>
-                  )}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
+            </motion.div>
+          );
+        })}
       </div>
 
-      {/* Task Filter */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={backlogFilter === "all" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8"
-            onClick={() => setBacklogFilter("all")}
-          >
-            All
-          </Button>
-          <Button
-            variant={backlogFilter === "active" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8"
-            onClick={() => setBacklogFilter("active")}
-          >
-            Active
-          </Button>
-          <Button
-            variant={backlogFilter === "completed" ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-8"
-            onClick={() => setBacklogFilter("completed")}
-          >
-            Completed
-          </Button>
-        </div>
-      </div>
-
-      {/* Task List */}
-      <Card className="overflow-hidden">
-        <div className="divide-y divide-border">
-          <AnimatePresence initial={false}>
-            {filteredAndSortedTasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                <div className="rounded-full bg-muted p-3 mb-3">
-                  <Search className="h-6 w-6" />
-                </div>
-                <p className="text-lg font-medium mb-1">No tasks found</p>
-                <p className="text-sm">Try adjusting your filters or add a new task above</p>
-              </div>
-            ) : (
-              filteredAndSortedTasks.map((task, idx) => {
-                // Date logic
-                const hasDate = task.createdAt instanceof Date;
-                const today = new Date();
-                let isPastOrToday = false;
-                let dateString = '';
-                let timeString = '';
-                if (hasDate) {
-                  const d = task.createdAt;
-                  dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                  isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                  // Only show time if not midnight (00:00 or 12:00 AM)
-                  const hours = d.getHours();
-                  const minutes = d.getMinutes();
-                  if (!(hours === 0 && minutes === 0)) {
-                    timeString = d.toLocaleTimeString('en-US', {
-                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                    });
-                  }
-                }
-                
-                // Determine effective completion status using local state
-                const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                const effectivelyCompleted = isInWaitingPeriod || task.completed;
-                
-                return (
-                  <motion.div
-                    key={task.id}
-                    layout="position"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ 
-                      opacity: 0,
-                      transition: { 
-                        duration: 0.25, // quick fade
-                        ease: "easeInOut"
-                      }
-                    }}
-                    transition={{ 
-                      duration: 0.4,
-                      ease: "easeOut"
-                    }}
-                    className={cn(
-                      "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                      idx !== tasks.length - 1 && "border-b border-gray-200",
-                      effectivelyCompleted ? "bg-muted/30" : ""
-                    )}
-                  >
-                    {/* Checkbox */}
-                    <StyledCheckbox
-                      checked={effectivelyCompleted}
-                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                      className="flex-shrink-0 mt-0.5"
-                    />
-                    {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className={cn(
-                          "text-sm font-normal truncate transition-colors duration-200",
-                          effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                        )}>
-                          {formatTextWithTags(task.text)}
-                        </span>
-                        {hasDate && (
-                          <span className={cn(
-                            "text-xs font-medium transition-colors duration-200 mt-0.5",
-                            isPastOrToday ? "text-red-600" : "text-gray-400"
-                          )}>
-                            {dateString}{timeString ? `, ${timeString}` : ''}
-                          </span>
-                        )}
-                      </div>
-                      {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
-                          {task.tags.map((tag) => (
-                            <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                              <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Delete button (show on hover) */}
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
-                      aria-label="Delete task"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </motion.div>
-                );
-              })
-            )}
-          </AnimatePresence>
-        </div>
-      </Card>
-      
-      {/* Statistics */}
-      <Card className="p-4">
+      {/* Statistics (unchanged) */}
+      <Card className="p-4 mt-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-2xl font-bold text-gray-900">{tasks.length}</div>
