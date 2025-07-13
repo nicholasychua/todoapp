@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion"
 import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
 import Link from "next/link"
@@ -172,7 +172,7 @@ function Sidebar({
           )}
           onClick={handleBacklogToggle}
         >
-          Backlog
+          Subspaces
         </button>
         <button 
           className={cn(
@@ -1523,7 +1523,7 @@ function BacklogView({
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
   const [searchText, setSearchText] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
@@ -1733,11 +1733,66 @@ function BacklogView({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategoryPopup]);
 
+  // Add at the top of BacklogView, after other useState hooks:
+  const [editTaskId, setEditTaskId] = useState<string | null>(null);
+  const [editTaskText, setEditTaskText] = useState<string>("");
+
+  // Handler to open modal
+  const openCategoryModal = (catName: string) => setSelectedCategory(catName);
+  // Handler to close modal
+  const closeCategoryModal = () => {
+    setSelectedCategory(null);
+    setEditTaskId(null);
+    setEditTaskText("");
+  };
+
+  // Handler for editing a task
+  const startEditTask = (task: Task) => {
+    setEditTaskId(task.id);
+    setEditTaskText(task.text);
+  };
+  const saveEditTask = async (task: Task) => {
+    if (editTaskText.trim() && editTaskText !== task.text) {
+      await updateTask(task.id, { text: editTaskText });
+    }
+    setEditTaskId(null);
+    setEditTaskText("");
+  };
+
+  // In BacklogView, add state for card order:
+  const initialOrder = [...categories.map(c => c.name), "Uncategorized"];
+  const [categoryOrder, setCategoryOrder] = useState<string[]>(initialOrder);
+  
+  // Keep order in sync with categories
+  useEffect(() => {
+    setCategoryOrder([...categories.map(c => c.name), "Uncategorized"]);
+  }, [categories.length]);
+
+  // Create a single drag control for all cards
+  const dragControls = useDragControls();
+
+  // Helper function to distribute items into columns
+  const distributeIntoColumns = (items: string[], numColumns: number = 3) => {
+    const columns: string[][] = Array(numColumns).fill(null).map(() => []);
+    items.forEach((item, index) => {
+      columns[index % numColumns].push(item);
+    });
+    return columns;
+  };
+
+  const columns = distributeIntoColumns(categoryOrder, 3);
+
+  // Handle reordering
+  const handleReorder = (newOrder: string[]) => {
+    setCategoryOrder(newOrder);
+    // TODO: Persist order to backend if needed
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Backlog</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Subspaces</h1>
         <p className="text-gray-500 text-sm">Your complete task brain dump and management center</p>
       </div>
 
@@ -1769,185 +1824,172 @@ function BacklogView({
         </form>
       </Card>
 
-      {/* Category Cards Grid */}
-      <div className="flex flex-wrap gap-6 justify-start items-start w-full overflow-x-auto pb-4">
-        {/* Render each category as a card */}
-        {[...categories.map(c => c.name), "Uncategorized"].map((catName, idx) => {
-          const isUncategorized = catName === "Uncategorized";
-          const catTasks = isUncategorized
-            ? filteredAndSortedTasks.filter(t => t.tags.length === 0)
-            : filteredAndSortedTasks.filter(t => t.tags[0] === catName);
-
-          // State for showing add input per card
-          const cardState = getCardState(catName);
-
-          // Add task handler for this card
-          const handleAddTask = async () => {
-            if (!user || !cardState.input.trim()) return;
-            try {
-              const tags = isUncategorized ? [] : [catName];
-              await createTask({
-                text: cardState.input,
-                completed: false,
-                tags,
-                createdAt: cardState.date || new Date(),
-                group: "master"
+      {/* Category Cards Grid - Three Column Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
+        {columns.map((column, columnIndex) => (
+          <Reorder.Group
+            key={columnIndex}
+            axis="y"
+            values={column}
+            onReorder={(newColumnOrder) => {
+              const newOrder = [...categoryOrder];
+              // Update the positions based on the new column order
+              column.forEach((item, oldIndex) => {
+                const newIndex = newColumnOrder.indexOf(item);
+                if (newIndex !== oldIndex) {
+                  const globalOldIndex = categoryOrder.indexOf(item);
+                  const globalNewIndex = columnIndex * Math.ceil(categoryOrder.length / 3) + newIndex;
+                  if (globalOldIndex !== -1) {
+                    newOrder.splice(globalOldIndex, 1);
+                    newOrder.splice(globalNewIndex, 0, item);
+                  }
+                }
               });
-              setCardState(catName, { input: "", date: undefined, showAdd: false });
-              toast.success("Task added!");
-            } catch {
-              toast.error("Failed to add task");
-            }
-          };
-
-          return (
-            <motion.div
-              key={catName}
-              initial={{ opacity: 0, y: 20, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.97 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-xl shadow border border-gray-200 min-w-[260px] max-w-xs flex flex-col p-4 relative"
-              tabIndex={0}
-              onClick={() => setCardState(catName, { showAdd: true })}
-              onBlur={() => setCardState(catName, { showAdd: false })}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold text-gray-900 truncate">{catName}</h2>
-                {/* Optionally: category color dot or menu */}
-              </div>
-              <div className="flex flex-col gap-2 mb-2 min-h-[40px]">
-                {catTasks.length === 0 && (
-                  <span className="text-xs text-gray-400 italic">No tasks</span>
-                )}
-                <AnimatePresence initial={false}>
-                  {catTasks.map((task, idx) => {
-                    const hasDate = task.createdAt instanceof Date;
-                    const today = new Date();
-                    let isPastOrToday = false;
-                    let dateString = '';
-                    let timeString = '';
-                    if (hasDate) {
-                      const d = task.createdAt;
-                      dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                      isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                      const hours = d.getHours();
-                      const minutes = d.getMinutes();
-                      if (!(hours === 0 && minutes === 0)) {
-                        timeString = d.toLocaleTimeString('en-US', {
-                          hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                        });
-                      }
-                    }
-                    const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                    const effectivelyCompleted = isInWaitingPeriod || task.completed;
-                    return (
-                      <motion.div
-                        key={task.id}
-                        layout="position"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                        className={cn(
-                          "flex items-start px-2 py-1 min-h-[36px] group hover:bg-accent/40 transition-colors relative rounded-md",
-                          effectivelyCompleted ? "bg-muted/30" : ""
-                        )}
-                      >
-                        <StyledCheckbox
-                          checked={effectivelyCompleted}
-                          onCheckedChange={() => toggleTaskCompletion(task.id)}
-                          className="flex-shrink-0 mt-0.5"
-                        />
-                        <div className="flex flex-1 flex-row min-w-0 ml-2 items-end">
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <span className={cn(
-                              "text-sm font-normal truncate transition-colors duration-200",
-                              effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                            )}>
-                              {formatTextWithTags(task.text)}
-                            </span>
-                            {hasDate && (
-                              <span className={cn(
-                                "text-xs font-medium transition-colors duration-200 mt-0.5",
-                                isPastOrToday ? "text-red-600" : "text-gray-400"
-                              )}>
-                                {dateString}{timeString ? `, ${timeString}` : ''}
-                              </span>
-                            )}
-                          </div>
-                          {task.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 justify-end items-end ml-2">
-                              {task.tags.map((tag) => (
-                                <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                  <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
-                          aria-label="Delete task"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-              {/* Add Task Input (shown on click/focus) */}
-              <AnimatePresence>
-                {cardState.showAdd && (
-                  <motion.form
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex gap-2 items-center mt-2"
-                    onSubmit={e => {
-                      e.preventDefault();
-                      handleAddTask();
-                    }}
-                  >
-                    <Input
-                      autoFocus
-                      placeholder="Add a task..."
-                      className="flex-1 text-xs rounded-lg"
-                      value={cardState.input}
-                      onChange={e => setCardState(catName, { input: e.target.value })}
-                      onKeyDown={e => {
-                        if (e.key === 'Escape') setCardState(catName, { showAdd: false });
-                      }}
-                    />
-                    {!cardState.date ? (
-                      <Button
-                        variant="ghost"
-                        className="h-7 w-7 flex items-center justify-center"
-                        onClick={e => { e.stopPropagation(); setCardState(catName, { date: new Date() }); }}
-                        aria-label="Select date"
+              handleReorder(newOrder);
+            }}
+            className="space-y-6"
+          >
+            {column.map((catName) => {
+              const isUncategorized = catName === "Uncategorized";
+              const catTasks = isUncategorized
+                ? filteredAndSortedTasks.filter(t => t.tags.length === 0)
+                : filteredAndSortedTasks.filter(t => t.tags[0] === catName);
+              const cardState = getCardState(catName);
+              
+              return (
+                <Reorder.Item
+                  key={catName}
+                  value={catName}
+                  dragListener={true}
+                  dragControls={dragControls}
+                  whileDrag={{ 
+                    scale: 1.05, 
+                    rotate: 2,
+                    boxShadow: "0 20px 40px rgba(0,0,0,0.15)", 
+                    zIndex: 1000,
+                    cursor: "grabbing"
+                  }}
+                  dragTransition={{ 
+                    bounceStiffness: 300, 
+                    bounceDamping: 20 
+                  }}
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 relative cursor-pointer select-none hover:shadow-md transition-shadow duration-200"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h2
+                      className="text-lg font-semibold text-gray-900 truncate flex-1 cursor-pointer"
+                      onClick={() => openCategoryModal(catName)}
+                    >
+                      {catName}
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                        {catTasks.length}
+                      </span>
+                      <button
+                        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
+                        title="Drag to reorder"
+                        onPointerDown={(e) => {
+                          dragControls.start(e);
+                        }}
+                        tabIndex={0}
+                        aria-label="Drag card"
                         type="button"
                       >
-                        <CalendarIcon className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <DatePicker
-                        date={cardState.date}
-                        setDate={(date) => setCardState(catName, { date })}
-                      />
+                        <svg width="16" height="16" fill="none" viewBox="0 0 20 20">
+                          <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
+                          <circle cx="5" cy="10" r="1.5" fill="currentColor"/>
+                          <circle cx="5" cy="14" r="1.5" fill="currentColor"/>
+                          <circle cx="10" cy="6" r="1.5" fill="currentColor"/>
+                          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+                          <circle cx="10" cy="14" r="1.5" fill="currentColor"/>
+                          <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+                          <circle cx="15" cy="10" r="1.5" fill="currentColor"/>
+                          <circle cx="15" cy="14" r="1.5" fill="currentColor"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className="flex flex-col gap-2 mb-3 min-h-[60px] cursor-pointer flex-1" 
+                    onClick={() => openCategoryModal(catName)}
+                  >
+                    {catTasks.length === 0 && (
+                      <div className="flex items-center justify-center h-16 text-gray-400">
+                        <div className="text-center">
+                          <div className="text-2xl mb-1">📝</div>
+                          <span className="text-xs">No tasks yet</span>
+                        </div>
+                      </div>
                     )}
-                    <Button type="submit" size="sm" className="text-xs">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add
-                    </Button>
-                  </motion.form>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          );
-        })}
+                    <AnimatePresence initial={false}>
+                      {catTasks.slice(0, 3).map((task, idx) => (
+                        <motion.div
+                          key={task.id}
+                          layout="position"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10, transition: { duration: 0.2 } }}
+                          transition={{ duration: 0.3, ease: "easeOut" }}
+                          className={cn(
+                            "flex items-start px-3 py-2 min-h-[36px] group hover:bg-gray-50 transition-colors relative rounded-lg border border-gray-100",
+                            completedTaskIds.includes(task.id) || task.completed ? "bg-gray-50 opacity-60" : ""
+                          )}
+                        >
+                          <StyledCheckbox
+                            checked={completedTaskIds.includes(task.id) || task.completed}
+                            onCheckedChange={() => toggleTaskCompletion(task.id)}
+                            className="flex-shrink-0 mt-0.5"
+                          />
+                          <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className={cn(
+                                "text-sm font-normal leading-relaxed transition-colors duration-200",
+                                completedTaskIds.includes(task.id) || task.completed ? "text-gray-500 line-through" : "text-gray-900"
+                              )}>
+                                {formatTextWithTags(task.text)}
+                              </span>
+                              {task.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {task.tags.slice(0, 2).map((tag) => (
+                                    <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                      <span className="text-gray-400">{tag}</span> 
+                                      <span className={getTagTextColor(tag)}>#</span>
+                                    </span>
+                                  ))}
+                                  {task.tags.length > 2 && (
+                                    <span className="text-xs text-gray-400">+{task.tags.length - 2}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    {catTasks.length > 3 && (
+                      <div className="text-xs text-gray-400 text-center py-2 border-t border-gray-100">
+                        +{catTasks.length - 3} more tasks
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Quick add button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openCategoryModal(catName);
+                    }}
+                    className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors border border-dashed border-gray-200 hover:border-gray-300"
+                  >
+                    + Add task
+                  </button>
+                </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
+        ))}
       </div>
 
       {/* Statistics (unchanged) */}
@@ -1971,6 +2013,102 @@ function BacklogView({
           </div>
         </div>
       </Card>
+
+      {selectedCategory && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={closeCategoryModal}
+        >
+          <motion.div
+            initial={{ scale: 0.97, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.97, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-card text-card-foreground border border-border shadow-xl rounded-xl w-full max-w-md mx-4 relative"
+            onClick={e => e.stopPropagation()}
+            tabIndex={-1}
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
+            <div className="rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-semibold">{selectedCategory}</h2>
+                <button onClick={closeCategoryModal} className="text-muted-foreground hover:text-foreground p-1 rounded-full focus:outline-none">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2 mb-4 max-h-80 overflow-y-auto">
+                {filteredAndSortedTasks.filter(t => (selectedCategory === "Uncategorized" ? t.tags.length === 0 : t.tags[0] === selectedCategory)).map(task => (
+                  <div key={task.id} className="flex items-center group rounded-lg px-3 py-2 transition-colors hover:bg-muted">
+                    <StyledCheckbox
+                      checked={completedTaskIds.includes(task.id) || task.completed}
+                      onCheckedChange={() => toggleTaskCompletion(task.id)}
+                      className="mr-2"
+                    />
+                    {editTaskId === task.id ? (
+                      <input
+                        className="flex-1 bg-transparent border-b border-input text-foreground px-1 py-0.5 outline-none"
+                        value={editTaskText}
+                        onChange={e => setEditTaskText(e.target.value)}
+                        onBlur={() => saveEditTask(task)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveEditTask(task);
+                          if (e.key === 'Escape') { setEditTaskId(null); setEditTaskText(""); }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span
+                        className="flex-1 text-sm cursor-pointer"
+                        onClick={() => startEditTask(task)}
+                      >
+                        {task.text}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="ml-2 text-muted-foreground hover:text-destructive p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                      aria-label="Delete task"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {/* Add Task Input */}
+              <form
+                className="flex gap-2 items-center mt-2"
+                onSubmit={async e => {
+                  e.preventDefault();
+                  if (!user || !cardStates[selectedCategory]?.input?.trim()) return;
+                  const tags = selectedCategory === "Uncategorized" ? [] : [selectedCategory];
+                  await createTask({
+                    text: cardStates[selectedCategory]?.input,
+                    completed: false,
+                    tags,
+                    createdAt: cardStates[selectedCategory]?.date || new Date(),
+                    group: "master"
+                  });
+                  setCardState(selectedCategory, { input: "", date: undefined });
+                }}
+              >
+                <Input
+                  placeholder="Add a task..."
+                  className="flex-1 text-xs rounded-lg"
+                  value={cardStates[selectedCategory]?.input || ""}
+                  onChange={e => setCardState(selectedCategory, { input: e.target.value })}
+                />
+                <Button type="submit" size="sm" className="text-xs">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </form>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }
