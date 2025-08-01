@@ -38,6 +38,7 @@ import {
   deleteCategory,
 } from "@/lib/categories"
 import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
+import { Loader } from "@/components/ui/loader"
 
 // Define a color palette for categories
 const categoryColors = [
@@ -411,6 +412,7 @@ export default function TaskManager() {
   const [categoryInputValue, setCategoryInputValue] = useState("");
   const [textareaHeight, setTextareaHeight] = useState(40)
   const [speechDraft, setSpeechDraft] = useState("")
+  const [isAILoading, setIsAILoading] = useState(false)
 
   // All useRef hooks
   const inputRef = useRef<HTMLInputElement>(null)
@@ -535,6 +537,8 @@ export default function TaskManager() {
   const handleAICategorization = async (taskText: string) => {
     if (!user || !taskText.trim()) return;
     
+    setIsAILoading(true);
+    
     try {
       // Process the input text to extract task details including date
       const result = await processVoiceInput(taskText);
@@ -560,11 +564,16 @@ export default function TaskManager() {
           group: "master"
         });
         
+        // Clear the input text
+        setNewTaskText("");
+        
         toast.success('Task created');
       }
     } catch (error) {
       console.error('Error processing task:', error);
       toast.error("Failed to process task");
+    } finally {
+      setIsAILoading(false);
     }
   };
 
@@ -1114,7 +1123,7 @@ export default function TaskManager() {
                             setShowCategoryPopup(false);
                           }
                         }}
-                        placeholder="Add new task (type # for categories, Shift+Enter to extract date info)"
+                        placeholder="Add new task (type # for categories)"
                         rows={1}
                         className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-20 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                       />
@@ -1138,8 +1147,13 @@ export default function TaskManager() {
                           onClick={() => addTask()}
                           size="icon"
                           className="h-8 w-8 shrink-0 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                          disabled={isAILoading}
                         >
-                          <Plus className="h-4 w-4 text-gray-500" />
+                          {isAILoading ? (
+                            <Loader className="text-gray-600" />
+                          ) : (
+                            <Plus className="h-4 w-4 text-gray-500" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -1152,7 +1166,7 @@ export default function TaskManager() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -5 }}
                           transition={{ duration: 0.2 }}
-                          className="absolute -bottom-8 left-0 text-xs text-gray-400 flex items-center gap-1"
+                          className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1"
                         >
                           <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
                           <span>for AI categorization</span>
@@ -1184,47 +1198,116 @@ export default function TaskManager() {
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center"
                       >
+                        {/* Backdrop with blur */}
                         <motion.div
-                          initial={{ scale: 0.9, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.9, opacity: 0 }}
-                          className="absolute inset-0 bg-background/95 backdrop-blur-sm"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 bg-black/20 backdrop-blur-md"
                         />
+                        
+                        {/* Main modal container */}
                         <motion.div
-                          initial={{ y: 20, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
-                          exit={{ y: 20, opacity: 0 }}
-                          className="relative z-10 w-full max-w-2xl mx-4"
+                          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                          animate={{ scale: 1, opacity: 1, y: 0 }}
+                          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                          transition={{ 
+                            type: "spring", 
+                            stiffness: 300, 
+                            damping: 30,
+                            duration: 0.4
+                          }}
+                          className="relative z-10 w-full max-w-xl mx-4"
                         >
-                          <div className="bg-card rounded-3xl shadow-2xl overflow-hidden">
-                            <div className="p-8">
+                          {/* Glass container */}
+                          <div 
+                            className="relative overflow-hidden rounded-3xl"
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
+                              backdropFilter: 'blur(20px)',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
+                            }}
+                          >
+                            {/* Inner glow effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-white/30 rounded-3xl" />
+                            
+                            {/* Content */}
+                            <div className="relative p-8">
                               <div className="flex flex-col items-center space-y-8">
+                                {/* Animated microphone icon with glow */}
                                 <motion.div 
-                                  className="w-24 h-24 rounded-full bg-red-50 flex items-center justify-center"
+                                  className="relative"
+                                  animate={{ 
+                                    scale: [1, 1.05, 1],
+                                    rotate: [0, 2, -2, 0]
+                                  }}
+                                  transition={{ 
+                                    duration: 2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                  }}
                                 >
-                                  <div className="scale-150">
-                                    <SoundWave />
+                                  {/* Outer glow ring */}
+                                  <div className="absolute inset-0 bg-red-400/20 rounded-full blur-xl animate-pulse" />
+                                  
+                                  {/* Inner glow */}
+                                  <div className="absolute inset-2 bg-red-300/30 rounded-full blur-lg" />
+                                  
+                                  {/* Main icon container */}
+                                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
+                                    <div className="scale-150">
+                                      <SoundWave />
+                                    </div>
                                   </div>
                                 </motion.div>
+                                
+                                {/* Text content */}
                                 <motion.div 
-                                  className="text-center space-y-4"
+                                  className="text-center space-y-6"
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.2 }}
                                 >
                                   <motion.h3 
-                                    className="text-2xl font-semibold"
+                                    className="text-2xl font-semibold text-gray-900"
+                                    animate={{ opacity: [0.8, 1, 0.8] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
                                   >
                                     Listening...
                                   </motion.h3>
-                                  <div className="min-h-[60px] px-4 py-3 bg-muted/50 rounded-xl">
-                                    <p className="text-lg text-muted-foreground">
-                                      {speechDraft || "Speak now..."}
-                                    </p>
+                                  
+                                  {/* Speech display container */}
+                                  <div className="relative">
+                                    {/* Container glow */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-2xl blur-sm" />
+                                    
+                                    {/* Main container */}
+                                    <div className="relative min-h-[80px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+                                      <motion.p 
+                                        className="text-lg text-gray-700 leading-relaxed"
+                                        animate={{ opacity: [0.6, 1, 0.6] }}
+                                        transition={{ duration: 1.5, repeat: Infinity }}
+                                      >
+                                        {speechDraft || "Speak now..."}
+                                      </motion.p>
+                                    </div>
                                   </div>
-                                  <p className="text-sm text-muted-foreground">
+                                  
+                                  {/* Instruction text */}
+                                  <motion.p 
+                                    className="text-sm text-gray-500 font-medium"
+                                    animate={{ opacity: [0.5, 1, 0.5] }}
+                                    transition={{ duration: 2, repeat: Infinity }}
+                                  >
                                     Release Ctrl to stop recording
-                                  </p>
+                                  </motion.p>
                                 </motion.div>
                               </div>
                             </div>
+                            
+                            {/* Bottom accent */}
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-400/30 to-transparent rounded-b-3xl" />
                           </div>
                         </motion.div>
                       </motion.div>
@@ -1290,7 +1373,7 @@ export default function TaskManager() {
                             <StyledCheckbox
                               checked={effectivelyCompleted}
                               onCheckedChange={() => toggleTaskCompletion(task.id)}
-                              className="flex-shrink-0 mt-0.5"
+                              className="flex-shrink-0 mr-3"
                             />
                             {/* Main content: flex-1 row, name/date left, tags bottom right */}
                             <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
@@ -1381,170 +1464,278 @@ export default function TaskManager() {
       {/* Voice Menu Modal */}
       {showVoiceMenu && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop with blur */}
           <motion.div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 p-8"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/20 backdrop-blur-md"
+          />
+          
+          {/* Main modal container */}
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 30,
+              duration: 0.4
+            }}
+            className="relative z-10 w-full max-w-xl mx-4"
           >
-            <AnimatePresence mode="wait" initial={false}>
-              {voiceStep === 'listening' ? (
-                <motion.div
-                  key="listening"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col"
-                >
-                  <h2 className="text-2xl font-semibold mb-6">Listening...</h2>
-                  <div className="flex flex-col items-center space-y-6">
-                    <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center">
-                      <SoundWave />
-                    </div>
-                    <div className="text-center space-y-3">
-                      <div className="min-h-[60px] px-4 py-3 bg-gray-50 rounded-xl max-w-sm">
-                        <p className="text-base text-gray-600">
-                          {speechDraft || "Speak now..."}
-                        </p>
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        Release Ctrl to stop recording
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : voiceStep === 'confirm' ? (
-                <motion.div
-                  key="confirm"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col space-y-6"
-                >
-                  <h2 className="text-2xl font-semibold">Voice Input</h2>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm font-medium mb-2">Raw Transcription</div>
-                      <div className="w-full border rounded-lg p-3 bg-gray-50">
-                        <textarea
-                          className="w-full bg-transparent outline-none resize-none text-sm"
-                          rows={2}
-                          value={voiceRaw}
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                    
-                    {processedTask && (
-                      <div>
-                        <div className="text-sm font-medium mb-2">Processed Task</div>
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-2 border rounded-lg p-3 bg-gray-50">
-                            <input type="checkbox" className="mr-2 mt-1" />
-                            <div className="flex-1">
-                              <div className="text-sm font-medium">{processedTask.taskName}</div>
-                              <div className="text-xs text-gray-500 mt-1">{processedTask.description}</div>
+            {/* Glass container */}
+            <div 
+              className="relative overflow-hidden rounded-3xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
+              }}
+            >
+              {/* Inner glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-white/30 rounded-3xl" />
+              
+              {/* Content */}
+              <div className="relative p-8">
+                <AnimatePresence mode="wait" initial={false}>
+                  {voiceStep === 'listening' ? (
+                    <motion.div
+                      key="listening"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col"
+                    >
+                      <h2 className="text-2xl font-semibold mb-6 text-gray-900">Listening...</h2>
+                      <div className="flex flex-col items-center space-y-6">
+                        {/* Animated microphone icon with glow */}
+                        <motion.div 
+                          className="relative"
+                          animate={{ 
+                            scale: [1, 1.05, 1],
+                            rotate: [0, 2, -2, 0]
+                          }}
+                          transition={{ 
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          {/* Outer glow ring */}
+                          <div className="absolute inset-0 bg-red-400/20 rounded-full blur-xl animate-pulse" />
+                          
+                          {/* Inner glow */}
+                          <div className="absolute inset-2 bg-red-300/30 rounded-full blur-lg" />
+                          
+                          {/* Main icon container */}
+                          <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
+                            <SoundWave />
+                          </div>
+                        </motion.div>
+                        
+                        <div className="text-center space-y-4">
+                          {/* Speech display container */}
+                          <div className="relative">
+                            {/* Container glow */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-2xl blur-sm" />
+                            
+                            {/* Main container */}
+                            <div className="relative min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm">
+                              <motion.p 
+                                className="text-base text-gray-700 leading-relaxed"
+                                animate={{ opacity: [0.6, 1, 0.6] }}
+                                transition={{ duration: 1.5, repeat: Infinity }}
+                              >
+                                {speechDraft || "Speak now..."}
+                              </motion.p>
                             </div>
-                            <div className="flex-shrink-0 text-right">
-                              {processedTask.date && (
-                                <div className="text-xs text-gray-500 whitespace-nowrap">
-                                  {new Date(processedTask.date + 'T00:00:00').toLocaleDateString('en-US', { month: "short", day: "numeric", timeZone: 'America/Los_Angeles' })}
-                                </div>
-                              )}
-                              {processedTask.time && (
-                                <div className="text-xs font-semibold text-gray-800 whitespace-nowrap">
-                                  {(() => {
-                                    const [hours, minutes] = processedTask.time.split(':');
-                                    const d = new Date(0);
-                                    d.setHours(parseInt(hours, 10));
-                                    d.setMinutes(parseInt(minutes, 10));
-                                    return d.toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: 'numeric',
-                                      hour12: true,
-                                      timeZone: 'America/Los_Angeles'
-                                    });
-                                  })()}
-                                </div>
-                              )}
+                          </div>
+                          
+                          <motion.p 
+                            className="text-sm text-gray-500 font-medium"
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            Release Ctrl to stop recording
+                          </motion.p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : voiceStep === 'confirm' ? (
+                    <motion.div
+                      key="confirm"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col space-y-6"
+                    >
+                      <h2 className="text-2xl font-semibold text-gray-900">Voice Input</h2>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm font-medium mb-2 text-gray-700">Raw Transcription</div>
+                          <div className="relative">
+                            {/* Container glow */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
+                            
+                            {/* Main container */}
+                            <div className="relative w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                              <textarea
+                                className="w-full bg-transparent outline-none resize-none text-sm text-gray-700"
+                                rows={2}
+                                value={voiceRaw}
+                                readOnly
+                              />
                             </div>
-                            {processedTask.tags.length > 0 && (
-                              <div className="flex gap-1">
-                                {processedTask.tags.map((tag) => (
-                                  <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                    <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                                  </span>
-                                ))}
+                          </div>
+                        </div>
+                        
+                        {processedTask && (
+                          <div>
+                            <div className="text-sm font-medium mb-2 text-gray-700">Processed Task</div>
+                            <div className="space-y-3">
+                              <div className="relative">
+                                {/* Container glow */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
+                                
+                                {/* Main container */}
+                                <div className="relative flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                                  <input type="checkbox" className="mr-2 mt-1" />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-gray-900">{processedTask.taskName}</div>
+                                    <div className="text-xs text-gray-500 mt-1">{processedTask.description}</div>
+                                  </div>
+                                  <div className="flex-shrink-0 text-right">
+                                    {processedTask.date && (
+                                      <div className="text-xs text-gray-500 whitespace-nowrap">
+                                        {new Date(processedTask.date + 'T00:00:00').toLocaleDateString('en-US', { month: "short", day: "numeric", timeZone: 'America/Los_Angeles' })}
+                                      </div>
+                                    )}
+                                    {processedTask.time && (
+                                      <div className="text-xs font-semibold text-gray-800 whitespace-nowrap">
+                                        {(() => {
+                                          const [hours, minutes] = processedTask.time.split(':');
+                                          const d = new Date(0);
+                                          d.setHours(parseInt(hours, 10));
+                                          d.setMinutes(parseInt(minutes, 10));
+                                          return d.toLocaleTimeString('en-US', {
+                                            hour: 'numeric',
+                                            minute: 'numeric',
+                                            hour12: true,
+                                            timeZone: 'America/Los_Angeles'
+                                          });
+                                        })()}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {processedTask.tags.length > 0 && (
+                                    <div className="flex gap-1">
+                                      {processedTask.tags.map((tag) => (
+                                        <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
+                                          <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex justify-end gap-3">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowVoiceMenu(false)}
+                          className="bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (processedTask) {
+                              const taskText = `${processedTask.taskName} ${processedTask.tags.map(tag => `#${tag}`).join(' ')}`;
+                              
+                              let taskDate: Date | undefined = undefined;
+                              if (processedTask.date) {
+                                const timeString = processedTask.time || '00:00';
+                                taskDate = new Date(`${processedTask.date}T${timeString}`);
+                              }
+                              
+                              addTask(taskText, taskDate);
+                            }
+                            setShowVoiceMenu(false);
+                          }}
+                          className="bg-gray-900 hover:bg-gray-800 text-white"
+                        >
+                          Add Task
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="manual"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col space-y-6"
+                    >
+                      <h2 className="text-2xl font-semibold text-gray-900">Manual Input</h2>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm font-medium mb-2 text-gray-700">What's on your mind?</div>
+                          <div className="relative">
+                            {/* Container glow */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
+                            
+                            {/* Main container */}
+                            <div className="relative w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                              <textarea
+                                className="w-full bg-transparent outline-none resize-none text-sm text-gray-700 min-h-[80px]"
+                                value={manualTaskText}
+                                onChange={(e) => setManualTaskText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleManualGenerate();
+                                  }
+                                }}
+                                placeholder="Describe your task here..."
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
-                    <Button
-                      onClick={() => {
-                        if (processedTask) {
-                          const taskText = `${processedTask.taskName} ${processedTask.tags.map(tag => `#${tag}`).join(' ')}`;
-                          
-                          let taskDate: Date | undefined = undefined;
-                          if (processedTask.date) {
-                            const timeString = processedTask.time || '00:00';
-                            taskDate = new Date(`${processedTask.date}T${timeString}`);
-                          }
-                          
-                          addTask(taskText, taskDate);
-                        }
-                        setShowVoiceMenu(false);
-                      }}
-                    >
-                      Add Task
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="manual"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col space-y-6"
-                >
-                  <h2 className="text-2xl font-semibold">Manual Input</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm font-medium mb-2">What's on your mind?</div>
-                      <textarea
-                        className="w-full border rounded-lg p-3 bg-gray-50 outline-none resize-none text-sm min-h-[80px]"
-                        value={manualTaskText}
-                        onChange={(e) => setManualTaskText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleManualGenerate();
-                          }
-                        }}
-                        placeholder="Describe your task here..."
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => setShowVoiceMenu(false)}>Cancel</Button>
-                    <Button onClick={handleManualGenerate}>
-                      Generate Task
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      <div className="flex justify-end gap-3">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowVoiceMenu(false)}
+                          className="bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleManualGenerate}
+                          className="bg-gray-900 hover:bg-gray-800 text-white"
+                        >
+                          Generate Task
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              
+              {/* Bottom accent */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400/30 to-transparent rounded-b-3xl" />
+            </div>
           </motion.div>
         </div>
       )}

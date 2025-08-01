@@ -13,6 +13,8 @@ export interface CategorizationResult {
 
 export async function processVoiceInput(rawInput: string): Promise<ProcessedTask> {
   try {
+    console.log('Attempting to call AI service with input:', rawInput);
+    
     const response = await fetch('/api/ai/process-voice', {
       method: 'POST',
       headers: {
@@ -21,12 +23,15 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
       body: JSON.stringify({ rawInput }),
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+
     if (!response.ok) {
       const errorBody = await response.text();
       console.error('Error processing voice input. Status:', response.status, 'Body:', errorBody);
       
-      // If the AI service is not configured, provide a fallback
-      if (response.status === 500) {
+      // If the AI service is not configured or returns 404/500, provide a fallback
+      if (response.status === 404 || response.status === 500) {
         console.warn('AI voice processing service not available, using fallback');
         return getFallbackVoiceProcessing(rawInput);
       }
@@ -59,8 +64,8 @@ export async function categorizeTask(taskText: string, categories: string[]): Pr
       const errorBody = await response.text();
       console.error('Error categorizing task. Status:', response.status, 'Body:', errorBody);
       
-      // If the AI service is not configured or fails (any 500 error), provide a fallback
-      if (response.status === 500) {
+      // If the AI service is not configured or fails (any 404/500 error), provide a fallback
+      if (response.status === 404 || response.status === 500) {
         console.warn('AI categorization service not available, using fallback');
         return getFallbackCategorization(taskText, categories);
       }

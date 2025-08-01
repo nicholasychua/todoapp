@@ -90,6 +90,10 @@ function getCurrentDateInPST(): string {
   return pstTime.toISOString().split('T')[0];
 }
 
+export async function GET() {
+  return NextResponse.json({ message: "Process voice API is working" });
+}
+
 export async function POST(request: Request) {
   try {
     const { rawInput } = await request.json();
