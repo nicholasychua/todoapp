@@ -22,16 +22,10 @@ export function TabGroupManager() {
   // Function to manually refresh tab groups data
   const refreshTabGroups = useCallback(() => {
     console.log("Manually refreshing tab groups");
-    const unsubscribe = subscribeToTabGroups((newTabGroups) => {
-      console.log("Manual refresh received tab groups:", newTabGroups);
-      setTabGroups(newTabGroups);
-    });
-    
-    // We don't need to keep this subscription active, just get the data once
-    setTimeout(() => {
-      unsubscribe();
-    }, 1000);
-  }, [subscribeToTabGroups]);
+    // Instead of creating a new subscription, we'll just trigger a re-render
+    // The existing subscription will handle the data update
+    setTabGroups(prev => [...prev]); // Force a re-render
+  }, []); // Remove subscribeToTabGroups dependency
 
   // Subscribe to tab groups
   useEffect(() => {
@@ -52,7 +46,7 @@ export function TabGroupManager() {
     } catch (error) {
       console.error("Error subscribing to tab groups:", error);
     }
-  }, [subscribeToTabGroups]);
+  }, []); // Remove subscribeToTabGroups from dependencies
 
   // Reset form after creating/editing
   const resetForm = () => {

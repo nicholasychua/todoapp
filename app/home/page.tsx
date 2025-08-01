@@ -1,142 +1,23 @@
 "use client"
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react"
-import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings, Calendar as CalendarIcon } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Plus, Mic, X, Check, Calendar as CalendarIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar } from "@/components/ui/calendar"
 import { useTheme } from "next-themes"
-import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useTaskService } from "@/hooks/useTaskService"
 import type { Task } from "@/lib/tasks"
 import { toast } from "sonner"
 import { DatePicker } from "@/components/ui/date-picker"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { SlidingMenu } from "@/components/ui/sliding-menu"
 import { useTabGroupService } from "@/hooks/useTabGroupService"
 import { TabGroupManager } from "@/components/ui/tab-group-manager"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { TabGroup } from "@/lib/tabgroups"
-import {
-  Category,
-  subscribeToCategories,
-  addCategory,
-  deleteCategory,
-} from "@/lib/categories"
-import { processVoiceInput, type ProcessedTask } from "@/lib/ai-service"
+import { SlidingMenu } from "@/components/ui/sliding-menu"
+import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
 import { NavigationSidebar } from "@/components/ui/navigation-sidebar"
-
-// Category Popup Component
-function CategoryPopup({ 
-  isOpen, 
-  onClose, 
-  onSelect, 
-  categories, 
-  position,
-  inputValue,
-  onInputChange
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelect: (category: string) => void;
-  categories: Category[];
-  position: { top: number; left: number };
-  inputValue: string;
-  onInputChange: (value: string) => void;
-}) {
-  const [customInput, setCustomInput] = useState("");
-  
-  const filteredCategories = categories.filter(cat => 
-    cat.name.toLowerCase().includes(inputValue.toLowerCase())
-  );
-  
-  const handleSelect = (categoryName: string) => {
-    onSelect(categoryName);
-    onClose();
-  };
-  
-  const handleCustomSubmit = () => {
-    if (customInput.trim()) {
-      onSelect(customInput.trim());
-      onClose();
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="fixed z-50 bg-white rounded-xl shadow-lg border border-gray-200 p-2 min-w-[200px] max-w-[280px]"
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
-    >
-      <div className="space-y-1">
-        {/* Predefined Categories */}
-        {filteredCategories.map((category, index) => (
-          <button
-            key={category.id}
-            onClick={() => handleSelect(category.name)}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-150 text-sm font-medium text-gray-700 flex items-center gap-2"
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            {category.name}
-          </button>
-        ))}
-        
-        {/* Custom Input */}
-        <div className="border-t border-gray-100 pt-2 mt-2">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={customInput}
-              onChange={(e) => setCustomInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCustomSubmit();
-                }
-                if (e.key === 'Escape') {
-                  onClose();
-                }
-              }}
-              placeholder="Custom category..."
-              className="flex-1 px-2 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-blue-300 transition-colors"
-              autoFocus
-            />
-            <Button
-              onClick={handleCustomSubmit}
-              size="sm"
-              className="h-6 px-2 text-xs"
-              disabled={!customInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
 
 // Define a color palette for categories
 const categoryColors = [
@@ -246,31 +127,15 @@ export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskText, setNewTaskText] = useState("")
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined)
-  const [searchText, setSearchText] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isRecordingComplete, setIsRecordingComplete] = useState(false)
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
-  const [showSearch, setShowSearch] = useState(false)
-  const { theme, setTheme } = useTheme()
-  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
   const [showVoiceMenu, setShowVoiceMenu] = useState(false)
   const [voiceRaw, setVoiceRaw] = useState("")
   const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm' | 'manual'>('listening');
-  const [activeGroup, setActiveGroup] = useState("master");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showTagManager, setShowTagManager] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [editCategoriesMode, setEditCategoriesMode] = useState(false);
-  const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
-  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
   const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(null);
   const [manualTaskText, setManualTaskText] = useState("");
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<Record<string, NodeJS.Timeout>>({});
-  const [showCategoryPopup, setShowCategoryPopup] = useState(false);
-  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
-  const [categoryInputValue, setCategoryInputValue] = useState("");
 
   // Reset all state when user changes
   useEffect(() => {
@@ -279,14 +144,8 @@ export default function HomePage() {
       setTasks([]);
       setNewTaskText("");
       setNewTaskDate(undefined);
-      setSearchText("");
       setIsRecording(false);
       setIsRecordingComplete(false);
-      setFilter("all");
-      setShowSearch(false);
-      setSelectedTaskIds([]);
-      setTheme("light");
-      setSelectedTags([]);
       setCompletedTaskIds([]);
       setPendingCompletions({});
       console.log("Reset all state for user:", user?.uid);
@@ -294,10 +153,8 @@ export default function HomePage() {
   }, [user?.uid, loading]);
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<any>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [textareaHeight, setTextareaHeight] = useState(40)
   const [speechDraft, setSpeechDraft] = useState("")
   const finalTranscriptRef = useRef("");
 
@@ -305,12 +162,10 @@ export default function HomePage() {
   useEffect(() => {
     if (loading || !user) return;
     const unsubscribeTasks = subscribeToTasks(setTasks);
-    const unsubscribeTabGroups = subscribeToTabGroups(setTabGroups);
-    const unsubscribeCategories = subscribeToCategories(user.uid, setCategories);
+    const unsubscribeTabGroups = subscribeToTabGroups(() => {});
     return () => {
       unsubscribeTasks();
       unsubscribeTabGroups();
-      unsubscribeCategories();
     };
   }, [subscribeToTasks, subscribeToTabGroups, user, loading]);
 
@@ -319,31 +174,6 @@ export default function HomePage() {
     if (inputRef.current) {
       inputRef.current.focus();
     }
-  }, []);
-
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === 'k') {
-        e.preventDefault();
-        setShowSearch(true);
-        setTimeout(() => searchInputRef.current?.focus(), 100);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowSearch(false);
-        setSearchText("");
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
   }, []);
 
   // Helper function to parse tags from text
@@ -366,7 +196,7 @@ export default function HomePage() {
         return (
           <span key={index} className="inline-flex items-center gap-0.5">
             <span className="text-gray-500">{tag}</span>
-            <span className={getTagTextColor(tag)}>#</span>
+            <span className="text-gray-500">#</span>
           </span>
         );
       }
@@ -376,29 +206,59 @@ export default function HomePage() {
 
   // Add task function
   const addTask = async (text?: string, date?: Date) => {
-    const taskText = text || newTaskText;
-    if (!taskText.trim() || !user) return;
-
-    const tags = parseTagsFromText(taskText);
-    const cleanText = taskText.replace(/#\w+/g, '').trim();
-
+    if (!user) return
+    
+    const value = typeof text === "string" ? text : newTaskText;
+    if (!value.trim()) return;
+    
     try {
+      const tags = parseTagsFromText(value);
       await createTask({
-        text: taskText,
+        text: value,
         completed: false,
-        createdAt: date || new Date(),
         tags,
-        group: "master" as const,
+        createdAt: (date ?? newTaskDate) || new Date(),
+        group: "master"
       });
-      
-      if (!text) {
-        setNewTaskText("");
-        setNewTaskDate(undefined);
-      }
-      
-      toast.success("Task added!");
+      setNewTaskText("");
+      setNewTaskDate(new Date());
+      toast.success("Task added successfully!");
     } catch (error) {
       toast.error("Failed to add task");
+    }
+  };
+
+  // Handle AI categorization
+  const handleAICategorization = async (taskText: string) => {
+    if (!user || !taskText.trim()) return;
+    
+    try {
+      // Process the input text to extract task details including date
+      const result = await processVoiceInput(taskText);
+      
+      // Create task with extracted information
+      if (result) {
+        // Format the task with any tags
+        const taskText = `${result.taskName} ${(result.tags || []).map(tag => `#${tag}`).join(' ')}`;
+        
+        // Extract date from the result
+        let taskDate: Date | undefined = undefined;
+        if (result.date) {
+          const timeString = result.time || '00:00';
+          taskDate = new Date(`${result.date}T${timeString}`);
+        }
+        
+        // Add the task with extracted date
+        await addTask(taskText, taskDate);
+        
+        // Clear the input
+        setNewTaskText('');
+        
+        toast.success('Task created');
+      }
+    } catch (error) {
+      console.error('Error processing task:', error);
+      toast.error("Failed to process task");
     }
   };
 
@@ -447,15 +307,6 @@ export default function HomePage() {
       ...prev,
       [taskId]: timeoutId
     }));
-  };
-
-  // Toggle task selection
-  const toggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds(prev => 
-      prev.includes(taskId) 
-        ? prev.filter(id => id !== taskId)
-        : [...prev, taskId]
-    );
   };
 
   // Delete task function
@@ -565,73 +416,21 @@ export default function HomePage() {
     }
   }, [isRecordingComplete, voiceRaw]);
 
-  // Filter tasks based on filter, search text, and selected tags
+  // Filter tasks - only show active tasks on home page
   const filteredTasks = tasks.filter(task => {
     // Check if task is in 4-second waiting period
     const isInWaitingPeriod = completedTaskIds.includes(task.id);
     // Determine effective completion status (local state takes priority)
     const effectivelyCompleted = isInWaitingPeriod || task.completed;
     
-    return (
-      (activeGroup === "master" ? true : task.group === "today") &&
-      (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-      (filter === "completed" ? effectivelyCompleted : filter === "active" ? !effectivelyCompleted : true) &&
-      (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true) &&
-      // Hide completed tasks that are not in waiting period (only on home page)
-      !(effectivelyCompleted && !isInWaitingPeriod)
-    );
+    // Hide completed tasks that are not in waiting period (only on home page)
+    return !(effectivelyCompleted && !isInWaitingPeriod);
   });
 
-  // Get all unique tags with their counts
-  const tagCounts = tasks.reduce((acc, task) => {
-    task.tags.forEach((tag: string) => {
-      acc[tag] = (acc[tag] || 0) + 1;
-    });
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Merge tags from tasks and categories
-  const allTags = Array.from(new Set([
-    ...Object.keys(tagCounts),
-    ...categories.map((cat) => cat.name),
-  ]))
-    .filter(tag => tag !== 'tag' && tag !== 'shopping')
-    .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
-
   // Helper function to get color for a tag
-  const getTagColor = (tag: string) => {
-    const index = allTags.indexOf(tag) % categoryColors.length;
-    return categoryColors[index].split(' ')[0]; // Get just the background color class to use as text color
-  };
-
-  // Helper function to convert bg color to text color
   const getTagTextColor = (tag: string) => {
-    const index = allTags.indexOf(tag);
-    if (index === -1) return "text-gray-500";
-    const colorIndex = index % categoryColors.length;
-    return categoryColors[colorIndex];
-  };
-
-  // Update task with new date
-  const updateTaskDate = async (taskId: string, newDate: Date) => {
-    if (!user) return
-    
-    try {
-      await updateTask(taskId, { createdAt: newDate });
-      toast.success("Task date updated!");
-    } catch (error) {
-      toast.error("Failed to update task date");
-    }
-  };
-
-  // Helper to reorder categories
-  const moveCategory = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
-    const updated = [...categories];
-    const [removed] = updated.splice(from, 1);
-    updated.splice(to, 0, removed);
-    setCategories(updated);
-    // TODO: Optionally update backend order here
+    const index = tag.length % categoryColors.length;
+    return categoryColors[index];
   };
 
   // Clean up timeouts on unmount
@@ -662,68 +461,8 @@ export default function HomePage() {
 
   // Force light theme on component mount
   useEffect(() => {
-    setTheme("light")
-  }, [setTheme])
-
-  // Handle category popup logic
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const cursorPosition = e.target.selectionStart || 0;
-    
-    setNewTaskText(value);
-    
-    // Check if user typed # and show category popup
-    const lastChar = value[cursorPosition - 1];
-    if (lastChar === '#' && inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect();
-      setCategoryPopupPosition({
-        top: rect.bottom + 8,
-        left: rect.left
-      });
-      setCategoryInputValue("");
-      setShowCategoryPopup(true);
-    } else {
-      setShowCategoryPopup(false);
-    }
-  };
-
-  const handleCategorySelect = (categoryName: string) => {
-    if (!inputRef.current) return;
-    
-    const currentValue = newTaskText;
-    const cursorPosition = inputRef.current.selectionStart || 0;
-    
-    // Find the last # position
-    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
-    if (lastHashIndex !== -1) {
-      const beforeHash = currentValue.substring(0, lastHashIndex);
-      const afterCursor = currentValue.substring(cursorPosition);
-      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
-      
-      setNewTaskText(newValue);
-      
-      // Set cursor position after the inserted category
-      setTimeout(() => {
-        if (inputRef.current) {
-          const newCursorPosition = lastHashIndex + categoryName.length + 2;
-          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
-          inputRef.current.focus();
-        }
-      }, 0);
-    }
-  };
-
-  // Close category popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showCategoryPopup && inputRef.current && !inputRef.current.contains(event.target as Node)) {
-        setShowCategoryPopup(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCategoryPopup]);
+    // Theme is handled by the layout
+  }, [])
 
   if (loading) {
     return null
@@ -780,22 +519,39 @@ export default function HomePage() {
         <div className="w-full max-w-md mb-8">
           <div className="flex gap-2 mb-4">
             <div className="flex-1 relative">
-              <Input
+              <input
                 ref={inputRef}
                 type="text"
-                placeholder="What needs to be done? (type # for categories)"
+                placeholder="What needs to be done? (type # for categories, Shift+Enter to extract date info)"
                 value={newTaskText}
-                onChange={handleInputChange}
+                onChange={(e) => setNewTaskText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.shiftKey) {
                     addTask();
-                  }
-                  if (e.key === 'Escape') {
-                    setShowCategoryPopup(false);
+                  } else if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    handleAICategorization(newTaskText);
                   }
                 }}
-                className="pr-20 text-base h-12 border-gray-200 focus:border-gray-300 focus:ring-0 rounded-xl"
+                className="w-full px-4 py-3 text-base border border-gray-200 rounded-xl focus:outline-none focus:border-gray-300 focus:ring-0 pr-20"
               />
+              
+              {/* AI Categorization Hint */}
+              <AnimatePresence>
+                {newTaskText.trim() && tasks.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1"
+                  >
+                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                    <span>to extract date and generate task</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <DatePicker
                   date={newTaskDate}
@@ -820,20 +576,19 @@ export default function HomePage() {
             </Button>
           </div>
           
-          {/* Category Popup */}
-          <AnimatePresence>
-            {showCategoryPopup && (
-              <CategoryPopup
-                isOpen={showCategoryPopup}
-                onClose={() => setShowCategoryPopup(false)}
-                onSelect={handleCategorySelect}
-                categories={categories}
-                position={categoryPopupPosition}
-                inputValue={categoryInputValue}
-                onInputChange={setCategoryInputValue}
-              />
-            )}
-          </AnimatePresence>
+          {/* Voice Button */}
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startRecording}
+              disabled={isRecording}
+              className="flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              <Mic className="h-4 w-4" />
+              Hold Ctrl
+            </Button>
+          </div>
         </div>
 
         {/* Voice Recording Modal */}
@@ -899,9 +654,9 @@ export default function HomePage() {
                           <label className="text-sm font-medium text-gray-700">Tags:</label>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {processedTask.tags.map((tag, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
+                              <span key={index} className="text-xs px-2 py-1 bg-gray-100 rounded">
                                 #{tag}
-                              </Badge>
+                              </span>
                             ))}
                           </div>
                         </div>
@@ -987,177 +742,6 @@ export default function HomePage() {
             </div>
           </div>
         )}
-
-        {/* Search and Filter Bar */}
-        <div className="w-full max-w-md mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search tasks... (⌘K)"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="pl-10 text-sm h-10 border-gray-200 focus:border-gray-300 focus:ring-0 rounded-lg"
-              />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10 px-3">
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setFilter("all")}>
-                  All Tasks
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilter("active")}>
-                  Active Tasks
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilter("completed")}>
-                  Completed Tasks
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Category Filter */}
-          {allTags.length > 0 && (
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-700">Categories</h3>
-                <button 
-                  onClick={() => setSelectedTags([])}
-                  className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  Clear all
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {allTags.slice(0, 6).map((tag, index) => {
-                  const isSelected = selectedTags.includes(tag);
-                  const colorClass = categoryColors[index % categoryColors.length];
-                  
-                  return (
-                    <motion.button
-                      key={tag}
-                      onClick={() => {
-                        setSelectedTags(prev => 
-                          prev.includes(tag) 
-                            ? prev.filter(t => t !== tag)
-                            : [...prev, tag]
-                        );
-                      }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={cn(
-                        "group relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 border",
-                        isSelected
-                          ? "bg-white border-gray-300 shadow-sm"
-                          : "bg-gray-50 border-gray-200 hover:bg-white hover:border-gray-300 hover:shadow-sm"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-2 h-2 rounded-full transition-colors",
-                        isSelected ? colorClass.replace('text-', 'bg-') : "bg-gray-400"
-                      )} />
-                      <span className={cn(
-                        "transition-colors",
-                        isSelected ? "text-gray-900" : "text-gray-600"
-                      )}>
-                        {tag}
-                      </span>
-                      {isSelected && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center ml-1"
-                        >
-                          <Check className="w-2.5 h-2.5 text-white" />
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  );
-                })}
-                
-                {allTags.length > 6 && (
-                  <button
-                    onClick={() => setShowTagManager(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300 hover:shadow-sm transition-all duration-200 text-gray-600"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-gray-400" />
-                    <span>+{allTags.length - 6} more</span>
-                  </button>
-                )}
-              </div>
-              
-              {selectedTags.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2 pt-2 border-t border-gray-100"
-                >
-                  <span className="text-xs text-gray-500">
-                    Filtering by {selectedTags.length} categor{selectedTags.length === 1 ? 'y' : 'ies'}
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedTags.map((tag, index) => {
-                      const colorClass = categoryColors[allTags.indexOf(tag) % categoryColors.length];
-                      return (
-                        <span
-                          key={tag}
-                          className={cn(
-                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-white border",
-                            colorClass.replace('text-', 'border-').replace('-500', '-200')
-                          )}
-                        >
-                          <div className={cn("w-1.5 h-1.5 rounded-full", colorClass.replace('text-', 'bg-'))} />
-                          {tag}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          {/* Legacy Tag Filter - Hidden for cleaner design */}
-          {false && allTags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-4">
-              {allTags.slice(0, 8).map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => {
-                    setSelectedTags(prev => 
-                      prev.includes(tag) 
-                        ? prev.filter(t => t !== tag)
-                        : [...prev, tag]
-                    );
-                  }}
-                  className={cn(
-                    "text-xs px-2 py-1 rounded-full border transition-colors",
-                    selectedTags.includes(tag)
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                  )}
-                >
-                  #{tag}
-                </button>
-              ))}
-              {allTags.length > 8 && (
-                <button
-                  onClick={() => setShowTagManager(true)}
-                  className="text-xs px-2 py-1 rounded-full border bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                >
-                  +{allTags.length - 8} more
-                </button>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Task List */}
         <div className="w-full max-w-md">

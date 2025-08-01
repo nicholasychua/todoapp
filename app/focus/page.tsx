@@ -33,17 +33,19 @@ export default function FocusPage() {
   return (
     <div className="relative min-h-screen flex">
       <NavigationSidebar currentPage="focus" />
-      <FocusSession
-        tasks={tasks}
-        toggleTaskCompletion={(id) => updateTask(id, { completed: !tasks.find(t => t.id === id)?.completed })}
-        deleteTask={deleteTask}
-        formatTextWithTags={(text) => text}
-        updateTaskDate={(id, date) => updateTask(id, { createdAt: date })}
-        tabGroups={tabGroups}
-        allTags={[]}
-        completedTaskIds={completedTaskIds}
-        getTagTextColor={() => "text-gray-500"}
-      />
+      <div className="flex-1">
+        <FocusSession
+          tasks={tasks}
+          toggleTaskCompletion={(id) => updateTask(id, { completed: !tasks.find(t => t.id === id)?.completed })}
+          deleteTask={deleteTask}
+          formatTextWithTags={(text) => text}
+          updateTaskDate={(id, date) => updateTask(id, { createdAt: date })}
+          tabGroups={tabGroups}
+          allTags={[]}
+          completedTaskIds={completedTaskIds}
+          getTagTextColor={() => "text-gray-500"}
+        />
+      </div>
     </div>
   );
 } 

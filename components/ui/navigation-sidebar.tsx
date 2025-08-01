@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface NavigationSidebarProps {
-  currentPage?: 'home' | 'backlog' | 'focus' | null;
+  currentPage?: 'home' | 'backlog' | 'focus' | 'subspaces' | null;
 }
 
 export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
@@ -21,7 +21,7 @@ export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
   };
 
   return (
-    <div className="fixed left-0 top-0 h-full w-48 bg-gray-50 p-4 flex flex-col z-10">
+    <div className="fixed left-0 top-0 h-full w-48 bg-gray-50 p-4 flex flex-col z-50">
       {/* Logo and Title */}
       <div className="flex items-center gap-2 mb-6 px-4 pt-6">
         <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
@@ -34,7 +34,7 @@ export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
         <Link
           href="/home"
           className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal cursor-pointer",
             currentPage === 'home'
               ? "text-gray-900" 
               : "text-gray-500 hover:text-gray-700"
@@ -43,20 +43,20 @@ export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
           Home
         </Link>
         <Link
-          href="/?view=backlog"
+          href="/subspaces"
           className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            currentPage === 'backlog'
+            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal cursor-pointer",
+            currentPage === 'subspaces'
               ? "text-gray-900" 
               : "text-gray-500 hover:text-gray-700"
           )}
         >
-          Backlog
+          Subspaces
         </Link>
         <Link
           href="/focus"
           className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal cursor-pointer",
             currentPage === 'focus'
               ? "text-gray-900" 
               : "text-gray-500 hover:text-gray-700"
@@ -65,7 +65,7 @@ export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
           Focus Session
         </Link>
         <button 
-          className="text-left px-4 py-1.5 text-[13px] text-gray-500 hover:text-gray-700 transition-colors font-normal"
+          className="text-left px-4 py-1.5 text-[13px] text-gray-500 hover:text-gray-700 transition-colors font-normal cursor-pointer"
           onClick={handleLogout}
         >
           Log out

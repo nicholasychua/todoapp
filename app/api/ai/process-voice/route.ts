@@ -1,13 +1,62 @@
 import { AzureOpenAI } from "openai";
 import { NextResponse } from "next/server";
 
-// Initialize OpenAI client with Azure configuration
-const openai = new AzureOpenAI({
-  endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-  apiKey: process.env.AZURE_OPENAI_API_KEY,
-  apiVersion: "2024-03-01-preview",
-  deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-});
+// Fallback voice processing function
+const fallbackProcessVoiceInput = (rawInput: string) => {
+  console.log('Using built-in fallback voice processing for:', rawInput);
+  
+  const input = rawInput.trim();
+  
+  // Extract hashtags
+  const tagMatches = input.match(/#(\w+)/g) || [];
+  const tags = tagMatches.map(tag => tag.substring(1));
+  
+  // Remove hashtags from the main text
+  const cleanText = input.replace(/#\w+/g, '').trim();
+  
+  // Simple date/time extraction
+  let date: string | null = null;
+  let time: string | null = null;
+  
+  // Check for common time patterns
+  const timeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+  if (timeMatch) {
+    let hours = parseInt(timeMatch[1]);
+    const minutes = timeMatch[2];
+    const ampm = timeMatch[3]?.toLowerCase();
+    
+    if (ampm === 'pm' && hours !== 12) hours += 12;
+    if (ampm === 'am' && hours === 12) hours = 0;
+    
+    time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+  }
+  
+  // Check for date patterns
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  if (input.toLowerCase().includes('tomorrow')) {
+    date = tomorrow.toISOString().split('T')[0];
+  } else if (input.toLowerCase().includes('today')) {
+    date = today.toISOString().split('T')[0];
+  }
+  
+  return {
+    taskName: cleanText.length > 50 ? cleanText.substring(0, 50) + '...' : cleanText,
+    description: cleanText,
+    date,
+    time,
+    tags
+  };
+};
+
+// Check if required environment variables are set
+const isAIConfigured = () => {
+  return process.env.AZURE_OPENAI_ENDPOINT && 
+         process.env.AZURE_OPENAI_API_KEY && 
+         process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+};
 
 // Helper function to get current date in Pacific Time
 function getCurrentDateInPST(): string {
@@ -52,6 +101,13 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if AI is properly configured - use fallback if not
+    if (!isAIConfigured()) {
+      console.warn("Azure OpenAI not configured - using fallback voice processing");
+      const fallbackResult = fallbackProcessVoiceInput(rawInput);
+      return NextResponse.json(fallbackResult);
+    }
+
     // Get current date in Pacific Time
     const today = getCurrentDateInPST();
 
@@ -61,6 +117,13 @@ export async function POST(request: Request) {
       "Using model:",
       process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4"
     );
+
+    const openai = new AzureOpenAI({
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      apiVersion: "2024-03-01-preview",
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+    });
 
     const response = await openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
@@ -98,16 +161,36 @@ export async function POST(request: Request) {
 
     const content = response.choices[0].message.content;
     if (!content) {
-      throw new Error("No content in response");
+      console.warn("Empty response from AI, using fallback");
+      const fallbackResult = fallbackProcessVoiceInput(rawInput);
+      return NextResponse.json(fallbackResult);
     }
 
-    const result = JSON.parse(content);
-    return NextResponse.json(result);
+    try {
+      const result = JSON.parse(content);
+      return NextResponse.json(result);
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError);
+      const fallbackResult = fallbackProcessVoiceInput(rawInput);
+      return NextResponse.json(fallbackResult);
+    }
   } catch (error) {
     console.error("Error processing voice input:", error);
+    
+    // Use fallback instead of returning error
+    try {
+      const { rawInput } = await request.json().catch(() => ({ rawInput: "" }));
+      if (rawInput) {
+        const fallbackResult = fallbackProcessVoiceInput(rawInput);
+        return NextResponse.json(fallbackResult);
+      }
+    } catch (e) {
+      console.error("Failed to extract input for fallback:", e);
+    }
+    
     return NextResponse.json(
-      { error: "Failed to process voice input" },
-      { status: 500 }
+      { error: "Invalid request data" },
+      { status: 400 }
     );
   }
 } 

@@ -37,7 +37,7 @@ import {
   addCategory,
   deleteCategory,
 } from "@/lib/categories"
-import { processVoiceInput, type ProcessedTask } from "@/lib/ai-service"
+import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
 
 // Define a color palette for categories
 const categoryColors = [
@@ -531,6 +531,43 @@ export default function TaskManager() {
     }
   };
 
+  // Handle AI categorization
+  const handleAICategorization = async (taskText: string) => {
+    if (!user || !taskText.trim()) return;
+    
+    try {
+      // Process the input text to extract task details including date
+      const result = await processVoiceInput(taskText);
+      
+      // Create task with extracted information
+      if (result) {
+        // Format the task with any tags
+        const taskText = `${result.taskName} ${(result.tags || []).map(tag => `#${tag}`).join(' ')}`;
+        
+        // Extract date from the result
+        let taskDate: Date | undefined = undefined;
+        if (result.date) {
+          const timeString = result.time || '00:00';
+          taskDate = new Date(`${result.date}T${timeString}`);
+        }
+        
+        // Add the task
+        await createTask({
+          text: taskText,
+          completed: false,
+          tags: result.tags || [],
+          createdAt: taskDate || new Date(),
+          group: "master"
+        });
+        
+        toast.success('Task created');
+      }
+    } catch (error) {
+      console.error('Error processing task:', error);
+      toast.error("Failed to process task");
+    }
+  };
+
   // Toggle task completion with delay
   const toggleTaskCompletion = async (taskId: string) => {
     if (!user) return;
@@ -1021,9 +1058,9 @@ export default function TaskManager() {
               className="w-full h-full flex flex-col"
             >
               {/* Fixed header + quick-add */}
-              <div className="flex-shrink-0 bg-gray-50 pt-36 pb-6 px-4">
+              <div className="flex-shrink-0 bg-gray-50 pt-32 pb-8 px-4">
                 {/* Date Header */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-8">
                   <h1 className="text-4xl font-bold">
                     {(() => {
                       const date = new Date();
@@ -1054,7 +1091,7 @@ export default function TaskManager() {
                 </div>
 
                 {/* Add Task Input */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="relative">
                     <div className="relative">
                       <textarea
@@ -1066,23 +1103,30 @@ export default function TaskManager() {
                             e.preventDefault();
                             addTask();
                           }
+                          if (e.key === "Enter" && e.shiftKey) {
+                            e.preventDefault();
+                            const currentText = isRecording ? speechDraft : newTaskText;
+                            if (currentText.trim()) {
+                              handleAICategorization(currentText);
+                            }
+                          }
                           if (e.key === "Escape") {
                             setShowCategoryPopup(false);
                           }
                         }}
-                        placeholder="Add new task (type # for categories)"
+                        placeholder="Add new task (type # for categories, Shift+Enter to extract date info)"
                         rows={1}
-                        className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-16 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
+                        className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-20 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                       />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         {!newTaskDate ? (
                           <Button
                             variant="ghost"
-                            className="h-8 w-8 flex items-center justify-center"
+                            className="h-8 w-8 flex items-center justify-center hover:bg-gray-100 transition-colors"
                             onClick={() => setNewTaskDate(new Date())}
                             aria-label="Select date"
                           >
-                            <CalendarIcon className="h-4 w-4" />
+                            <CalendarIcon className="h-4 w-4 text-gray-500" />
                           </Button>
                         ) : (
                           <DatePicker
@@ -1093,12 +1137,28 @@ export default function TaskManager() {
                         <Button
                           onClick={() => addTask()}
                           size="icon"
-                          className="h-8 w-8 shrink-0 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+                          className="h-8 w-8 shrink-0 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                         >
                           <Plus className="h-4 w-4 text-gray-500" />
                         </Button>
                       </div>
                     </div>
+                    
+                    {/* AI Categorization Hint */}
+                    <AnimatePresence>
+                      {(isRecording ? speechDraft : newTaskText).trim() && categories.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute -bottom-8 left-0 text-xs text-gray-400 flex items-center gap-1"
+                        >
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                          <span>for AI categorization</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     
                     {/* Category Popup */}
                     <AnimatePresence>
@@ -1170,21 +1230,6 @@ export default function TaskManager() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-
-                  {!isRecording && (
-                    <div className="flex items-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="px-4 transition-all duration-150 hover:scale-105 active:scale-95"
-                      >
-                        <div className="flex items-center">
-                          <Mic className="h-4 w-4 mr-1" />
-                          Hold Ctrl
-                        </div>
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1303,6 +1348,37 @@ export default function TaskManager() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Glassy Voice Button - Bottom Right */}
+      {!isRecording && !showPomodoro && !showBacklog && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="fixed bottom-6 right-6 z-40"
+        >
+          <button
+            onClick={startRecording}
+            className="group relative flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-md border border-gray-200/50 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-300 hover:scale-105 active:scale-95"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)'
+            }}
+          >
+            <div className="relative">
+              <Mic className="h-5 w-5 text-gray-700 group-hover:text-gray-900 transition-colors duration-200" />
+              <div className="absolute inset-0 bg-gray-200/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
+              Hold Ctrl
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
+          </button>
+        </motion.div>
+      )}
+
+      {/* Voice Menu Modal */}
       {showVoiceMenu && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <motion.div
@@ -1581,6 +1657,26 @@ function BacklogView({
       toast.success("Task added to backlog!");
     } catch (error) {
       toast.error("Failed to add task");
+    }
+  };
+
+  // Handle AI categorization for backlog
+  const handleAICategorization = async (taskText: string) => {
+    if (!user || !taskText.trim() || categories.length === 0) return;
+    
+    try {
+      const categoryNames = categories.map(cat => cat.name);
+      const result = await categorizeTask(taskText, categoryNames);
+      
+      if (result.suggestedCategory) {
+        // Add the suggested category as a tag
+        const categorizedText = taskText + ` #${result.suggestedCategory}`;
+        setCardState(selectedCategory || "", { input: categorizedText });
+        toast.success(`Categorized as: ${result.suggestedCategory}`);
+      }
+    } catch (error) {
+      console.error('Error categorizing task:', error);
+      toast.error("Failed to categorize task");
     }
   };
 
@@ -2094,12 +2190,39 @@ function BacklogView({
                   setCardState(selectedCategory, { input: "", date: undefined });
                 }}
               >
-                <Input
-                  placeholder="Add a task..."
-                  className="flex-1 text-xs rounded-lg"
-                  value={cardStates[selectedCategory]?.input || ""}
-                  onChange={e => setCardState(selectedCategory, { input: e.target.value })}
-                />
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Add a task... (Shift+Enter to extract date and generate task)"
+                    className="flex-1 text-xs rounded-lg"
+                    value={cardStates[selectedCategory]?.input || ""}
+                    onChange={e => setCardState(selectedCategory, { input: e.target.value })}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && e.shiftKey) {
+                        e.preventDefault();
+                        const currentText = cardStates[selectedCategory]?.input || "";
+                        if (currentText.trim()) {
+                          handleAICategorization(currentText);
+                        }
+                      }
+                    }}
+                  />
+                  
+                  {/* AI Categorization Hint */}
+                  <AnimatePresence>
+                    {(cardStates[selectedCategory]?.input || "").trim() && categories.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute -bottom-5 left-0 text-[10px] text-gray-400 flex items-center gap-1"
+                      >
+                        <span className="bg-gray-100 px-1 py-0.5 rounded text-[8px] font-medium">Shift+Enter</span>
+                        <span>to extract date and generate task</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <Button type="submit" size="sm" className="text-xs">
                   <Plus className="h-3 w-3 mr-1" />
                   Add

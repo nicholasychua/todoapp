@@ -67,7 +67,7 @@ function FocusSession({
   });
 
   return (
-    <div className="flex-1 h-screen flex items-center justify-center bg-gray-50 overflow-hidden ml-48">
+    <div className="flex-1 h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
       {/* Left: Timer */}
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center justify-center">
