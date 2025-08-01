@@ -64,7 +64,7 @@ function SoundWave() {
           height: ["60%", "100%", "60%"]
         }}
         transition={{
-          duration: 0.8,
+          duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
           delay: 0
@@ -76,10 +76,10 @@ function SoundWave() {
           height: ["100%", "60%", "100%"]
         }}
         transition={{
-          duration: 0.8,
+          duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
-          delay: 0.2
+          delay: 0.4
         }}
       />
       <motion.div
@@ -88,10 +88,10 @@ function SoundWave() {
           height: ["60%", "100%", "60%"]
         }}
         transition={{
-          duration: 0.8,
+          duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
-          delay: 0.4
+          delay: 0.8
         }}
       />
     </div>
@@ -984,7 +984,7 @@ export default function TaskManager() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-hidden" onClick={handleContainerClick}>
+    <div className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-visible" onClick={handleContainerClick}>
       {/* Custom Sidebar - ONLY Focus Session, Backlog and Log out */}
       <Sidebar 
         showBacklog={showBacklog}
@@ -1197,13 +1197,32 @@ export default function TaskManager() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center"
+                        style={{ 
+                          position: 'fixed',
+                          top: '-100px',
+                          left: '-100px',
+                          right: '-100px',
+                          bottom: '-100px',
+                          width: 'calc(100vw + 200px)',
+                          height: 'calc(100vh + 200px)',
+                          zIndex: 9999
+                        }}
                       >
                         {/* Backdrop with blur */}
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 bg-black/20 backdrop-blur-md"
+                          className="absolute inset-0 bg-black/40 backdrop-blur-md"
+                          style={{ 
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            width: '100%',
+                            height: '100%'
+                          }}
                         />
                         
                         {/* Main modal container */}
@@ -1218,91 +1237,44 @@ export default function TaskManager() {
                             duration: 0.4
                           }}
                           className="relative z-10 w-full max-w-xl mx-4"
+                          style={{ transform: 'translate(100px, 100px)' }}
                         >
                           {/* Glass container */}
                           <div 
-                            className="relative overflow-hidden rounded-3xl"
-                            style={{
-                              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-                              backdropFilter: 'blur(20px)',
-                              border: '1px solid rgba(255,255,255,0.2)',
-                              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
-                            }}
+                            className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl"
                           >
-                            {/* Inner glow effect */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-white/30 rounded-3xl" />
-                            
                             {/* Content */}
                             <div className="relative p-8">
                               <div className="flex flex-col items-center space-y-8">
-                                {/* Animated microphone icon with glow */}
-                                <motion.div 
-                                  className="relative"
-                                  animate={{ 
-                                    scale: [1, 1.05, 1],
-                                    rotate: [0, 2, -2, 0]
-                                  }}
-                                  transition={{ 
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    ease: "easeInOut"
-                                  }}
-                                >
-                                  {/* Outer glow ring */}
-                                  <div className="absolute inset-0 bg-red-400/20 rounded-full blur-xl animate-pulse" />
-                                  
-                                  {/* Inner glow */}
-                                  <div className="absolute inset-2 bg-red-300/30 rounded-full blur-lg" />
-                                  
-                                  {/* Main icon container */}
-                                  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
+                                {/* Simplified microphone icon with minimal animation */}
+                                <div className="relative">
+                                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
                                     <div className="scale-150">
                                       <SoundWave />
                                     </div>
                                   </div>
-                                </motion.div>
+                                </div>
                                 
                                 {/* Text content */}
-                                <motion.div 
-                                  className="text-center space-y-6"
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: 0.2 }}
-                                >
-                                  <motion.h3 
-                                    className="text-2xl font-semibold text-gray-900"
-                                    animate={{ opacity: [0.8, 1, 0.8] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                  >
+                                <div className="text-center space-y-6">
+                                  <h3 className="text-2xl font-semibold text-gray-900">
                                     Listening...
-                                  </motion.h3>
+                                  </h3>
                                   
                                   {/* Speech display container */}
                                   <div className="relative">
-                                    {/* Container glow */}
-                                    <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-2xl blur-sm" />
-                                    
-                                    {/* Main container */}
-                                    <div className="relative min-h-[80px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
-                                      <motion.p 
-                                        className="text-lg text-gray-700 leading-relaxed"
-                                        animate={{ opacity: [0.6, 1, 0.6] }}
-                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                      >
+                                    <div className="min-h-[80px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+                                      <p className="text-lg text-gray-700 leading-relaxed">
                                         {speechDraft || "Speak now..."}
-                                      </motion.p>
+                                      </p>
                                     </div>
                                   </div>
                                   
                                   {/* Instruction text */}
-                                  <motion.p 
-                                    className="text-sm text-gray-500 font-medium"
-                                    animate={{ opacity: [0.5, 1, 0.5] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
-                                  >
+                                  <p className="text-sm text-gray-500 font-medium">
                                     Release Ctrl to stop recording
-                                  </motion.p>
-                                </motion.div>
+                                  </p>
+                                </div>
                               </div>
                             </div>
                             
@@ -1443,20 +1415,14 @@ export default function TaskManager() {
         >
           <button
             onClick={startRecording}
-            className="group relative flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-md border border-gray-200/50 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all duration-300 hover:scale-105 active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8)'
-            }}
+            className="group relative flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-md border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
           >
             <div className="relative">
               <Mic className="h-5 w-5 text-gray-700 group-hover:text-gray-900 transition-colors duration-200" />
-              <div className="absolute inset-0 bg-gray-200/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
             <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
               Hold Ctrl
             </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" />
           </button>
         </motion.div>
       )}
@@ -1487,17 +1453,8 @@ export default function TaskManager() {
           >
             {/* Glass container */}
             <div 
-              className="relative overflow-hidden rounded-3xl"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.1) inset'
-              }}
+              className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl"
             >
-              {/* Inner glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-white/30 rounded-3xl" />
-              
               {/* Content */}
               <div className="relative p-8">
                 <AnimatePresence mode="wait" initial={false}>
@@ -1512,56 +1469,26 @@ export default function TaskManager() {
                     >
                       <h2 className="text-2xl font-semibold mb-6 text-gray-900">Listening...</h2>
                       <div className="flex flex-col items-center space-y-6">
-                        {/* Animated microphone icon with glow */}
-                        <motion.div 
-                          className="relative"
-                          animate={{ 
-                            scale: [1, 1.05, 1],
-                            rotate: [0, 2, -2, 0]
-                          }}
-                          transition={{ 
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                          }}
-                        >
-                          {/* Outer glow ring */}
-                          <div className="absolute inset-0 bg-red-400/20 rounded-full blur-xl animate-pulse" />
-                          
-                          {/* Inner glow */}
-                          <div className="absolute inset-2 bg-red-300/30 rounded-full blur-lg" />
-                          
-                          {/* Main icon container */}
-                          <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
+                        {/* Simplified microphone icon */}
+                        <div className="relative">
+                          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
                             <SoundWave />
                           </div>
-                        </motion.div>
+                        </div>
                         
                         <div className="text-center space-y-4">
                           {/* Speech display container */}
                           <div className="relative">
-                            {/* Container glow */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-2xl blur-sm" />
-                            
-                            {/* Main container */}
-                            <div className="relative min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm">
-                              <motion.p 
-                                className="text-base text-gray-700 leading-relaxed"
-                                animate={{ opacity: [0.6, 1, 0.6] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                              >
+                            <div className="min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm">
+                              <p className="text-base text-gray-700 leading-relaxed">
                                 {speechDraft || "Speak now..."}
-                              </motion.p>
+                              </p>
                             </div>
                           </div>
                           
-                          <motion.p 
-                            className="text-sm text-gray-500 font-medium"
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          >
+                          <p className="text-sm text-gray-500 font-medium">
                             Release Ctrl to stop recording
-                          </motion.p>
+                          </p>
                         </div>
                       </div>
                     </motion.div>
@@ -1580,11 +1507,7 @@ export default function TaskManager() {
                         <div>
                           <div className="text-sm font-medium mb-2 text-gray-700">Raw Transcription</div>
                           <div className="relative">
-                            {/* Container glow */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
-                            
-                            {/* Main container */}
-                            <div className="relative w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                            <div className="w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
                               <textarea
                                 className="w-full bg-transparent outline-none resize-none text-sm text-gray-700"
                                 rows={2}
@@ -1600,11 +1523,7 @@ export default function TaskManager() {
                             <div className="text-sm font-medium mb-2 text-gray-700">Processed Task</div>
                             <div className="space-y-3">
                               <div className="relative">
-                                {/* Container glow */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
-                                
-                                {/* Main container */}
-                                <div className="relative flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                                <div className="flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
                                   <input type="checkbox" className="mr-2 mt-1" />
                                   <div className="flex-1">
                                     <div className="text-sm font-medium text-gray-900">{processedTask.taskName}</div>
@@ -1692,11 +1611,7 @@ export default function TaskManager() {
                         <div>
                           <div className="text-sm font-medium mb-2 text-gray-700">What's on your mind?</div>
                           <div className="relative">
-                            {/* Container glow */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-gray-100/50 via-white/80 to-gray-100/50 rounded-xl blur-sm" />
-                            
-                            {/* Main container */}
-                            <div className="relative w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                            <div className="w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
                               <textarea
                                 className="w-full bg-transparent outline-none resize-none text-sm text-gray-700 min-h-[80px]"
                                 value={manualTaskText}
