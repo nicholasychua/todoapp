@@ -718,22 +718,33 @@ export default function TaskManager() {
       setIsRecording(false);
       setIsRecordingComplete(true);
       setVoiceRaw(finalTranscriptRef.current);
-      setShowVoiceMenu(true);
 
       if (!finalTranscriptRef.current.trim()) {
+        // No speech detected, show manual input mode
+        setShowVoiceMenu(true);
         setVoiceStep('manual');
-        setManualTaskText('');
+        setManualTaskText("");
         return;
       }
 
       try {
         const result = await processVoiceInput(finalTranscriptRef.current);
-        setProcessedTask(result);
-        setVoiceStep('confirm');
+        if (result) {
+          // Directly create the task without showing the second modal
+          const taskText = `${result.taskName} ${(result.tags || []).map(tag => `#${tag}`).join(' ')}`;
+          
+          let taskDate: Date | undefined = undefined;
+          if (result.date) {
+            const timeString = result.time || '00:00';
+            taskDate = new Date(`${result.date}T${timeString}`);
+          }
+          
+          await addTask(taskText, taskDate);
+          toast.success('Task created from voice input');
+        }
       } catch (error) {
-        console.error("Failed to process voice input, switching to manual mode.", error);
-        setManualTaskText(finalTranscriptRef.current);
-        setVoiceStep('manual');
+        console.error("Failed to process voice input:", error);
+        toast.error("Failed to process voice input");
       }
     };
     recognition.start();
@@ -1205,37 +1216,13 @@ export default function TaskManager() {
 
                   <AnimatePresence mode="wait">
                     {isRecording && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center"
-                        style={{ 
-                          position: 'fixed',
-                          top: '-100px',
-                          left: '-100px',
-                          right: '-100px',
-                          bottom: '-100px',
-                          width: 'calc(100vw + 200px)',
-                          height: 'calc(100vh + 200px)',
-                          zIndex: 9999
-                        }}
-                      >
+                      <div className="fixed inset-0 z-50 flex items-center justify-center">
                         {/* Backdrop with blur */}
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className="absolute inset-0 bg-black/40 backdrop-blur-md"
-                          style={{ 
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            width: '100%',
-                            height: '100%'
-                          }}
+                          className="fixed inset-0 bg-black/20 backdrop-blur-md"
                         />
                         
                         {/* Main modal container */}
@@ -1250,7 +1237,6 @@ export default function TaskManager() {
                             duration: 0.4
                           }}
                           className="relative z-10 w-full max-w-xl mx-4"
-                          style={{ transform: 'translate(100px, 100px)' }}
                         >
                           {/* Glass container */}
                           <div 
@@ -1258,44 +1244,39 @@ export default function TaskManager() {
                           >
                             {/* Content */}
                             <div className="relative p-8">
-                              <div className="flex flex-col items-center space-y-8">
-                                {/* Simplified microphone icon with minimal animation */}
-                                <div className="relative">
-                                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
-                                    <div className="scale-150">
+                              <div className="flex flex-col">
+                                <h2 className="text-2xl font-semibold mb-6 text-gray-900">Listening...</h2>
+                                <div className="flex flex-col items-center space-y-6">
+                                  {/* Simplified microphone icon */}
+                                  <div className="relative">
+                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
                                       <SoundWave />
                                     </div>
                                   </div>
-                                </div>
-                                
-                                {/* Text content */}
-                                <div className="text-center space-y-6">
-                                  <h3 className="text-2xl font-semibold text-gray-900">
-                                    Listening...
-                                  </h3>
                                   
-                                  {/* Speech display container */}
-                                  <div className="relative">
-                                    <div className="min-h-[80px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
-                                      <p className="text-lg text-gray-700 leading-relaxed">
-                                        {speechDraft || "Speak now..."}
-                                      </p>
+                                  <div className="text-center space-y-4">
+                                    {/* Speech display container */}
+                                    <div className="relative">
+                                      <div className="min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm">
+                                        <p className="text-base text-gray-700 leading-relaxed">
+                                          {speechDraft || "Speak now..."}
+                                        </p>
+                                      </div>
                                     </div>
+                                    
+                                    <p className="text-sm text-gray-500 font-medium">
+                                      Release Ctrl to stop recording
+                                    </p>
                                   </div>
-                                  
-                                  {/* Instruction text */}
-                                  <p className="text-sm text-gray-500 font-medium">
-                                    Release Ctrl to stop recording
-                                  </p>
                                 </div>
                               </div>
                             </div>
                             
                             {/* Bottom accent */}
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-400/30 to-transparent rounded-b-3xl" />
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400/30 to-transparent rounded-b-3xl" />
                           </div>
                         </motion.div>
-                      </motion.div>
+                      </div>
                     )}
                   </AnimatePresence>
                 </div>
@@ -1448,7 +1429,7 @@ export default function TaskManager() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/20 backdrop-blur-md"
+            className="fixed inset-0 bg-black/20 backdrop-blur-md"
           />
           
           {/* Main modal container */}
