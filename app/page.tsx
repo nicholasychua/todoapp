@@ -205,7 +205,8 @@ function CategoryPopup({
   categories, 
   position,
   inputValue,
-  onInputChange
+  onInputChange,
+  user
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -214,6 +215,7 @@ function CategoryPopup({
   position: { top: number; left: number };
   inputValue: string;
   onInputChange: (value: string) => void;
+  user: any;
 }) {
   const [customInput, setCustomInput] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -227,10 +229,20 @@ function CategoryPopup({
     onClose();
   };
   
-  const handleCustomSubmit = () => {
-    if (customInput.trim()) {
-      onSelect(customInput.trim());
-      onClose();
+  const handleCustomSubmit = async () => {
+    if (customInput.trim() && user) {
+      try {
+        // Create the category in Firebase
+        await addCategory(customInput.trim(), user.uid);
+        // Select the newly created category
+        onSelect(customInput.trim());
+        onClose();
+        setCustomInput("");
+        toast.success(`Created category: ${customInput.trim()}`);
+      } catch (error) {
+        console.error("Failed to create category:", error);
+        toast.error("Failed to create category");
+      }
     }
   };
 
@@ -1185,6 +1197,7 @@ export default function TaskManager() {
                           position={categoryPopupPosition}
                           inputValue={categoryInputValue}
                           onInputChange={setCategoryInputValue}
+                          user={user}
                         />
                       )}
                     </AnimatePresence>
@@ -1968,7 +1981,7 @@ function BacklogView({
   // Keep order in sync with categories
   useEffect(() => {
     setCategoryOrder([...categories.map(c => c.name), "Uncategorized"]);
-  }, [categories.length]);
+  }, [categories]);
 
   // Create a single drag control for all cards
   const dragControls = useDragControls();
