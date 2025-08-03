@@ -20,6 +20,7 @@ interface DatePickerProps {
 export function DatePicker({ date, setDate, className, time: controlledTime, setTime: setControlledTime }: DatePickerProps) {
   // Local state for time input, default to null (shows '--:--')
   const [time, setTime] = React.useState<string | null>(null);
+  const [open, setOpen] = React.useState(false);
 
   // Sync time input with date or controlledTime
   React.useEffect(() => {
@@ -35,19 +36,12 @@ export function DatePicker({ date, setDate, className, time: controlledTime, set
     const value = e.target.value;
     setTime(value);
     if (setControlledTime) setControlledTime(value);
-    if (date && value) {
-      const [h, m] = value.split(":").map(Number);
-      const newDate = new Date(date);
-      newDate.setHours(h);
-      newDate.setMinutes(m);
-      newDate.setSeconds(0);
-      newDate.setMilliseconds(0);
-      setDate(newDate);
-    }
+    // Don't call setDate here as it might override the original date
+    // The time will be applied when the task is created
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -65,20 +59,18 @@ export function DatePicker({ date, setDate, className, time: controlledTime, set
           onSelect={setDate}
           initialFocus
         />
-        {/* Time Picker */}
-        {date && (
-          <div className="p-3 border-t flex items-center gap-2">
-            <label htmlFor="time-picker" className="text-xs text-muted-foreground mr-2">Time</label>
-            <Input
-              id="time-picker"
-              type="time"
-              value={time ?? ""}
-              placeholder="--:--"
-              onChange={handleTimeChange}
-              className="w-28 h-8 text-xs px-2 py-1"
-            />
-          </div>
-        )}
+        {/* Time Picker - Always visible */}
+        <div className="p-3 border-t border-gray-200 bg-gray-50 flex items-center gap-2">
+          <label htmlFor="time-picker" className="text-xs font-medium text-gray-700 mr-2">Time</label>
+          <Input
+            id="time-picker"
+            type="time"
+            value={time ?? ""}
+            placeholder="--:--"
+            onChange={handleTimeChange}
+            className="w-32 h-8 text-xs px-2 py-1 border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
       </PopoverContent>
     </Popover>
   )

@@ -394,6 +394,7 @@ export default function TaskManager() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskText, setNewTaskText] = useState("")
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined)
+  const [newTaskTime, setNewTaskTime] = useState<string | null>(null)
   const [searchText, setSearchText] = useState("")
   const [isRecording, setIsRecording] = useState(false)
   const [isRecordingComplete, setIsRecordingComplete] = useState(false)
@@ -529,16 +530,26 @@ export default function TaskManager() {
     
     try {
       const tags = parseTagsFromText(value);
+      
+      // Create the final date with time if both are selected
+      let finalDate = (date ?? newTaskDate) || new Date();
+      if (newTaskDate && newTaskTime) {
+        const [hours, minutes] = newTaskTime.split(':').map(Number);
+        finalDate = new Date(newTaskDate);
+        finalDate.setHours(hours, minutes, 0, 0);
+      }
+      
       await createTask({
         text: value,
         completed: false,
         tags,
-        createdAt: (date ?? newTaskDate) || new Date(),
+        createdAt: finalDate,
         group: "master"
       });
       setNewTaskText("");
       setSpeechDraft("");
-      setNewTaskDate(new Date());
+      setNewTaskDate(undefined);
+      setNewTaskTime(null);
       toast.success("Task added successfully!");
     } catch (error) {
       toast.error("Failed to add task");
@@ -730,21 +741,18 @@ export default function TaskManager() {
       try {
         const result = await processVoiceInput(finalTranscriptRef.current);
         if (result) {
-          // Directly create the task without showing the second modal
-          const taskText = `${result.taskName} ${(result.tags || []).map(tag => `#${tag}`).join(' ')}`;
-          
-          let taskDate: Date | undefined = undefined;
-          if (result.date) {
-            const timeString = result.time || '00:00';
-            taskDate = new Date(`${result.date}T${timeString}`);
-          }
-          
-          await addTask(taskText, taskDate);
-          toast.success('Task created from voice input');
+          // Show the confirmation screen instead of directly creating the task
+          setProcessedTask(result);
+          setShowVoiceMenu(true);
+          setVoiceStep('confirm');
         }
       } catch (error) {
         console.error("Failed to process voice input:", error);
         toast.error("Failed to process voice input");
+        // Show manual input mode as fallback
+        setShowVoiceMenu(true);
+        setVoiceStep('manual');
+        setManualTaskText("");
       }
     };
     recognition.start();
@@ -1151,21 +1159,45 @@ export default function TaskManager() {
                         className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-20 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                        {!newTaskDate ? (
-                          <Button
-                            variant="ghost"
-                            className="h-8 w-8 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                            onClick={() => setNewTaskDate(new Date())}
-                            aria-label="Select date"
-                          >
-                            <CalendarIcon className="h-4 w-4 text-gray-500" />
-                          </Button>
-                        ) : (
-                          <DatePicker
-                            date={newTaskDate}
-                            setDate={setNewTaskDate as (date: Date | undefined) => void}
-                          />
+                        {/* Date and Time Display */}
+                        {(newTaskDate || newTaskTime) && (
+                          <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg border border-gray-200">
+                            {newTaskDate && (
+                              <span className="text-xs text-gray-600">
+                                {newTaskDate.toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  timeZone: 'America/Los_Angeles'
+                                })}
+                              </span>
+                            )}
+                            {newTaskTime && (
+                              <span className="text-xs text-gray-600">
+                                {newTaskTime}
+                              </span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0 hover:bg-gray-200"
+                              onClick={() => {
+                                setNewTaskDate(undefined);
+                                setNewTaskTime(null);
+                              }}
+                            >
+                              <X className="h-3 w-3 text-gray-400" />
+                            </Button>
+                          </div>
                         )}
+                        
+                        {/* Date Picker */}
+                        <DatePicker
+                          date={newTaskDate}
+                          setDate={setNewTaskDate as (date: Date | undefined) => void}
+                          time={newTaskTime}
+                          setTime={setNewTaskTime}
+                        />
+                        
                         <Button
                           onClick={() => addTask()}
                           size="icon"
@@ -1298,9 +1330,10 @@ export default function TaskManager() {
                           const d = task.createdAt;
                           dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
                           isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                          // Only show time if not midnight (00:00 or 12:00 AM)
+                          // Always show time if it's set (not midnight or if explicitly set)
                           const hours = d.getHours();
                           const minutes = d.getMinutes();
+                          // Show time if it's not midnight OR if the task was created with a specific time
                           if (!(hours === 0 && minutes === 0)) {
                             timeString = d.toLocaleTimeString('en-US', {
                               hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
@@ -1698,6 +1731,7 @@ function BacklogView({
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
+  const [newTaskTime, setNewTaskTime] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -1745,15 +1779,25 @@ function BacklogView({
     
     try {
       const tags = parseTagsFromText(newTaskText);
+      
+      // Create the final date with time if both are selected
+      let finalDate = newTaskDate || new Date();
+      if (newTaskDate && newTaskTime) {
+        const [hours, minutes] = newTaskTime.split(':').map(Number);
+        finalDate = new Date(newTaskDate);
+        finalDate.setHours(hours, minutes, 0, 0);
+      }
+      
       await createTask({
         text: newTaskText,
         completed: false,
         tags,
-        createdAt: newTaskDate || new Date(),
+        createdAt: finalDate,
         group: "master"
       });
       setNewTaskText("");
       setNewTaskDate(undefined);
+      setNewTaskTime(null);
       toast.success("Task added to backlog!");
     } catch (error) {
       toast.error("Failed to add task");
@@ -2478,9 +2522,10 @@ function PomodoroTimer({
                   const d = task.createdAt;
                   dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
                   isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                  // Only show time if not midnight (00:00 or 12:00 AM)
+                  // Always show time if it's set (not midnight or if explicitly set)
                   const hours = d.getHours();
                   const minutes = d.getMinutes();
+                  // Show time if it's not midnight OR if the task was created with a specific time
                   if (!(hours === 0 && minutes === 0)) {
                     timeString = d.toLocaleTimeString('en-US', {
                       hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'

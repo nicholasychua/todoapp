@@ -96,7 +96,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { rawInput } = await request.json();
+    let rawInput: string;
+    
+    try {
+      const body = await request.json();
+      rawInput = body.rawInput;
+    } catch (parseError) {
+      console.error("Failed to parse request body:", parseError);
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
 
     if (!rawInput) {
       return NextResponse.json(
@@ -171,30 +182,30 @@ export async function POST(request: Request) {
     }
 
     try {
+      console.log("AI Response content:", content);
       const result = JSON.parse(content);
+      
+      // Validate the result structure
+      if (!result.taskName || typeof result.taskName !== 'string') {
+        console.warn("Invalid AI response structure, using fallback");
+        const fallbackResult = fallbackProcessVoiceInput(rawInput);
+        return NextResponse.json(fallbackResult);
+      }
+      
       return NextResponse.json(result);
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
+      console.error("Raw content that failed to parse:", content);
       const fallbackResult = fallbackProcessVoiceInput(rawInput);
       return NextResponse.json(fallbackResult);
     }
   } catch (error) {
     console.error("Error processing voice input:", error);
     
-    // Use fallback instead of returning error
-    try {
-      const { rawInput } = await request.json().catch(() => ({ rawInput: "" }));
-      if (rawInput) {
-        const fallbackResult = fallbackProcessVoiceInput(rawInput);
-        return NextResponse.json(fallbackResult);
-      }
-    } catch (e) {
-      console.error("Failed to extract input for fallback:", e);
-    }
-    
+    // Return a generic error response since we can't reliably get the input again
     return NextResponse.json(
-      { error: "Invalid request data" },
-      { status: 400 }
+      { error: "Failed to process voice input" },
+      { status: 500 }
     );
   }
 } 
