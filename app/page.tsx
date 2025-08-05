@@ -533,9 +533,11 @@ export default function TaskManager() {
       
       // Create the final date with time if both are selected
       let finalDate = (date ?? newTaskDate) || new Date();
-      if (newTaskDate && newTaskTime) {
+      
+      // Always apply time if it's set, regardless of whether a date is selected
+      if (newTaskTime) {
         const [hours, minutes] = newTaskTime.split(':').map(Number);
-        finalDate = new Date(newTaskDate);
+        finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
       }
       
@@ -1054,6 +1056,8 @@ export default function TaskManager() {
                 allTags={allTags}
                 completedTaskIds={completedTaskIds}
                 getTagTextColor={getTagTextColor}
+                categories={categories}
+                updateTask={updateTask}
               />
             </motion.div>
           ) : showBacklog ? (
@@ -1330,15 +1334,10 @@ export default function TaskManager() {
                           const d = task.createdAt;
                           dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
                           isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                          // Always show time if it's set (not midnight or if explicitly set)
-                          const hours = d.getHours();
-                          const minutes = d.getMinutes();
-                          // Show time if it's not midnight OR if the task was created with a specific time
-                          if (!(hours === 0 && minutes === 0)) {
-                            timeString = d.toLocaleTimeString('en-US', {
-                              hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                            });
-                          }
+                          // Always show time when task has a date
+                          timeString = d.toLocaleTimeString('en-US', {
+                            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                          });
                         }
                         
                         // Determine effective completion status using local state
@@ -1363,7 +1362,7 @@ export default function TaskManager() {
                               ease: "easeOut"
                             }}
                             className={cn(
-                              "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                              "flex items-center px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
                               idx !== tasks.length - 1 && "border-b border-gray-200",
                               effectivelyCompleted ? "bg-muted/30" : ""
                             )}
@@ -1375,29 +1374,84 @@ export default function TaskManager() {
                               className="flex-shrink-0 mr-3"
                             />
                             {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                            <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                            <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className={cn(
-                                  "text-sm font-normal truncate transition-colors duration-200",
+                                  "text-sm font-normal transition-colors duration-200",
                                   effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
                                 )}>
                                   {formatTextWithTags(task.text)}
                                 </span>
                                 {hasDate && (
-                                  <span className={cn(
-                                    "text-xs font-medium transition-colors duration-200 mt-0.5",
-                                    isPastOrToday ? "text-red-600" : "text-gray-400"
-                                  )}>
-                                    {dateString}{timeString ? `, ${timeString}` : ''}
-                                  </span>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <span className={cn(
+                                        "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1",
+                                        isPastOrToday ? "text-red-600" : "text-gray-400"
+                                      )}>
+                                        {dateString}{timeString ? `, ${timeString}` : ''}
+                                      </span>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={task.createdAt}
+                                        onSelect={(newDate) => {
+                                          if (newDate) {
+                                            updateTaskDate(task.id, newDate);
+                                          }
+                                        }}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
                                 )}
                               </div>
                               {task.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
+                                <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
                                   {task.tags.map((tag) => (
-                                    <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                      <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                                    </span>
+                                    <Popover key={tag}>
+                                      <PopoverTrigger asChild>
+                                        <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
+                                          <span className="text-gray-500">{tag}</span> 
+                                          <span className={cn(
+                                            "transition-colors",
+                                            getTagTextColor(tag)
+                                          )}>#</span>
+                                        </span>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-auto p-0" align="end">
+                                        <div className="p-2">
+                                          <div className="px-2 py-1 mb-2">
+                                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                              Change Category
+                                            </div>
+                                          </div>
+                                          <div className="space-y-1">
+                                            {categories.map((category) => (
+                                              <button
+                                                key={category.id}
+                                                onClick={async () => {
+                                                  try {
+                                                    // Remove the old tag and add the new one
+                                                    const updatedTags = task.tags.filter(t => t !== tag);
+                                                    updatedTags.push(category.name);
+                                                    await updateTask(task.id, { tags: updatedTags });
+                                                    toast.success(`Changed category to ${category.name}`);
+                                                  } catch (error) {
+                                                    toast.error("Failed to update category");
+                                                  }
+                                                }}
+                                                className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
+                                              >
+                                                <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                                <span className="flex-1">{category.name}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
                                   ))}
                                 </div>
                               )}
@@ -1782,9 +1836,11 @@ function BacklogView({
       
       // Create the final date with time if both are selected
       let finalDate = newTaskDate || new Date();
-      if (newTaskDate && newTaskTime) {
+      
+      // Always apply time if it's set, regardless of whether a date is selected
+      if (newTaskTime) {
         const [hours, minutes] = newTaskTime.split(':').map(Number);
-        finalDate = new Date(newTaskDate);
+        finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
       }
       
@@ -2012,7 +2068,7 @@ function BacklogView({
   const dragControls = useDragControls();
 
   // Helper function to distribute items into columns
-  const distributeIntoColumns = (items: string[], numColumns: number = 3) => {
+  const distributeIntoColumns = (items: string[], numColumns: number = 2) => {
     const columns: string[][] = Array(numColumns).fill(null).map(() => []);
     items.forEach((item, index) => {
       columns[index % numColumns].push(item);
@@ -2020,7 +2076,7 @@ function BacklogView({
     return columns;
   };
 
-  const columns = distributeIntoColumns(categoryOrder, 3);
+  const columns = distributeIntoColumns(categoryOrder, 2);
 
   // Handle reordering
   const handleReorder = (newOrder: string[]) => {
@@ -2064,8 +2120,8 @@ function BacklogView({
         </form>
       </Card>
 
-      {/* Category Cards Grid - Three Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-max">
+      {/* Category Cards Grid - Two Column Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max">
         {columns.map((column, columnIndex) => (
           <Reorder.Group
             key={columnIndex}
@@ -2078,7 +2134,7 @@ function BacklogView({
                 const newIndex = newColumnOrder.indexOf(item);
                 if (newIndex !== oldIndex) {
                   const globalOldIndex = categoryOrder.indexOf(item);
-                  const globalNewIndex = columnIndex * Math.ceil(categoryOrder.length / 3) + newIndex;
+                  const globalNewIndex = columnIndex * Math.ceil(categoryOrder.length / 2) + newIndex;
                   if (globalOldIndex !== -1) {
                     newOrder.splice(globalOldIndex, 1);
                     newOrder.splice(globalNewIndex, 0, item);
@@ -2103,9 +2159,8 @@ function BacklogView({
                   dragListener={true}
                   dragControls={dragControls}
                   whileDrag={{ 
-                    scale: 1.05, 
-                    rotate: 2,
-                    boxShadow: "0 20px 40px rgba(0,0,0,0.15)", 
+                    scale: 1.01, 
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.08)", 
                     zIndex: 1000,
                     cursor: "grabbing"
                   }}
@@ -2113,21 +2168,22 @@ function BacklogView({
                     bounceStiffness: 300, 
                     bounceDamping: 20 
                   }}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col p-4 relative cursor-pointer select-none hover:shadow-md transition-shadow duration-200"
+                  className="bg-white rounded-lg border border-gray-100 flex flex-col relative cursor-pointer select-none hover:border-gray-200 transition-colors duration-200"
                 >
-                  <div className="flex items-center justify-between mb-3">
+                  {/* Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-gray-50">
                     <h2
-                      className="text-lg font-semibold text-gray-900 truncate flex-1 cursor-pointer"
+                      className="text-base font-medium text-gray-900 truncate flex-1 cursor-pointer"
                       onClick={() => openCategoryModal(catName)}
                     >
                       {catName}
                     </h2>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                      <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
                         {catTasks.length}
                       </span>
                       <button
-                        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
+                        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
                         title="Drag to reorder"
                         onPointerDown={(e) => {
                           dragControls.start(e);
@@ -2136,95 +2192,83 @@ function BacklogView({
                         aria-label="Drag card"
                         type="button"
                       >
-                        <svg width="16" height="16" fill="none" viewBox="0 0 20 20">
-                          <circle cx="5" cy="6" r="1.5" fill="currentColor"/>
-                          <circle cx="5" cy="10" r="1.5" fill="currentColor"/>
-                          <circle cx="5" cy="14" r="1.5" fill="currentColor"/>
-                          <circle cx="10" cy="6" r="1.5" fill="currentColor"/>
-                          <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
-                          <circle cx="10" cy="14" r="1.5" fill="currentColor"/>
-                          <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
-                          <circle cx="15" cy="10" r="1.5" fill="currentColor"/>
-                          <circle cx="15" cy="14" r="1.5" fill="currentColor"/>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 20 20">
+                          <circle cx="5" cy="6" r="1" fill="currentColor"/>
+                          <circle cx="5" cy="10" r="1" fill="currentColor"/>
+                          <circle cx="5" cy="14" r="1" fill="currentColor"/>
+                          <circle cx="10" cy="6" r="1" fill="currentColor"/>
+                          <circle cx="10" cy="10" r="1" fill="currentColor"/>
+                          <circle cx="10" cy="14" r="1" fill="currentColor"/>
+                          <circle cx="15" cy="6" r="1" fill="currentColor"/>
+                          <circle cx="15" cy="10" r="1" fill="currentColor"/>
+                          <circle cx="15" cy="14" r="1" fill="currentColor"/>
                         </svg>
                       </button>
                     </div>
                   </div>
                   
+                  {/* Content */}
                   <div 
-                    className="flex flex-col gap-2 mb-3 min-h-[60px] cursor-pointer flex-1" 
+                    className="flex flex-col flex-1 p-4 cursor-pointer" 
                     onClick={() => openCategoryModal(catName)}
                   >
-                    {catTasks.length === 0 && (
+                    {catTasks.length === 0 ? (
                       <div className="flex items-center justify-center h-16 text-gray-400">
-                        <div className="text-center">
-                          <div className="text-2xl mb-1">📝</div>
-                          <span className="text-xs">No tasks yet</span>
-                        </div>
+                        <span className="text-sm">No tasks</span>
                       </div>
-                    )}
-                    <AnimatePresence initial={false}>
-                      {catTasks.slice(0, 3).map((task, idx) => (
-                        <motion.div
-                          key={task.id}
-                          layout="position"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10, transition: { duration: 0.2 } }}
-                          transition={{ duration: 0.3, ease: "easeOut" }}
-                          className={cn(
-                            "flex items-start px-3 py-2 min-h-[36px] group hover:bg-gray-50 transition-colors relative rounded-lg border border-gray-100",
-                            completedTaskIds.includes(task.id) || task.completed ? "bg-gray-50 opacity-60" : ""
-                          )}
-                        >
-                          <StyledCheckbox
-                            checked={completedTaskIds.includes(task.id) || task.completed}
-                            onCheckedChange={() => toggleTaskCompletion(task.id)}
-                            className="flex-shrink-0 mt-0.5"
-                          />
-                          <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className={cn(
-                                "text-sm font-normal leading-relaxed transition-colors duration-200",
-                                completedTaskIds.includes(task.id) || task.completed ? "text-gray-500 line-through" : "text-gray-900"
-                              )}>
-                                {formatTextWithTags(task.text)}
-                              </span>
-                              {task.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {task.tags.slice(0, 2).map((tag) => (
-                                    <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                      <span className="text-gray-400">{tag}</span> 
-                                      <span className={getTagTextColor(tag)}>#</span>
-                                    </span>
-                                  ))}
-                                  {task.tags.length > 2 && (
-                                    <span className="text-xs text-gray-400">+{task.tags.length - 2}</span>
-                                  )}
-                                </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <AnimatePresence initial={false}>
+                          {catTasks.slice(0, 3).map((task, idx) => (
+                            <motion.div
+                              key={task.id}
+                              layout="position"
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -5, transition: { duration: 0.15 } }}
+                              transition={{ duration: 0.2, ease: "easeOut" }}
+                              className={cn(
+                                "flex items-start gap-3 p-2 rounded transition-colors",
+                                completedTaskIds.includes(task.id) || task.completed ? "opacity-50" : "hover:bg-gray-50"
                               )}
-                            </div>
+                            >
+                              <StyledCheckbox
+                                checked={completedTaskIds.includes(task.id) || task.completed}
+                                onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                className="flex-shrink-0 mt-0.5"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className={cn(
+                                  "text-sm leading-relaxed block",
+                                  completedTaskIds.includes(task.id) || task.completed ? "text-gray-500 line-through" : "text-gray-900"
+                                )}>
+                                  {formatTextWithTags(task.text)}
+                                </span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                        {catTasks.length > 3 && (
+                          <div className="text-xs text-gray-400 text-center pt-2">
+                            +{catTasks.length - 3} more
                           </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    {catTasks.length > 3 && (
-                      <div className="text-xs text-gray-400 text-center py-2 border-t border-gray-100">
-                        +{catTasks.length - 3} more tasks
+                        )}
                       </div>
                     )}
                   </div>
                   
-                  {/* Quick add button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCategoryModal(catName);
-                    }}
-                    className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors border border-dashed border-gray-200 hover:border-gray-300"
-                  >
-                    + Add task
-                  </button>
+                  {/* Footer */}
+                  <div className="p-4 border-t border-gray-50">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCategoryModal(catName);
+                      }}
+                      className="w-full py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded transition-colors border border-gray-200 hover:border-gray-300"
+                    >
+                      Add task
+                    </button>
+                  </div>
                 </Reorder.Item>
               );
             })}
@@ -2259,37 +2303,79 @@ function BacklogView({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          style={{ 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            position: 'fixed',
+            width: '100vw',
+            height: '100vh',
+            margin: 0,
+            padding: 0
+          }}
           onClick={closeCategoryModal}
         >
           <motion.div
-            initial={{ scale: 0.97, opacity: 0 }}
+            initial={{ scale: 0.98, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.97, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="bg-card text-card-foreground border border-border shadow-xl rounded-xl w-full max-w-md mx-4 relative"
+            exit={{ scale: 0.98, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="bg-white text-gray-900 border border-gray-200 shadow-xl rounded-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden"
             onClick={e => e.stopPropagation()}
             tabIndex={-1}
             style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
           >
-            <div className="rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-semibold">{selectedCategory}</h2>
-                <button onClick={closeCategoryModal} className="text-muted-foreground hover:text-foreground p-1 rounded-full focus:outline-none">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-900">{selectedCategory.toUpperCase()}</h2>
+              <div className="flex items-center gap-3">
+                <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M9 11h.01M9 8h.01" />
+                  </svg>
+                </button>
+                <button onClick={closeCategoryModal} className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="flex flex-col gap-2 mb-4 max-h-80 overflow-y-auto">
+            </div>
+            
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex flex-col gap-3 mb-6 max-h-96 overflow-y-auto">
                 {filteredAndSortedTasks.filter(t => (selectedCategory === "Uncategorized" ? t.tags.length === 0 : t.tags[0] === selectedCategory)).map(task => (
-                  <div key={task.id} className="flex items-center group rounded-lg px-3 py-2 transition-colors hover:bg-muted">
-                    <StyledCheckbox
-                      checked={completedTaskIds.includes(task.id) || task.completed}
-                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                      className="mr-2"
-                    />
+                  <div key={task.id} className="flex items-center group rounded-lg px-4 py-3 transition-colors hover:bg-gray-50">
+                    {/* Drag handle */}
+                    <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <circle cx="5" cy="6" r="1" />
+                        <circle cx="5" cy="10" r="1" />
+                        <circle cx="5" cy="14" r="1" />
+                        <circle cx="10" cy="6" r="1" />
+                        <circle cx="10" cy="10" r="1" />
+                        <circle cx="10" cy="14" r="1" />
+                        <circle cx="15" cy="6" r="1" />
+                        <circle cx="15" cy="10" r="1" />
+                        <circle cx="15" cy="14" r="1" />
+                      </svg>
+                    </div>
+                    
+                    {/* Checkbox */}
+                    <div className="mr-4">
+                      <StyledCheckbox
+                        checked={completedTaskIds.includes(task.id) || task.completed}
+                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                        className="border-gray-300"
+                      />
+                    </div>
+                    
+                    {/* Task text */}
                     {editTaskId === task.id ? (
                       <input
-                        className="flex-1 bg-transparent border-b border-input text-foreground px-1 py-0.5 outline-none"
+                        className="flex-1 bg-transparent border-b border-gray-300 text-gray-900 px-1 py-2 outline-none text-base"
                         value={editTaskText}
                         onChange={e => setEditTaskText(e.target.value)}
                         onBlur={() => saveEditTask(task)}
@@ -2301,15 +2387,17 @@ function BacklogView({
                       />
                     ) : (
                       <span
-                        className="flex-1 text-sm cursor-pointer"
+                        className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
                         onClick={() => startEditTask(task)}
                       >
                         {task.text}
                       </span>
                     )}
+                    
+                    {/* Delete button */}
                     <button
                       onClick={() => deleteTask(task.id)}
-                      className="ml-2 text-muted-foreground hover:text-destructive p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                      className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label="Delete task"
                     >
                       <X className="w-4 h-4" />
@@ -2317,9 +2405,10 @@ function BacklogView({
                   </div>
                 ))}
               </div>
+              
               {/* Add Task Input */}
               <form
-                className="flex gap-2 items-center mt-2"
+                className="flex gap-3 items-center"
                 onSubmit={async e => {
                   e.preventDefault();
                   if (!user || !cardStates[selectedCategory]?.input?.trim()) return;
@@ -2336,8 +2425,8 @@ function BacklogView({
               >
                 <div className="flex-1 relative">
                   <Input
-                    placeholder="Add a task... (Shift+Enter to extract date and generate task)"
-                    className="flex-1 text-xs rounded-lg"
+                    placeholder="Add a new task..."
+                    className="flex-1 text-base rounded-lg bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300"
                     value={cardStates[selectedCategory]?.input || ""}
                     onChange={e => setCardState(selectedCategory, { input: e.target.value })}
                     onKeyDown={e => {
@@ -2352,23 +2441,15 @@ function BacklogView({
                   />
                   
                   {/* AI Categorization Hint */}
-                  <AnimatePresence>
-                    {(cardStates[selectedCategory]?.input || "").trim() && categories.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -5 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute -bottom-5 left-0 text-[10px] text-gray-400 flex items-center gap-1"
-                      >
-                        <span className="bg-gray-100 px-1 py-0.5 rounded text-[8px] font-medium">Shift+Enter</span>
-                        <span>to extract date and generate task</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {(cardStates[selectedCategory]?.input || "").trim() && categories.length > 0 && (
+                    <div className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1">
+                      <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">Shift+Enter</span>
+                      <span>to extract date and generate task</span>
+                    </div>
+                  )}
                 </div>
-                <Button type="submit" size="sm" className="text-xs">
-                  <Plus className="h-3 w-3 mr-1" />
+                <Button type="submit" size="sm" className="text-sm bg-gray-900 hover:bg-gray-800 text-white">
+                  <Plus className="h-4 w-4 mr-2" />
                   Add
                 </Button>
               </form>
@@ -2389,7 +2470,9 @@ function PomodoroTimer({
   tabGroups,
   allTags,
   completedTaskIds,
-  getTagTextColor
+  getTagTextColor,
+  categories,
+  updateTask
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
@@ -2400,9 +2483,17 @@ function PomodoroTimer({
   allTags: string[];
   completedTaskIds: string[];
   getTagTextColor: (tag: string) => string;
+  categories: Category[];
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
+  const [isBreak, setIsBreak] = useState(false);
+  const [completedPomodoros, setCompletedPomodoros] = useState(0);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editingDate, setEditingDate] = useState<Date | undefined>(undefined);
   const { launchTabGroup } = useTabGroupService();
 
   useEffect(() => {
@@ -2522,15 +2613,10 @@ function PomodoroTimer({
                   const d = task.createdAt;
                   dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
                   isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                  // Always show time if it's set (not midnight or if explicitly set)
-                  const hours = d.getHours();
-                  const minutes = d.getMinutes();
-                  // Show time if it's not midnight OR if the task was created with a specific time
-                  if (!(hours === 0 && minutes === 0)) {
-                    timeString = d.toLocaleTimeString('en-US', {
-                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                    });
-                  }
+                  // Always show time when task has a date
+                  timeString = d.toLocaleTimeString('en-US', {
+                    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                  });
                 }
                 
                 // Determine effective completion status using local state
@@ -2555,7 +2641,7 @@ function PomodoroTimer({
                       ease: "easeOut"
                     }}
                     className={cn(
-                      "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                      "flex items-center px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
                       idx !== tasks.length - 1 && "border-b border-gray-200",
                       effectivelyCompleted ? "bg-muted/30" : ""
                     )}
@@ -2567,33 +2653,96 @@ function PomodoroTimer({
                       className="flex-shrink-0 mr-3"
                     />
                     {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-end">
+                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
                       <div className="flex flex-col min-w-0 flex-1">
                         <span className={cn(
-                          "text-sm font-normal truncate transition-colors duration-200",
+                          "text-sm font-normal transition-colors duration-200",
                           effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
                         )}>
                           {formatTextWithTags(task.text)}
                         </span>
                         {hasDate && (
-                          <span className={cn(
-                            "text-xs font-medium transition-colors duration-200 mt-0.5",
-                            isPastOrToday ? "text-red-600" : "text-gray-400"
-                          )}>
-                            {dateString}{timeString ? `, ${timeString}` : ''}
-                          </span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <span className={cn(
+                                "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1",
+                                isPastOrToday ? "text-red-600" : "text-gray-400"
+                              )}>
+                                {dateString}{timeString ? `, ${timeString}` : ''}
+                              </span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={task.createdAt}
+                                onSelect={(newDate) => {
+                                  if (newDate) {
+                                    updateTaskDate(task.id, newDate);
+                                  }
+                                }}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
                         )}
                       </div>
                       {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
+                        <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
                           {task.tags.map((tag) => (
-                            <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                              <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                            </span>
+                            <Popover key={tag}>
+                              <PopoverTrigger asChild>
+                                <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
+                                  <span className="text-gray-500">{tag}</span> 
+                                  <span className={cn(
+                                    "transition-colors",
+                                    getTagTextColor(tag)
+                                  )}>#</span>
+                                </span>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <div className="p-2">
+                                  <div className="px-2 py-1 mb-2">
+                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                      Change Category
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {categories.map((category) => (
+                                      <button
+                                        key={category.id}
+                                        onClick={async () => {
+                                          try {
+                                            // Remove the old tag and add the new one
+                                            const updatedTags = task.tags.filter(t => t !== tag);
+                                            updatedTags.push(category.name);
+                                            await updateTask(task.id, { tags: updatedTags });
+                                            toast.success(`Changed category to ${category.name}`);
+                                          } catch (error) {
+                                            toast.error("Failed to update category");
+                                          }
+                                        }}
+                                        className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span className="flex-1">{category.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           ))}
                         </div>
                       )}
                     </div>
+                    {/* Delete button (show on hover) */}
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                      aria-label="Delete task"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </motion.div>
                 );
               })}

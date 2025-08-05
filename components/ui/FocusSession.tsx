@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react";
 import { Button } from "./button";
 import { Card } from "./card";
@@ -9,6 +11,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tool
 import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "./checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { toast } from "sonner"
+import type { Category } from "@/lib/categories"
 
 function FocusSession({ 
   tasks, 
@@ -19,7 +24,9 @@ function FocusSession({
   tabGroups,
   allTags,
   completedTaskIds,
-  getTagTextColor
+  getTagTextColor,
+  updateTask,
+  categories
 }: { 
   tasks: Task[]; 
   toggleTaskCompletion: (id: string) => void; 
@@ -30,6 +37,8 @@ function FocusSession({
   allTags: string[];
   completedTaskIds: string[];
   getTagTextColor: (tag: string) => string;
+  updateTask: (id: string, data: Partial<Task>) => Promise<void>;
+  categories: Category[];
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -152,14 +161,13 @@ function FocusSession({
                   const d = task.createdAt;
                   dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
                   isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
-                  // Only show time if not midnight (00:00 or 12:00 AM)
+                  // Always show time if it's set (indicating a specific time was set)
                   const hours = d.getHours();
                   const minutes = d.getMinutes();
-                  if (!(hours === 0 && minutes === 0)) {
-                    timeString = d.toLocaleTimeString('en-US', {
-                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                    });
-                  }
+                  // Always show time when it's set, even if it's midnight
+                  timeString = d.toLocaleTimeString('en-US', {
+                    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                  });
                 }
                 
                 // Determine effective completion status using local state
@@ -216,9 +224,48 @@ function FocusSession({
                       {task.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 justify-end items-end ml-3">
                           {task.tags.map((tag) => (
-                            <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                              <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
-                            </span>
+                            <Popover key={tag}>
+                              <PopoverTrigger asChild>
+                                <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
+                                  <span className="text-gray-500">{tag}</span> 
+                                  <span className={cn(
+                                    "transition-colors",
+                                    getTagTextColor(tag)
+                                  )}>#</span>
+                                </span>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <div className="p-2">
+                                  <div className="px-2 py-1 mb-2">
+                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                      Change Category
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {categories.map((category) => (
+                                      <button
+                                        key={category.id}
+                                        onClick={async () => {
+                                          try {
+                                            // Remove the old tag and add the new one
+                                            const updatedTags = task.tags.filter(t => t !== tag);
+                                            updatedTags.push(category.name);
+                                            await updateTask(task.id, { tags: updatedTags });
+                                            toast.success(`Changed category to ${category.name}`);
+                                          } catch (error) {
+                                            toast.error("Failed to update category");
+                                          }
+                                        }}
+                                        className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span className="flex-1">{category.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           ))}
                         </div>
                       )}
