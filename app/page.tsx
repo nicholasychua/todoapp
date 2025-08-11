@@ -427,6 +427,8 @@ export default function TaskManager() {
   const [speechDraft, setSpeechDraft] = useState("")
   const [isAILoading, setIsAILoading] = useState(false)
   const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([])
+  const [originalVoiceRaw, setOriginalVoiceRaw] = useState("")
+  const [isRegenerating, setIsRegenerating] = useState(false)
 
   // All useRef hooks
   const inputRef = useRef<HTMLInputElement>(null)
@@ -757,6 +759,7 @@ export default function TaskManager() {
       setIsRecording(false);
       setIsRecordingComplete(true);
       setVoiceRaw(finalTranscriptRef.current);
+      setOriginalVoiceRaw(finalTranscriptRef.current);
 
       if (!finalTranscriptRef.current.trim()) {
         // No speech detected, show manual input mode
@@ -801,10 +804,28 @@ export default function TaskManager() {
       const result = await processVoiceInput(manualTaskText);
       setProcessedTask(result);
       setVoiceRaw(manualTaskText);
+      setOriginalVoiceRaw(manualTaskText);
       setVoiceStep('confirm');
     } catch (error) {
       console.error("Failed to process manual input:", error);
       toast.error("Failed to generate task. Please try again.");
+    }
+  };
+
+  const regenerateFromRaw = async () => {
+    const text = voiceRaw.trim();
+    if (!text) return;
+    setIsRegenerating(true);
+    try {
+      const result = await processVoiceInput(text);
+      setProcessedTask(result);
+      setOriginalVoiceRaw(text);
+      toast.success('Updated from transcription');
+    } catch (error) {
+      console.error('Failed to regenerate from raw transcription:', error);
+      toast.error('Failed to regenerate task');
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -1624,14 +1645,80 @@ export default function TaskManager() {
                       
                       <div className="space-y-4">
                         <div>
-                          <div className="text-sm font-medium mb-2 text-gray-700">Raw Transcription</div>
+                          <div className="mb-2 text-sm font-medium text-gray-700">Raw Transcription</div>
                           <div className="relative">
-                            <div className="w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                            {/* Bottom-right overlay: show hint or a tiny loading bubble */}
+                            <AnimatePresence initial={false}>
+                              {isRegenerating ? (
+                                <motion.div
+                                  key="regen-loading"
+                                  initial={{ opacity: 0, scale: 0.8, y: 5 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.8, y: 5 }}
+                                  transition={{ duration: 0.18 }}
+                                  className="pointer-events-none absolute bottom-2 right-2"
+                                >
+                                  <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse shadow-sm" />
+                                </motion.div>
+                              ) : (
+                                voiceRaw.trim() !== originalVoiceRaw.trim() && (
+                                  <motion.div
+                                    key="regen-hint"
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 5 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="pointer-events-none absolute bottom-2 right-2 text-xs text-gray-400 flex items-center gap-1"
+                                  >
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                                    <span>to regenerate</span>
+                                  </motion.div>
+                                )
+                              )}
+                            </AnimatePresence>
+                            <div className="w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm relative">
+                              {/* Bottom-right overlay: show hint or a tiny loading bubble */}
+                              <AnimatePresence initial={false}>
+                                {isRegenerating ? (
+                                  <motion.div
+                                    key="regen-loading"
+                                    initial={{ opacity: 0, scale: 0.8, y: 5 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8, y: 5 }}
+                                    transition={{ duration: 0.18 }}
+                                    className="pointer-events-none absolute bottom-2 right-2"
+                                  >
+                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse shadow-sm" />
+                                  </motion.div>
+                                ) : (
+                                  voiceRaw.trim() !== originalVoiceRaw.trim() && (
+                                    <motion.div
+                                      key="regen-hint"
+                                      initial={{ opacity: 0, y: 5 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: 5 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="pointer-events-none absolute bottom-2 right-2 text-xs text-gray-400 flex items-center gap-1"
+                                    >
+                                      <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                                      <span>to regenerate</span>
+                                    </motion.div>
+                                  )
+                                )}
+                              </AnimatePresence>
                               <textarea
                                 className="w-full bg-transparent outline-none resize-none text-sm text-gray-700"
                                 rows={2}
                                 value={voiceRaw}
-                                readOnly
+                                onChange={(e) => setVoiceRaw(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && e.shiftKey) {
+                                    e.preventDefault();
+                                    if (!isRegenerating && voiceRaw.trim()) {
+                                      regenerateFromRaw();
+                                    }
+                                  }
+                                }}
                               />
                             </div>
                           </div>
