@@ -1396,7 +1396,7 @@ export default function TaskManager() {
                                       <Calendar
                                         mode="single"
                                         selected={task.createdAt}
-                                        onSelect={(newDate) => {
+                                        onSelect={(newDate?: Date) => {
                                           if (newDate) {
                                             updateTaskDate(task.id, newDate);
                                           }
@@ -1458,7 +1458,7 @@ export default function TaskManager() {
                             </div>
                             {/* Delete button (show on hover) */}
                             <button
-                              onClick={() => deleteTask(task.id)}
+                              onClick={() => deleteTaskHandler(task.id)}
                               className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                               aria-label="Delete task"
                             >
@@ -1891,7 +1891,13 @@ function BacklogView({
       if (searchText && !task.text.toLowerCase().includes(searchText.toLowerCase())) return false;
       
       // Filter by category
-      if (selectedCategory && !task.tags.includes(selectedCategory)) return false;
+      if (selectedCategory) {
+        if (selectedCategory === "Uncategorized") {
+          if (task.tags.length !== 0) return false;
+        } else {
+          if (!task.tags.includes(selectedCategory)) return false;
+        }
+      }
       
       return true;
     })
@@ -2055,13 +2061,14 @@ function BacklogView({
     setEditTaskText("");
   };
 
-  // In BacklogView, add state for card order:
-  const initialOrder = [...categories.map(c => c.name), "Uncategorized"];
+  // In BacklogView, add state for card order using unique ids
+  const UNCATEGORIZED_ID = "__uncategorized__";
+  const initialOrder = [...categories.map(c => c.id), UNCATEGORIZED_ID];
   const [categoryOrder, setCategoryOrder] = useState<string[]>(initialOrder);
   
   // Keep order in sync with categories
   useEffect(() => {
-    setCategoryOrder([...categories.map(c => c.name), "Uncategorized"]);
+    setCategoryOrder([...categories.map(c => c.id), UNCATEGORIZED_ID]);
   }, [categories]);
 
   // Create a single drag control for all cards
@@ -2145,8 +2152,9 @@ function BacklogView({
             }}
             className="space-y-6"
           >
-            {column.map((catName) => {
-              const isUncategorized = catName === "Uncategorized";
+            {column.map((catId, localIdx) => {
+              const isUncategorized = catId === UNCATEGORIZED_ID;
+              const catName = isUncategorized ? "Uncategorized" : (categories.find(c => c.id === catId)?.name || "Unnamed");
               const catTasks = isUncategorized
                 ? filteredAndSortedTasks.filter(t => t.tags.length === 0)
                 : filteredAndSortedTasks.filter(t => t.tags[0] === catName);
@@ -2154,8 +2162,8 @@ function BacklogView({
               
               return (
                 <Reorder.Item
-                  key={catName}
-                  value={catName}
+                  key={`${catId}-${columnIndex}-${localIdx}`}
+                  value={catId}
                   dragListener={true}
                   dragControls={dragControls}
                   whileDrag={{ 
@@ -2168,7 +2176,7 @@ function BacklogView({
                     bounceStiffness: 300, 
                     bounceDamping: 20 
                   }}
-                  className="bg-white rounded-lg border border-gray-100 flex flex-col relative cursor-pointer select-none hover:border-gray-200 transition-colors duration-200"
+                  className="group bg-white rounded-lg border border-gray-100 flex flex-col relative cursor-pointer select-none hover:border-gray-200 transition-colors duration-200"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between p-4 border-b border-gray-50">
@@ -2180,8 +2188,36 @@ function BacklogView({
                     </h2>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        {catTasks.length}
+                        {isUncategorized ? tasks.filter(t => t.tags.length === 0).length : tasks.filter(t => t.tags[0] === catName).length}
                       </span>
+                      {!isUncategorized && (
+                        <button
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-600 p-1 rounded"
+                          title="Delete list"
+                          aria-label={`Delete ${catName}`}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const category = categories.find(c => c.name === catName);
+                            if (!category) return;
+                            const confirmed = typeof window !== 'undefined' ? window.confirm(`Delete '${catName}'? Tasks will move to Uncategorized.`) : true;
+                            if (!confirmed) return;
+                            try {
+                              const affected = tasks.filter(t => t.tags.includes(catName));
+                              await Promise.all(affected.map(t => {
+                                const updatedTags = t.tags.filter(tag => tag !== catName);
+                                return updateTask(t.id, { tags: updatedTags });
+                              }));
+                              await deleteCategory(category.id);
+                              toast.success(`Deleted '${catName}'`);
+                            } catch (err) {
+                              toast.error("Failed to delete category");
+                            }
+                          }}
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
                         title="Drag to reorder"
@@ -2329,7 +2365,7 @@ function BacklogView({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedCategory.toUpperCase()}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{selectedCategory}</h2>
               <div className="flex items-center gap-3">
                 <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2675,7 +2711,7 @@ function PomodoroTimer({
                               <Calendar
                                 mode="single"
                                 selected={task.createdAt}
-                                onSelect={(newDate) => {
+                                onSelect={(newDate?: Date) => {
                                   if (newDate) {
                                     updateTaskDate(task.id, newDate);
                                   }
