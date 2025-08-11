@@ -62,16 +62,28 @@ const isAIConfigured = () => {
 };
 
 export async function POST(request: Request) {
+  // Parse once and reuse to avoid re-reading the request body in catch
+  let payload: { taskText?: string; categories?: string[] } = {};
   try {
-    const { taskText, categories } = await request.json();
+    payload = await request.json();
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Task text and categories array are required" },
+      { status: 400 }
+    );
+  }
 
-    if (!taskText || !categories || !Array.isArray(categories)) {
-      return NextResponse.json(
-        { error: "Task text and categories array are required" },
-        { status: 400 }
-      );
-    }
+  const taskText = payload.taskText;
+  const categories = payload.categories;
 
+  if (!taskText || !categories || !Array.isArray(categories)) {
+    return NextResponse.json(
+      { error: "Task text and categories array are required" },
+      { status: 400 }
+    );
+  }
+
+  try {
     // Check if AI is properly configured - use fallback if not
     if (!isAIConfigured()) {
       console.warn("Azure OpenAI not configured - using fallback categorization");
@@ -134,18 +146,8 @@ Please categorize this task into one of the available categories. Respond with o
 
   } catch (error) {
     console.error("Error categorizing task:", error);
-    
     // Always use fallback instead of returning error
-    const { taskText, categories } = await request.json().catch(() => ({ taskText: "", categories: [] }));
-    
-    if (taskText && Array.isArray(categories)) {
-      const fallbackResult = fallbackCategorize(taskText, categories);
-      return NextResponse.json(fallbackResult);
-    }
-    
-    return NextResponse.json(
-      { error: "Invalid request data" },
-      { status: 400 }
-    );
+    const fallbackResult = fallbackCategorize(taskText, categories);
+    return NextResponse.json(fallbackResult);
   }
 } 

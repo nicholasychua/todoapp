@@ -426,6 +426,7 @@ export default function TaskManager() {
   const [textareaHeight, setTextareaHeight] = useState(40)
   const [speechDraft, setSpeechDraft] = useState("")
   const [isAILoading, setIsAILoading] = useState(false)
+  const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([])
 
   // All useRef hooks
   const inputRef = useRef<HTMLInputElement>(null)
@@ -452,6 +453,25 @@ export default function TaskManager() {
   const formatTextWithTags = (text: string) => {
     // Remove all #tags from the text
     return text.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+  };
+
+  // Automatically suggest and prepend a category tag based on user's categories
+  const autoCategorizeTags = async (baseText: string, existingTags: string[]): Promise<string[]> => {
+    const categoryNames = categories.map(cat => cat.name);
+    if (categoryNames.length === 0) return existingTags;
+    try {
+      const cleanText = formatTextWithTags(baseText);
+      const result = await categorizeTask(cleanText, categoryNames);
+      const suggested = result?.suggestedCategory;
+      if (!suggested) return existingTags; // fall back to Uncategorized (no category tag)
+      if (existingTags.includes(suggested)) {
+        // Ensure suggested category is first for consistent grouping
+        return [suggested, ...existingTags.filter(t => t !== suggested)];
+      }
+      return [suggested, ...existingTags];
+    } catch {
+      return existingTags;
+    }
   };
 
   // Function to handle logout
@@ -541,10 +561,13 @@ export default function TaskManager() {
         finalDate.setHours(hours, minutes, 0, 0);
       }
       
+      // Auto-categorize to prepend the most relevant category tag if applicable
+      const finalTags = await autoCategorizeTags(value, tags);
+      
       await createTask({
         text: value,
         completed: false,
-        tags,
+        tags: finalTags,
         createdAt: finalDate,
         group: "master"
       });
@@ -580,11 +603,14 @@ export default function TaskManager() {
           taskDate = new Date(`${result.date}T${timeString}`);
         }
         
+        // Auto-categorize tags using the user's categories
+        const finalTags = await autoCategorizeTags(result.taskName, result.tags || []);
+        
         // Add the task
         await createTask({
           text: taskText,
           completed: false,
-          tags: result.tags || [],
+          tags: finalTags,
           createdAt: taskDate || new Date(),
           group: "master"
         });
@@ -1006,6 +1032,18 @@ export default function TaskManager() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategoryPopup]);
+
+  // Compute voice preview tags (auto-categorized) whenever processedTask or categories change
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!processedTask) { setVoicePreviewTags([]); return; }
+      const tags = await autoCategorizeTags(processedTask.taskName, processedTask.tags || []);
+      if (!cancelled) setVoicePreviewTags(tags);
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [processedTask, categories]);
 
   // Early returns after all hooks
   if (loading) {
@@ -1458,7 +1496,7 @@ export default function TaskManager() {
                             </div>
                             {/* Delete button (show on hover) */}
                             <button
-                              onClick={() => deleteTaskHandler(task.id)}
+                              onClick={(e) => { e.stopPropagation(); deleteTaskHandler(task.id); }}
                               className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                               aria-label="Delete task"
                             >
@@ -1633,9 +1671,9 @@ export default function TaskManager() {
                                       </div>
                                     )}
                                   </div>
-                                  {processedTask.tags.length > 0 && (
+                                  {voicePreviewTags.length > 0 && (
                                     <div className="flex gap-1">
-                                      {processedTask.tags.map((tag) => (
+                                      {voicePreviewTags.map((tag) => (
                                         <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
                                           <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
                                         </span>
@@ -1844,10 +1882,26 @@ function BacklogView({
         finalDate.setHours(hours, minutes, 0, 0);
       }
       
+      // Auto-categorize to prepend the most relevant category tag if applicable
+      const categoryNames = categories.map(cat => cat.name);
+      let finalTags = tags;
+      if (categoryNames.length > 0) {
+        try {
+          const cleanText = newTaskText.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+          const result = await categorizeTask(cleanText, categoryNames);
+          const suggested = result?.suggestedCategory;
+          if (suggested) {
+            finalTags = finalTags.includes(suggested)
+              ? [suggested, ...finalTags.filter(t => t !== suggested)]
+              : [suggested, ...finalTags];
+          }
+        } catch {}
+      }
+      
       await createTask({
         text: newTaskText,
         completed: false,
-        tags,
+        tags: finalTags,
         createdAt: finalDate,
         group: "master"
       });
@@ -2432,7 +2486,7 @@ function BacklogView({
                     
                     {/* Delete button */}
                     <button
-                      onClick={() => deleteTask(task.id)}
+                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                       className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label="Delete task"
                     >
@@ -2773,7 +2827,7 @@ function PomodoroTimer({
                     </div>
                     {/* Delete button (show on hover) */}
                     <button
-                      onClick={() => deleteTask(task.id)}
+                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                       aria-label="Delete task"
                     >

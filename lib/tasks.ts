@@ -61,11 +61,16 @@ export function subscribeToTasksFirestore(userId: string, callback: (tasks: Task
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(tasksQuery, (querySnapshot) => {
-    const tasks = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-    })) as Task[];
+    const tasks = querySnapshot.docs.map((doc) => {
+      const data: any = doc.data();
+      const createdAtValue = data?.createdAt;
+      const createdAtDate: Date = createdAtValue?.toDate?.() ?? (createdAtValue instanceof Date ? createdAtValue : new Date());
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: createdAtDate,
+      } as Task;
+    });
     callback(tasks);
   });
 }
