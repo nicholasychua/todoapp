@@ -430,6 +430,12 @@ export default function TaskManager() {
   const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([])
   const [originalVoiceRaw, setOriginalVoiceRaw] = useState("")
   const [isRegenerating, setIsRegenerating] = useState(false)
+  // Track tasks that should be temporarily visible on Home even if their category is hidden
+  const [temporaryVisibleTasks, setTemporaryVisibleTasks] = useState<Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>>({});
+  // Track tasks that are in a transient edit mode (pauses disappearing)
+  const [transientEditingTaskIds, setTransientEditingTaskIds] = useState<string[]>([]);
+  // Ticker for progress bar rendering
+  const [nowTs, setNowTs] = useState<number>(Date.now());
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(() => (
@@ -572,7 +578,7 @@ export default function TaskManager() {
       // Auto-categorize to prepend the most relevant category tag if applicable
       const finalTags = await autoCategorizeTags(value, tags);
       
-      await createTask({
+      const created = await createTask({
         text: value,
         completed: false,
         tags: finalTags,
@@ -594,6 +600,10 @@ export default function TaskManager() {
             onClick: () => setShowBacklog(true),
           },
         } as any);
+        // Temporarily reveal this task on Home for a few seconds
+        if (created?.id) {
+          startTemporaryVisibility(created.id);
+        }
       } else {
         toast.success("Task added successfully!");
       }
@@ -628,7 +638,7 @@ export default function TaskManager() {
         const finalTags = await autoCategorizeTags(result.taskName, result.tags || []);
         
         // Add the task
-        await createTask({
+        const created = await createTask({
           text: taskText,
           completed: false,
           tags: finalTags,
@@ -640,6 +650,11 @@ export default function TaskManager() {
         setNewTaskText("");
         
         toast.success('Task created');
+        // If added into a hidden category, temporarily reveal on Home
+        const primary = finalTags[0];
+        if (primary && hiddenCategoryNames.includes(primary) && created?.id) {
+          startTemporaryVisibility(created.id);
+        }
       }
     } catch (error) {
       console.error('Error processing task:', error);
@@ -859,7 +874,8 @@ export default function TaskManager() {
     const primaryCategory = task.tags[0];
     const hideBecauseHiddenCat = !showBacklog && primaryCategory && hiddenCategoryNames.includes(primaryCategory);
     const tagOverride = selectedTags.length > 0 && primaryCategory && selectedTags.includes(primaryCategory);
-    const hiddenOnHome = hideBecauseHiddenCat && !tagOverride;
+    const isTemporarilyVisible = Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id);
+    const hiddenOnHome = hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
     
     return (
       (activeGroup === "master" ? true : task.group === "today") &&
@@ -910,6 +926,89 @@ export default function TaskManager() {
   const handleBacklogToggle = () => {
     setShowBacklog((prev) => !prev);
     setShowPomodoro(false);
+  };
+
+  // Temporary visibility helpers (TaskManager scope)
+  const startTemporaryVisibility = (taskId: string, durationMs: number = 5000) => {
+    // If already tracked, reset timer fresh
+    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+      const existing = prev[taskId];
+      if (existing && existing.timeoutId) clearTimeout(existing.timeoutId);
+      const startMs = Date.now();
+      const timeoutId = setTimeout(() => {
+        setTemporaryVisibleTasks((p: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+          const updated = { ...p } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
+          delete updated[taskId];
+          return updated;
+        });
+      }, durationMs);
+      return {
+        ...prev,
+        [taskId]: { timeoutId, startMs, durationMs, remainingMs: durationMs, paused: false }
+      };
+    });
+  };
+
+  const clearTemporaryVisibility = (taskId: string) => {
+    const existing = temporaryVisibleTasks[taskId];
+    if (existing?.timeoutId) clearTimeout(existing.timeoutId);
+    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+      const updated = { ...prev } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
+      delete updated[taskId];
+      return updated;
+    });
+  };
+
+  const resumeTemporaryVisibility = (taskId: string) => {
+    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+      const entry = prev[taskId];
+      if (!entry) return prev;
+      const durationMs = Math.max(0, entry.remainingMs);
+      if (entry.timeoutId) clearTimeout(entry.timeoutId);
+      const startMs = Date.now();
+      const timeoutId = setTimeout(() => {
+        setTemporaryVisibleTasks((p: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+          const updated = { ...p } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
+          delete updated[taskId];
+          return updated;
+        });
+      }, durationMs);
+      return {
+        ...prev,
+        [taskId]: { timeoutId, startMs, durationMs, remainingMs: durationMs, paused: false }
+      };
+    });
+  };
+
+  const startTransientEdit = (taskId: string) => {
+    // Pause the disappearance timer if present
+    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
+      const entry = prev[taskId];
+      if (!entry) return prev;
+      if (entry.timeoutId) clearTimeout(entry.timeoutId);
+      const elapsed = Math.max(0, Date.now() - entry.startMs);
+      const remainingMs = Math.max(0, entry.durationMs - elapsed);
+      return { ...prev, [taskId]: { ...entry, timeoutId: null, remainingMs, paused: true } };
+    });
+    setTransientEditingTaskIds((prev: string[]) => (prev.includes(taskId) ? prev : [...prev, taskId]));
+    toast('Editing task', { description: 'Adjust category or date, then click Done.' } as any);
+  };
+
+  const confirmTransientEdit = (task: Task) => {
+    setTransientEditingTaskIds((prev: string[]) => prev.filter((id: string) => id !== task.id));
+    const primary = task.tags[0];
+    const stillHidden = primary && hiddenCategoryNames.includes(primary);
+    if (stillHidden) {
+      // Resume timer from remaining time if we had paused, else start a fresh short grace if none
+      const entry = temporaryVisibleTasks[task.id];
+      if (entry && entry.paused) {
+        resumeTemporaryVisibility(task.id);
+      } else if (!entry) {
+        startTemporaryVisibility(task.id);
+      }
+    } else {
+      clearTemporaryVisibility(task.id);
+    }
   };
 
   // Update task with new date
@@ -966,6 +1065,8 @@ export default function TaskManager() {
   useEffect(() => {
     // Only run after initial loading is complete
     if (!loading) {
+      // Clear any active temporary visibility timers
+      Object.values(temporaryVisibleTasks).forEach(entry => { if (entry?.timeoutId) clearTimeout(entry.timeoutId); });
       setTasks([]);
       setNewTaskText("");
       setNewTaskDate(undefined);
@@ -983,6 +1084,8 @@ export default function TaskManager() {
       setSelectedTags([]);
       setCompletedTaskIds([]);
       setPendingCompletions({});
+      setTemporaryVisibleTasks({});
+      setTransientEditingTaskIds([]);
       console.log("Reset all state for user:", user?.uid);
     }
   }, [user?.uid, loading]);
@@ -1066,8 +1169,12 @@ export default function TaskManager() {
       Object.values(pendingCompletions).forEach(timeoutId => {
         clearTimeout(timeoutId);
       });
+      // Clear temporary visibility timers on unmount
+      Object.values(temporaryVisibleTasks).forEach(entry => {
+        if (entry?.timeoutId) clearTimeout(entry.timeoutId);
+      });
     };
-  }, [pendingCompletions]);
+  }, [pendingCompletions, temporaryVisibleTasks]);
 
   // Close category popup when clicking outside
   useEffect(() => {
@@ -1092,6 +1199,14 @@ export default function TaskManager() {
     run();
     return () => { cancelled = true; };
   }, [processedTask, categories]);
+
+  // Ticking effect for progress bars when there are active timers
+  useEffect(() => {
+    const hasActive = Object.values(temporaryVisibleTasks).some(v => v && !v.paused);
+    if (!hasActive) return;
+    const id = setInterval(() => setNowTs(Date.now()), 100);
+    return () => clearInterval(id);
+  }, [temporaryVisibleTasks]);
 
   // Early returns after all hooks
   if (loading) {
@@ -1452,6 +1567,13 @@ export default function TaskManager() {
                               idx !== tasks.length - 1 && "border-b border-gray-200",
                               effectivelyCompleted ? "bg-muted/30" : ""
                             )}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && transientEditingTaskIds.includes(task.id)) {
+                                e.preventDefault();
+                                confirmTransientEdit(task);
+                              }
+                            }}
                           >
                             {/* Checkbox */}
                             <StyledCheckbox
@@ -1495,50 +1617,30 @@ export default function TaskManager() {
                               </div>
                               {task.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
-                                  {task.tags.map((tag) => (
-                                    <Popover key={tag}>
-                                      <PopoverTrigger asChild>
-                                        <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
-                                          <span className="text-gray-500">{tag}</span> 
-                                          <span className={cn(
-                                            "transition-colors",
-                                            getTagTextColor(tag)
-                                          )}>#</span>
-                                        </span>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="end">
-                                        <div className="p-2">
-                                          <div className="px-2 py-1 mb-2">
-                                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                              Change Category
-                                            </div>
-                                          </div>
-                                          <div className="space-y-1">
-                                            {categories.map((category) => (
-                                              <button
-                                                key={category.id}
-                                                onClick={async () => {
-                                                  try {
-                                                    // Remove the old tag and add the new one
-                                                    const updatedTags = task.tags.filter(t => t !== tag);
-                                                    updatedTags.push(category.name);
-                                                    await updateTask(task.id, { tags: updatedTags });
-                                                    toast.success(`Changed category to ${category.name}`);
-                                                  } catch (error) {
-                                                    toast.error("Failed to update category");
-                                                  }
-                                                }}
-                                                className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
-                                              >
-                                                <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                                                <span className="flex-1">{category.name}</span>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  ))}
+                                  {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
+                                        size="sm"
+                                        className={cn(
+                                          "h-6 px-2 text-[10px]",
+                                          transientEditingTaskIds.includes(task.id)
+                                            ? "bg-gray-900 hover:bg-gray-800 text-white"
+                                            : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (transientEditingTaskIds.includes(task.id)) {
+                                            confirmTransientEdit(task);
+                                          } else {
+                                            startTransientEdit(task.id);
+                                          }
+                                        }}
+                                      >
+                                        {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1550,6 +1652,17 @@ export default function TaskManager() {
                             >
                               <X className="w-4 h-4" />
                             </button>
+                            {/* Bottom progress bar for temporary visibility */}
+                            {(() => {
+                              const entry = temporaryVisibleTasks[task.id];
+                              if (!entry || entry.paused) return null;
+                              const progress = Math.max(0, Math.min(1, (nowTs - entry.startMs) / entry.durationMs));
+                              return (
+                                <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-gray-100">
+                                  <div className="h-full bg-yellow-500" style={{ width: `${progress * 100}%` }} />
+                                </div>
+                              );
+                            })()}
                           </motion.div>
                         );
                       })}
