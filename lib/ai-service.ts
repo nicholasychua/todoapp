@@ -138,22 +138,44 @@ function getFallbackCategorization(taskText: string, categories: string[]): Cate
   
   const lowerTaskText = taskText.toLowerCase();
   
-  // Simple keyword matching for common task types
+  // Base keyword map for common task types (expanded per-category below)
   const keywordMap: Record<string, string[]> = {
-    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business'],
+    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline'],
     'personal': ['personal', 'family', 'home', 'house', 'life'],
-    'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical'],
-    'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries'],
-    'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment'],
-    'learning': ['learn', 'study', 'read', 'course', 'education', 'training'],
-    'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking'],
-    'social': ['social', 'friend', 'party', 'event', 'dinner', 'meet'],
-    'chores': ['chore', 'clean', 'laundry', 'dishes', 'organize', 'maintenance'],
-    'hobby': ['hobby', 'craft', 'art', 'music', 'game', 'fun', 'entertainment']
+    'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical', 'doctor', 'appointment'],
+    'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries', 'order'],
+    'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment', 'invoice', 'tax'],
+    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework'],
+    'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking', 'drive', 'commute'],
+    'social': ['social', 'friend', 'party', 'event', 'dinner', 'meet', 'hangout'],
+    'events': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue'],
+    'event': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue'],
+    'chores': ['chore', 'clean', 'laundry', 'dishes', 'organize', 'maintenance', 'repair'],
+    'hobby': ['hobby', 'craft', 'art', 'music', 'game', 'fun', 'entertainment', 'movie']
+  };
+
+  const expandKeywordsForCategory = (categoryName: string): string[] => {
+    const lc = categoryName.toLowerCase();
+    let keywords = keywordMap[lc] || [];
+
+    if (/(event|events|concert|show|gig|performance|festival|party|meetup|entertain|social|leisure)/.test(lc)) {
+      keywords = keywords.concat(['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue']);
+    }
+    if (/(music)/.test(lc)) {
+      keywords = keywords.concat(['music', 'concert', 'show', 'gig', 'performance']);
+    }
+    if (/(work|job|office|client|project|business|meeting)/.test(lc)) {
+      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline']);
+    }
+    if (/(personal|home|family|life)/.test(lc)) {
+      keywords = keywords.concat(['personal', 'home', 'family']);
+    }
+
+    return Array.from(new Set(keywords));
   };
   
   // Find the best matching category
-  let bestMatch = categories[0]; // Default to first category
+  let bestMatch = categories[0];
   let bestScore = 0;
   
   for (const category of categories) {
@@ -165,8 +187,8 @@ function getFallbackCategorization(taskText: string, categories: string[]): Cate
       score += 10;
     }
     
-    // Check keyword matches
-    const keywords = keywordMap[lowerCategory] || [];
+    // Check keyword matches (expanded by category name semantics)
+    const keywords = expandKeywordsForCategory(lowerCategory);
     for (const keyword of keywords) {
       if (lowerTaskText.includes(keyword)) {
         score += 5;
@@ -177,6 +199,12 @@ function getFallbackCategorization(taskText: string, categories: string[]): Cate
       bestScore = score;
       bestMatch = category;
     }
+  }
+  
+  // On zero score, prefer neutral buckets over "Work" to avoid misclassification
+  if (bestScore === 0) {
+    const neutral = categories.find(c => /uncategorized|general|misc|inbox|backlog|personal/.test(c.toLowerCase()));
+    if (neutral) bestMatch = neutral;
   }
   
   console.log('Fallback categorization result:', { suggestedCategory: bestMatch, confidence: bestScore > 0 ? "medium" : "low" });

@@ -18,6 +18,7 @@ export interface Category {
   name: string;
   userId: string;
   createdAt: Date;
+  hiddenOnHome?: boolean;
 }
 
 export function subscribeToCategories(userId: string, callback: (categories: Category[]) => void) {
@@ -31,6 +32,7 @@ export function subscribeToCategories(userId: string, callback: (categories: Cat
       id: doc.id,
       ...doc.data(),
       createdAt: doc.data().createdAt.toDate(),
+      hiddenOnHome: doc.data().hiddenOnHome ?? false,
     })) as Category[];
     callback(categories);
   });
@@ -42,12 +44,14 @@ export async function addCategory(name: string, userId: string) {
     name,
     userId,
     createdAt: Timestamp.fromDate(now),
+    hiddenOnHome: false,
   });
   return {
     id: docRef.id,
     name,
     userId,
     createdAt: now,
+    hiddenOnHome: false,
   } as Category;
 }
 
@@ -57,4 +61,8 @@ export async function deleteCategory(categoryId: string) {
 
 export async function renameCategory(categoryId: string, newName: string) {
   await updateDoc(doc(db, 'categories', categoryId), { name: newName });
+}
+
+export async function setCategoryHiddenOnHome(categoryId: string, hidden: boolean) {
+  await updateDoc(doc(db, 'categories', categoryId), { hiddenOnHome: hidden });
 } 

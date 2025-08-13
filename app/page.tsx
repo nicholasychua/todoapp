@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react"
 import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings, Calendar as CalendarIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +36,7 @@ import {
   subscribeToCategories,
   addCategory,
   deleteCategory,
+  setCategoryHiddenOnHome,
 } from "@/lib/categories"
 import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
 import { Loader } from "@/components/ui/loader"
@@ -430,6 +431,11 @@ export default function TaskManager() {
   const [originalVoiceRaw, setOriginalVoiceRaw] = useState("")
   const [isRegenerating, setIsRegenerating] = useState(false)
 
+  // Compute names of categories hidden from the Home view
+  const hiddenCategoryNames = useMemo(() => (
+    categories.filter(c => c.hiddenOnHome).map(c => c.name)
+  ), [categories]);
+
   // All useRef hooks
   const inputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -577,7 +583,20 @@ export default function TaskManager() {
       setSpeechDraft("");
       setNewTaskDate(undefined);
       setNewTaskTime(null);
-      toast.success("Task added successfully!");
+
+      // If the task routes to a hidden category, inform user and provide quick navigation
+      const primary = finalTags[0];
+      const isHiddenTarget = primary && hiddenCategoryNames.includes(primary);
+      if (isHiddenTarget) {
+        toast.success(`Added to hidden list "${primary}"`, {
+          action: {
+            label: "Open Subspaces",
+            onClick: () => setShowBacklog(true),
+          },
+        } as any);
+      } else {
+        toast.success("Task added successfully!");
+      }
     } catch (error) {
       toast.error("Failed to add task");
     }
@@ -836,13 +855,21 @@ export default function TaskManager() {
     // Determine effective completion status (local state takes priority)
     const effectivelyCompleted = isInWaitingPeriod || task.completed;
     
+    // If on Home (not backlog), hide tasks whose primary category is hidden
+    const primaryCategory = task.tags[0];
+    const hideBecauseHiddenCat = !showBacklog && primaryCategory && hiddenCategoryNames.includes(primaryCategory);
+    const tagOverride = selectedTags.length > 0 && primaryCategory && selectedTags.includes(primaryCategory);
+    const hiddenOnHome = hideBecauseHiddenCat && !tagOverride;
+    
     return (
       (activeGroup === "master" ? true : task.group === "today") &&
       (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
       (filter === "completed" ? effectivelyCompleted : filter === "active" ? !effectivelyCompleted : true) &&
       (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true) &&
       // Hide completed tasks that are not in waiting period (only on home page)
-      (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true)
+      (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true) &&
+      // Hide tasks whose category is hidden on Home (unless user explicitly filtered by that tag)
+      !hiddenOnHome
     );
   });
 
@@ -1019,7 +1046,7 @@ export default function TaskManager() {
     } catch (error) {
       console.error("Error subscribing to tab groups in main component:", error);
     }
-  }, [user, subscribeToTabGroups]);
+  }, [user]);
 
   // Subscribe to categories
   useEffect(() => {
@@ -1517,7 +1544,7 @@ export default function TaskManager() {
                             </div>
                             {/* Delete button (show on hover) */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); deleteTaskHandler(task.id); }}
+                              onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
                               className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                               aria-label="Delete task"
                             >
@@ -2328,6 +2355,38 @@ function BacklogView({
                       {catName}
                     </h2>
                     <div className="flex items-center gap-2">
+                      {/* Hide on Home toggle (not for Uncategorized) */}
+                      {!isUncategorized && (
+                        (() => {
+                          const category = categories.find(c => c.name === catName);
+                          const hidden = category?.hiddenOnHome ?? false;
+                          return (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (category) await setCategoryHiddenOnHome(category.id, !hidden);
+                                    }}
+                                    className={cn(
+                                      "px-2 py-1 text-xs rounded border transition-colors",
+                                      hidden ? "text-gray-500 border-gray-200 bg-gray-50" : "text-gray-700 border-gray-200 hover:border-gray-300"
+                                    )}
+                                    title={hidden ? "Hidden on Home" : "Visible on Home"}
+                                    type="button"
+                                  >
+                                    {hidden ? "Hidden" : "Shown"}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <span className="text-xs">Toggle visibility on Home</span>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()
+                      )}
                       <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
                         {isUncategorized ? tasks.filter(t => t.tags.length === 0).length : tasks.filter(t => t.tags[0] === catName).length}
                       </span>
@@ -2508,6 +2567,31 @@ function BacklogView({
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="text-2xl font-bold text-gray-900">{selectedCategory}</h2>
               <div className="flex items-center gap-3">
+                {selectedCategory !== "Uncategorized" && (() => {
+                  const cat = categories.find(c => c.name === selectedCategory);
+                  const hidden = cat?.hiddenOnHome ?? false;
+                  return (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            className={cn(
+                              "px-2 py-1 text-xs rounded border transition-colors",
+                              hidden ? "text-gray-500 border-gray-200 bg-gray-50" : "text-gray-700 border-gray-200 hover:border-gray-300"
+                            )}
+                            onClick={async () => { if (cat) await setCategoryHiddenOnHome(cat.id, !hidden); }}
+                            type="button"
+                          >
+                            {hidden ? "Hidden on Home" : "Shown on Home"}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <span className="text-xs">Toggle visibility on Home</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })()}
                 <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
