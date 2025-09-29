@@ -10,7 +10,7 @@ import {
   signInWithPopup,
   signInWithRedirect
 } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, getClientAuth } from './firebase';
 import { setupNewUserDefaults } from './default-setup';
 
 interface AuthContextType {
@@ -44,7 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+    const clientAuth = getClientAuth();
+    if (!clientAuth || typeof (clientAuth as any).onAuthStateChanged !== 'function') {
+      console.error('Firebase Auth not initialized; skipping auth state listener.');
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(clientAuth, async (user: User | null) => {
       setUser(user);
       setLoading(false);
       

@@ -62,3 +62,32 @@ if (typeof window !== 'undefined') {
 }
 
 export { app, auth, db }; 
+
+// Safe, client-only accessors to avoid SSR using mocked instances
+export function getClientAuth(): Auth | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    if (!getApps().length) {
+      if (!validateFirebaseConfig()) return null;
+      initializeApp(firebaseConfig);
+    }
+    return getAuth();
+  } catch (error) {
+    console.error('Failed to get client Auth:', error);
+    return null;
+  }
+}
+
+export function getClientDb(): Firestore | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    if (!getApps().length) {
+      if (!validateFirebaseConfig()) return null;
+      initializeApp(firebaseConfig);
+    }
+    return getFirestore();
+  } catch (error) {
+    console.error('Failed to get client Firestore:', error);
+    return null;
+  }
+}

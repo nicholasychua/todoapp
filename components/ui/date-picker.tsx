@@ -36,8 +36,21 @@ export function DatePicker({ date, setDate, className, time: controlledTime, set
     const value = e.target.value;
     setTime(value);
     if (setControlledTime) setControlledTime(value);
-    // Don't call setDate here as it might override the original date
-    // The time will be applied when the task is created
+    
+    // Always create or update the date with the selected time
+    const [hours, minutes] = value.split(":").map(Number);
+    
+    // If a date is already selected, merge the time into it
+    if (date) {
+      const merged = new Date(date);
+      merged.setHours(hours || 0, minutes || 0, 0, 0);
+      setDate(merged);
+    } else {
+      // If no date selected yet, create a date with today's date and the selected time
+      const newDate = new Date();
+      newDate.setHours(hours || 0, minutes || 0, 0, 0);
+      setDate(newDate);
+    }
   };
 
   return (
@@ -56,7 +69,24 @@ export function DatePicker({ date, setDate, className, time: controlledTime, set
         <Calendar
           mode="single"
           selected={date}
-          onSelect={setDate}
+          onSelect={(selectedDate) => {
+            if (!selectedDate) {
+              setDate(undefined);
+              return;
+            }
+
+            // Preserve previously selected time (if any) when changing the date
+            const mergedDate = new Date(selectedDate);
+            const timeSource = controlledTime ?? time;
+            if (timeSource) {
+              const [hours, minutes] = timeSource.split(":").map(Number);
+              mergedDate.setHours(hours || 0, minutes || 0, 0, 0);
+            } else {
+              // If no time selected, default to noon (12:00 PM) instead of midnight
+              mergedDate.setHours(12, 0, 0, 0);
+            }
+            setDate(mergedDate);
+          }}
           initialFocus
         />
         {/* Time Picker - Always visible */}

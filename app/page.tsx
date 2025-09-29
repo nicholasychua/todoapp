@@ -1534,7 +1534,12 @@ export default function TaskManager() {
                         if (hasDate) {
                           const d = task.createdAt;
                           dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                          isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                          // Create copies for comparison to avoid mutating the original date
+                          const dateOnly = new Date(d);
+                          dateOnly.setHours(0,0,0,0);
+                          const todayOnly = new Date(today);
+                          todayOnly.setHours(0,0,0,0);
+                          isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
                           // Always show time when task has a date
                           timeString = d.toLocaleTimeString('en-US', {
                             hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
@@ -1605,9 +1610,12 @@ export default function TaskManager() {
                                         mode="single"
                                         selected={task.createdAt}
                                         onSelect={(newDate?: Date) => {
-                                          if (newDate) {
-                                            updateTaskDate(task.id, newDate);
-                                          }
+                                          if (!newDate) return;
+                                          const merged = new Date(newDate);
+                                          const hours = task.createdAt.getHours();
+                                          const minutes = task.createdAt.getMinutes();
+                                          merged.setHours(hours, minutes, 0, 0);
+                                          updateTaskDate(task.id, merged);
                                         }}
                                         initialFocus
                                       />
@@ -2986,7 +2994,12 @@ function PomodoroTimer({
                 if (hasDate) {
                   const d = task.createdAt;
                   dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                  isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                  // Create copies for comparison to avoid mutating the original date
+                  const dateOnly = new Date(d);
+                  dateOnly.setHours(0,0,0,0);
+                  const todayOnly = new Date(today);
+                  todayOnly.setHours(0,0,0,0);
+                  isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
                   // Always show time when task has a date
                   timeString = d.toLocaleTimeString('en-US', {
                     hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'

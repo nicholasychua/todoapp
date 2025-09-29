@@ -160,7 +160,12 @@ function FocusSession({
                 if (hasDate) {
                   const d = task.createdAt;
                   dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                  isPastOrToday = d.setHours(0,0,0,0) <= today.setHours(0,0,0,0);
+                  // Create copies for comparison to avoid mutating the original date
+                  const dateOnly = new Date(d);
+                  dateOnly.setHours(0,0,0,0);
+                  const todayOnly = new Date(today);
+                  todayOnly.setHours(0,0,0,0);
+                  isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
                   // Always show time if it's set (indicating a specific time was set)
                   const hours = d.getHours();
                   const minutes = d.getMinutes();
