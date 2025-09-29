@@ -3019,78 +3019,79 @@ function PomodoroTimer({
 
   return (
     <div className="w-screen h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
-      {/* Left: Timer */}
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center justify-center">
-          <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
-          <div className="mb-8">
-            <div className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-              {minutes.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
+      <div className="flex items-center justify-center w-full h-full">
+        {/* Left: Timer */}
+        <div className="flex flex-1 items-center justify-end pr-32">
+          <div className="flex flex-col items-center justify-center">
+            <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
+            <div className="mb-8">
+              <div className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                {minutes.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
+              </div>
             </div>
-          </div>
-          <div className="flex gap-4 mt-2">
-            <Button
-              onClick={() => setRunning((r) => !r)}
-              className="px-8 py-2 text-base rounded-md font-medium"
-            >
-              {running ? "Pause" : "Start"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSeconds(25 * 60);
-                setRunning(false);
-              }}
-              className="px-8 py-2 text-base rounded-md font-medium"
-            >
-              Reset
-            </Button>
-          </div>
-          {/* Tab Groups Section */}
-          <div className="mt-8 w-full max-w-md">
-            <div className="flex items-center mb-3">
-              <h3 className="text-sm font-medium">Quick Launch</h3>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-1">
-                      <Settings className="h-3 w-3" />
+            <div className="flex gap-4 mt-2">
+              <Button
+                onClick={() => setRunning((r) => !r)}
+                className="px-8 py-2 text-base rounded-md font-medium"
+              >
+                {running ? "Pause" : "Start"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSeconds(25 * 60);
+                  setRunning(false);
+                }}
+                className="px-8 py-2 text-base rounded-md font-medium"
+              >
+                Reset
+              </Button>
+            </div>
+            {/* Tab Groups Section */}
+            <div className="mt-8 w-full max-w-md">
+              <div className="flex items-center mb-3">
+                <h3 className="text-sm font-medium">Quick Launch</h3>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-1">
+                        <Settings className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-52">Configure tab groups in the side menu to quickly launch multiple websites at once</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {tabGroups.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {tabGroups.map((group) => (
+                    <Button
+                      key={group.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => launchTabGroup(group)}
+                      className="text-xs h-8"
+                    >
+                      {group.name} ({group.tabs.length})
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-52">Configure tab groups in the side menu to quickly launch multiple websites at once</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground bg-accent/50 p-3 rounded-md">
+                  Create tab groups from the side menu to quickly launch multiple websites together. Perfect for study sessions or projects!
+                </div>
+              )}
             </div>
-            {tabGroups.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {tabGroups.map((group) => (
-                  <Button
-                    key={group.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => launchTabGroup(group)}
-                    className="text-xs h-8"
-                  >
-                    {group.name} ({group.tabs.length})
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground bg-accent/50 p-3 rounded-md">
-                Create tab groups from the side menu to quickly launch multiple websites together. Perfect for study sessions or projects!
-              </div>
-            )}
           </div>
         </div>
-      </div>
-      {/* Divider */}
-      <div className="w-px bg-gray-200 h-5/6 self-center mx-12" />
-      {/* Right: Task List */}
-      <div className="flex flex-1 items-center justify-center">
+        {/* Divider */}
+        <div className="w-px bg-gray-200 h-3/4" />
+        {/* Right: Task List */}
+        <div className="flex flex-1 items-center justify-start pl-32">
         <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
-          <div className="py-4 flex flex-col gap-0">
+          <div className="py-0 flex flex-col gap-0">
             <AnimatePresence initial={false}>
               {filteredTasks.map((task, idx) => {
                 // Date logic
@@ -3140,7 +3141,7 @@ function PomodoroTimer({
                       ease: "easeOut"
                     }}
                     className={cn(
-                      "flex items-center px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                      "flex items-center px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
                       idx !== tasks.length - 1 && "border-b border-gray-200",
                       effectivelyCompleted ? "bg-muted/30" : ""
                     )}
@@ -3262,6 +3263,7 @@ function PomodoroTimer({
             </AnimatePresence>
           </div>
         </Card>
+        </div>
       </div>
     </div>
   );

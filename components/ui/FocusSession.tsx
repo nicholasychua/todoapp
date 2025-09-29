@@ -76,10 +76,11 @@ function FocusSession({
   });
 
   return (
-    <div className="flex-1 h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
-      {/* Left: Timer */}
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center justify-center">
+    <div className="flex-1 h-screen flex items-center justify-end bg-gray-50 overflow-hidden">
+      <div className="flex items-center justify-center gap-4 max-w-7xl mr-0 px-8">
+        {/* Left: Timer */}
+        <div className="flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center">
           <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
           <div className="mb-8">
             <div className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -144,11 +145,11 @@ function FocusSession({
         </div>
       </div>
       {/* Divider */}
-      <div className="w-px bg-gray-200 h-5/6 self-center mx-12" />
+      <div className="w-px bg-gray-200 h-5/6 self-center ml-4 mr-12" />
       {/* Right: Task List */}
       <div className="flex flex-1 items-center justify-center">
         <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
-          <div className="py-4 flex flex-col gap-0">
+          <div className="py-0 flex flex-col gap-0">
             <AnimatePresence initial={false}>
               {filteredTasks.map((task, idx) => {
                 // Date logic
@@ -198,7 +199,7 @@ function FocusSession({
                       ease: "easeOut"
                     }}
                     className={cn(
-                      "flex items-start px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                      "flex items-start px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
                       idx !== tasks.length - 1 && "border-b border-gray-200",
                       effectivelyCompleted ? "bg-muted/30" : ""
                     )}
@@ -284,6 +285,7 @@ function FocusSession({
         </Card>
       </div>
     </div>
+  </div>
   );
 }
 
