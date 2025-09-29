@@ -943,7 +943,7 @@ export default function TaskManager() {
   };
 
   // Temporary visibility helpers (TaskManager scope)
-  const startTemporaryVisibility = (taskId: string, durationMs: number = 5000) => {
+  const startTemporaryVisibility = (taskId: string, durationMs: number = 3000) => {
     // If already tracked, reset timer fresh
     setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
       const existing = prev[taskId];
@@ -1750,7 +1750,10 @@ export default function TaskManager() {
                               const progress = Math.max(0, Math.min(1, (nowTs - entry.startMs) / entry.durationMs));
                               return (
                                 <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-gray-100">
-                                  <div className="h-full bg-yellow-500" style={{ width: `${progress * 100}%` }} />
+                                  <div 
+                                    className="h-full bg-yellow-500 transition-all duration-100 ease-linear" 
+                                    style={{ width: `${progress * 100}%` }} 
+                                  />
                                 </div>
                               );
                             })()}
