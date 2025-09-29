@@ -580,6 +580,10 @@ export default function TaskManager() {
         const [hours, minutes] = newTaskTime.split(':').map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
+      } else {
+        // If no time specified, set to midnight to indicate no specific time
+        finalDate = new Date(finalDate);
+        finalDate.setHours(0, 0, 0, 0);
       }
       
       // Auto-categorize to prepend the most relevant category tag if applicable
@@ -1556,10 +1560,14 @@ export default function TaskManager() {
                           const todayOnly = new Date(today);
                           todayOnly.setHours(0,0,0,0);
                           isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
-                          // Always show time when task has a date
-                          timeString = d.toLocaleTimeString('en-US', {
-                            hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                          });
+                          // Only show time if it's not midnight (midnight indicates no specific time was set)
+                          const hours = d.getHours();
+                          const minutes = d.getMinutes();
+                          if (hours !== 0 || minutes !== 0) {
+                            timeString = d.toLocaleTimeString('en-US', {
+                              hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                            });
+                          }
                         }
                         
                         // Determine effective completion status using local state
@@ -2201,6 +2209,10 @@ function BacklogView({
         const [hours, minutes] = newTaskTime.split(':').map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
+      } else {
+        // If no time specified, set to midnight to indicate no specific time
+        finalDate = new Date(finalDate);
+        finalDate.setHours(0, 0, 0, 0);
       }
       
       // Auto-categorize to prepend the most relevant category tag if applicable
@@ -3096,10 +3108,14 @@ function PomodoroTimer({
                   const todayOnly = new Date(today);
                   todayOnly.setHours(0,0,0,0);
                   isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
-                  // Always show time when task has a date
-                  timeString = d.toLocaleTimeString('en-US', {
-                    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                  });
+                  // Only show time if it's not midnight (midnight indicates no specific time was set)
+                  const hours = d.getHours();
+                  const minutes = d.getMinutes();
+                  if (hours !== 0 || minutes !== 0) {
+                    timeString = d.toLocaleTimeString('en-US', {
+                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                    });
+                  }
                 }
                 
                 // Determine effective completion status using local state

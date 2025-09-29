@@ -166,13 +166,14 @@ function FocusSession({
                   const todayOnly = new Date(today);
                   todayOnly.setHours(0,0,0,0);
                   isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
-                  // Always show time if it's set (indicating a specific time was set)
+                  // Only show time if it's not midnight (midnight indicates no specific time was set)
                   const hours = d.getHours();
                   const minutes = d.getMinutes();
-                  // Always show time when it's set, even if it's midnight
-                  timeString = d.toLocaleTimeString('en-US', {
-                    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                  });
+                  if (hours !== 0 || minutes !== 0) {
+                    timeString = d.toLocaleTimeString('en-US', {
+                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                    });
+                  }
                 }
                 
                 // Determine effective completion status using local state
