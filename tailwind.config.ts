@@ -9,6 +9,27 @@ const config = {
     "./src/**/*.{ts,tsx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
+  safelist: [
+    // Category colors - text variants
+    'text-orange-500', 'text-blue-500', 'text-green-500', 'text-red-500',
+    'text-purple-500', 'text-yellow-500', 'text-pink-500', 'text-cyan-500',
+    'text-indigo-500', 'text-amber-500',
+    // Category colors - background variants
+    'bg-orange-500', 'bg-blue-500', 'bg-green-500', 'bg-red-500',
+    'bg-purple-500', 'bg-yellow-500', 'bg-pink-500', 'bg-cyan-500',
+    'bg-indigo-500', 'bg-amber-500',
+    // Category colors - light background variants
+    'bg-orange-50', 'bg-blue-50', 'bg-green-50', 'bg-red-50',
+    'bg-purple-50', 'bg-yellow-50', 'bg-pink-50', 'bg-cyan-50',
+    'bg-indigo-50', 'bg-amber-50',
+    // Category colors - border variants (200 and 500)
+    'border-orange-200', 'border-blue-200', 'border-green-200', 'border-red-200',
+    'border-purple-200', 'border-yellow-200', 'border-pink-200', 'border-cyan-200',
+    'border-indigo-200', 'border-amber-200',
+    'border-orange-500', 'border-blue-500', 'border-green-500', 'border-red-500',
+    'border-purple-500', 'border-yellow-500', 'border-pink-500', 'border-cyan-500',
+    'border-indigo-500', 'border-amber-500',
+  ],
   prefix: "",
   theme: {
     container: {

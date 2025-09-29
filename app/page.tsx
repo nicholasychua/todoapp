@@ -41,6 +41,7 @@ import {
 } from "@/lib/categories"
 import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
 import { Loader } from "@/components/ui/loader"
+import { AIVoiceInput } from "@/components/ui/ai-voice-input"
 
 // Define a color palette for categories
 const categoryColors = [
@@ -925,6 +926,13 @@ export default function TaskManager() {
     return categoryColors[colorIndex];
   };
 
+  // Helper to get color name from text color class
+  const getColorName = (tag: string) => {
+    const textColor = getTagTextColor(tag);
+    const match = textColor.match(/text-(\w+)-/);
+    return match ? match[1] : 'gray';
+  };
+
   const handleLightSwitch = () => {
     setShowPomodoro((prev) => !prev);
   };
@@ -1263,6 +1271,7 @@ export default function TaskManager() {
                 allTags={allTags}
                 completedTaskIds={completedTaskIds}
                 getTagTextColor={getTagTextColor}
+                getColorName={getColorName}
                 categories={categories}
                 updateTask={updateTask}
               />
@@ -1488,30 +1497,31 @@ export default function TaskManager() {
                             {/* Content */}
                             <div className="relative p-8">
                               <div className="flex flex-col">
-                                <h2 className="text-2xl font-semibold mb-6 text-gray-900">Listening...</h2>
-                                <div className="flex flex-col items-center space-y-6">
-                                  {/* Simplified microphone icon */}
-                                  <div className="relative">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center border border-red-200/50 shadow-lg">
-                                      <SoundWave />
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="text-center space-y-4">
-                                    {/* Speech display container */}
+                                <h2 className="text-2xl font-semibold mb-2 text-center text-gray-900">Voice Input</h2>
+                                
+                                {/* AI Voice Input Component */}
+                                <AIVoiceInput 
+                                  isRecording={isRecording}
+                                  onStart={() => console.log('Recording started')}
+                                  onStop={(duration) => console.log('Recording stopped:', duration)}
+                                />
+                                
+                                {/* Speech display container */}
+                                {speechDraft && (
+                                  <div className="mt-4 text-center">
                                     <div className="relative">
-                                      <div className="min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm">
+                                      <div className="min-h-[60px] px-6 py-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm max-w-sm mx-auto">
                                         <p className="text-base text-gray-700 leading-relaxed">
-                                          {speechDraft || "Speak now..."}
+                                          {speechDraft}
                                         </p>
                                       </div>
                                     </div>
-                                    
-                                    <p className="text-sm text-gray-500 font-medium">
-                                      Release Ctrl to stop recording
-                                    </p>
                                   </div>
-                                </div>
+                                )}
+                                
+                                <p className="text-sm text-gray-500 font-medium text-center mt-6">
+                                  Release Ctrl to stop recording
+                                </p>
                               </div>
                             </div>
                             
@@ -1592,45 +1602,47 @@ export default function TaskManager() {
                               onCheckedChange={() => toggleTaskCompletion(task.id)}
                               className="flex-shrink-0 mr-3"
                             />
-                            {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                            <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <span className={cn(
-                                  "text-sm font-normal transition-colors duration-200",
-                                  effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                                )}>
-                                  {formatTextWithTags(task.text)}
-                                </span>
-                                {hasDate && (
-                                  <Popover>
-                                    <PopoverTrigger asChild>
-                                      <span className={cn(
-                                        "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1",
-                                        isPastOrToday ? "text-red-600" : "text-gray-400"
-                                      )}>
-                                        {dateString}{timeString ? `, ${timeString}` : ''}
-                                      </span>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                      <Calendar
-                                        mode="single"
-                                        selected={task.createdAt}
-                                        onSelect={(newDate?: Date) => {
-                                          if (!newDate) return;
-                                          const merged = new Date(newDate);
-                                          const hours = task.createdAt.getHours();
-                                          const minutes = task.createdAt.getMinutes();
-                                          merged.setHours(hours, minutes, 0, 0);
-                                          updateTaskDate(task.id, merged);
-                                        }}
-                                        initialFocus
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
-                                {task.tags.length > 0 && task.tags.map((tag) => (
+                            {/* Main content */}
+                            <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
+                              <span className={cn(
+                                "text-sm font-normal transition-colors duration-200",
+                                effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                              )}>
+                                {formatTextWithTags(task.text)}
+                              </span>
+                              {hasDate && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <span className={cn(
+                                      "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                                      isPastOrToday ? "text-red-600" : "text-gray-400"
+                                    )}>
+                                      {dateString}{timeString ? `, ${timeString}` : ''}
+                                    </span>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={task.createdAt}
+                                      onSelect={(newDate?: Date) => {
+                                        if (!newDate) return;
+                                        const merged = new Date(newDate);
+                                        const hours = task.createdAt.getHours();
+                                        const minutes = task.createdAt.getMinutes();
+                                        merged.setHours(hours, minutes, 0, 0);
+                                        updateTaskDate(task.id, merged);
+                                      }}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                            
+                            {/* Category badge - bottom right */}
+                            {task.tags.length > 0 && (
+                              <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end items-end">
+                                {task.tags.map((tag) => (
                                   <Popover key={tag}>
                                     <PopoverTrigger asChild>
                                       <span 
@@ -1651,69 +1663,82 @@ export default function TaskManager() {
                                           </div>
                                         </div>
                                         <div className="space-y-1">
-                                          {categories.map((category) => (
-                                            <button
-                                              key={category.id}
-                                              onClick={async () => {
-                                                try {
-                                                  // Remove the old tag and add the new one
-                                                  const updatedTags = task.tags.filter(t => t !== tag);
-                                                  if (!updatedTags.includes(category.name)) {
-                                                    updatedTags.unshift(category.name);
+                                          {categories.map((category) => {
+                                            const colorName = getColorName(category.name);
+                                            const isSelected = category.name === tag;
+                                            return (
+                                              <button
+                                                key={category.id}
+                                                onClick={async () => {
+                                                  try {
+                                                    // If category is hidden, start temporary visibility BEFORE update
+                                                    if (category.hiddenOnHome) {
+                                                      startTemporaryVisibility(task.id);
+                                                    }
+                                                    
+                                                    // Remove the old tag and add the new one
+                                                    const updatedTags = task.tags.filter(t => t !== tag);
+                                                    if (!updatedTags.includes(category.name)) {
+                                                      updatedTags.unshift(category.name);
+                                                    }
+                                                    await updateTask(task.id, { tags: updatedTags });
+                                                    
+                                                    toast.success(`Changed category to ${category.name}`);
+                                                  } catch (error) {
+                                                    toast.error("Failed to update category");
                                                   }
-                                                  await updateTask(task.id, { tags: updatedTags });
-                                                  toast.success(`Changed category to ${category.name}`);
-                                                } catch (error) {
-                                                  toast.error("Failed to update category");
-                                                }
-                                              }}
-                                              className={cn(
-                                                "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent",
-                                                category.name === tag && "bg-blue-50 border-blue-200 text-blue-700"
-                                              )}
-                                            >
-                                              <span className={cn(
-                                                "w-2 h-2 rounded-full",
-                                                category.name === tag ? "bg-blue-500" : "bg-gray-400"
-                                              )}></span>
-                                              <span className="flex-1">{category.name}</span>
-                                            </button>
-                                          ))}
+                                                }}
+                                                className={cn(
+                                                  "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
+                                                  isSelected ? `border-${colorName}-500 bg-${colorName}-50` : "border-transparent"
+                                                )}
+                                              >
+                                                <span className={cn(
+                                                  "w-2 h-2 rounded-full transition-colors",
+                                                  getTagTextColor(category.name).replace('text-', 'bg-')
+                                                )}></span>
+                                                <span className="flex-1">{category.name}</span>
+                                              </button>
+                                            );
+                                          })}
                                         </div>
                                       </div>
                                     </PopoverContent>
                                   </Popover>
                                 ))}
-                                {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
-                                      size="sm"
-                                      className={cn(
-                                        "h-6 px-2 text-[10px]",
-                                        transientEditingTaskIds.includes(task.id)
-                                          ? "bg-gray-900 hover:bg-gray-800 text-white"
-                                          : "border-gray-200 text-gray-700 hover:bg-gray-50"
-                                      )}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (transientEditingTaskIds.includes(task.id)) {
-                                          confirmTransientEdit(task);
-                                        } else {
-                                          startTransientEdit(task.id);
-                                        }
-                                      }}
-                                    >
-                                      {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
-                                    </Button>
-                                  </div>
-                                )}
                               </div>
-                            </div>
-                            {/* Delete button (show on hover) */}
+                            )}
+                            
+                            {/* Edit button - temporary visibility */}
+                            {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
+                              <div className="absolute top-2 right-10 flex items-center gap-2">
+                                <Button
+                                  variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
+                                  size="sm"
+                                  className={cn(
+                                    "h-6 px-2 text-[10px]",
+                                    transientEditingTaskIds.includes(task.id)
+                                      ? "bg-gray-900 hover:bg-gray-800 text-white"
+                                      : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (transientEditingTaskIds.includes(task.id)) {
+                                      confirmTransientEdit(task);
+                                    } else {
+                                      startTransientEdit(task.id);
+                                    }
+                                  }}
+                                >
+                                  {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
+                                </Button>
+                              </div>
+                            )}
+                            
+                            {/* Delete button (show on hover) - top right */}
                             <button
                               onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                              className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                               aria-label="Delete task"
                             >
                               <X className="w-4 h-4" />
@@ -2919,6 +2944,7 @@ function PomodoroTimer({
   allTags,
   completedTaskIds,
   getTagTextColor,
+  getColorName,
   categories,
   updateTask
 }: { 
@@ -2931,6 +2957,7 @@ function PomodoroTimer({
   allTags: string[];
   completedTaskIds: string[];
   getTagTextColor: (tag: string) => string;
+  getColorName: (tag: string) => string;
   categories: Category[];
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
 }) {
@@ -3105,66 +3132,73 @@ function PomodoroTimer({
                       onCheckedChange={() => toggleTaskCompletion(task.id)}
                       className="flex-shrink-0 mr-3"
                     />
-                    {/* Main content: flex-1 row, name/date left, tags bottom right */}
-                    <div className="flex flex-1 flex-row min-w-0 ml-3 items-start">
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className={cn(
-                          "text-sm font-normal transition-colors duration-200",
-                          effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                        )}>
-                          {formatTextWithTags(task.text)}
-                        </span>
-                        {hasDate && (
-                          <Popover>
+                    {/* Main content */}
+                    <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
+                      <span className={cn(
+                        "text-sm font-normal transition-colors duration-200",
+                        effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
+                      )}>
+                        {formatTextWithTags(task.text)}
+                      </span>
+                      {hasDate && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <span className={cn(
+                              "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                              isPastOrToday ? "text-red-600" : "text-gray-400"
+                            )}>
+                              {dateString}{timeString ? `, ${timeString}` : ''}
+                            </span>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={task.createdAt}
+                              onSelect={(newDate?: Date) => {
+                                if (newDate) {
+                                  updateTaskDate(task.id, newDate);
+                                }
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    
+                    {/* Category badge - bottom right */}
+                    {task.tags.length > 0 && (
+                      <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end items-end">
+                        {task.tags.map((tag) => (
+                          <Popover key={tag}>
                             <PopoverTrigger asChild>
-                              <span className={cn(
-                                "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1",
-                                isPastOrToday ? "text-red-600" : "text-gray-400"
-                              )}>
-                                {dateString}{timeString ? `, ${timeString}` : ''}
+                              <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1.5 py-0.5 rounded transition-colors">
+                                <span className={cn(
+                                  "transition-colors font-semibold",
+                                  getTagTextColor(tag)
+                                )}>#</span>
+                                <span className="text-gray-700">{tag}</span>
                               </span>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={task.createdAt}
-                                onSelect={(newDate?: Date) => {
-                                  if (newDate) {
-                                    updateTaskDate(task.id, newDate);
-                                  }
-                                }}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                      </div>
-                      {task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
-                          {task.tags.map((tag) => (
-                            <Popover key={tag}>
-                              <PopoverTrigger asChild>
-                                <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
-                                  <span className={cn(
-                                    "transition-colors",
-                                    getTagTextColor(tag)
-                                  )}>#</span>
-                                  <span className="text-gray-500">{tag}</span>
-                                </span>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="end">
-                                <div className="p-2">
-                                  <div className="px-2 py-1 mb-2">
-                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                      Change Category
-                                    </div>
+                            <PopoverContent className="w-auto p-0" align="end">
+                              <div className="p-2">
+                                <div className="px-2 py-1 mb-2">
+                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                    Change Category
                                   </div>
-                                  <div className="space-y-1">
-                                    {categories.map((category) => (
+                                </div>
+                                <div className="space-y-1">
+                                  {categories.map((category) => {
+                                    const colorName = getColorName(category.name);
+                                    const isSelected = category.name === tag;
+                                    return (
                                       <button
                                         key={category.id}
                                         onClick={async () => {
                                           try {
+                                            // Note: Pomodoro timer shows all tasks regardless of hidden status,
+                                            // so we don't need the temporary visibility logic here
+                                            
                                             // Remove the old tag and add the new one
                                             const updatedTags = task.tags.filter(t => t !== tag);
                                             updatedTags.push(category.name);
@@ -3174,24 +3208,31 @@ function PomodoroTimer({
                                             toast.error("Failed to update category");
                                           }
                                         }}
-                                        className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
+                                        className={cn(
+                                          "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
+                                          isSelected ? `border-${colorName}-500 bg-${colorName}-50` : "border-transparent"
+                                        )}
                                       >
-                                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                        <span className={cn(
+                                          "w-2 h-2 rounded-full transition-colors",
+                                          getTagTextColor(category.name).replace('text-', 'bg-')
+                                        )}></span>
                                         <span className="flex-1">{category.name}</span>
                                       </button>
-                                    ))}
-                                  </div>
+                                    );
+                                  })}
                                 </div>
-                              </PopoverContent>
-                            </Popover>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Delete button (show on hover) */}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Delete button (show on hover) - top right */}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                      className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                       aria-label="Delete task"
                     >
                       <X className="w-4 h-4" />
