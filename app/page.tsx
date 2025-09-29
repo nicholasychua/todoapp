@@ -37,6 +37,7 @@ import {
   addCategory,
   deleteCategory,
   setCategoryHiddenOnHome,
+  updateCategory,
 } from "@/lib/categories"
 import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
 import { Loader } from "@/components/ui/loader"
@@ -471,11 +472,16 @@ export default function TaskManager() {
 
   // Automatically suggest and prepend a category tag based on user's categories
   const autoCategorizeTags = async (baseText: string, existingTags: string[]): Promise<string[]> => {
-    const categoryNames = categories.map(cat => cat.name);
-    if (categoryNames.length === 0) return existingTags;
+    if (categories.length === 0) return existingTags;
     try {
       const cleanText = formatTextWithTags(baseText);
-      const result = await categorizeTask(cleanText, categoryNames);
+      // Pass full category metadata for better categorization
+      const categoryMetadata = categories.map(cat => ({
+        name: cat.name,
+        description: cat.description,
+        keywords: cat.keywords
+      }));
+      const result = await categorizeTask(cleanText, categoryMetadata);
       const suggested = result?.suggestedCategory;
       if (!suggested) return existingTags; // fall back to Uncategorized (no category tag)
       if (existingTags.includes(suggested)) {
@@ -1623,34 +1629,86 @@ export default function TaskManager() {
                                   </Popover>
                                 )}
                               </div>
-                              {task.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
-                                  {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
-                                        size="sm"
-                                        className={cn(
-                                          "h-6 px-2 text-[10px]",
-                                          transientEditingTaskIds.includes(task.id)
-                                            ? "bg-gray-900 hover:bg-gray-800 text-white"
-                                            : "border-gray-200 text-gray-700 hover:bg-gray-50"
-                                        )}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (transientEditingTaskIds.includes(task.id)) {
-                                            confirmTransientEdit(task);
-                                          } else {
-                                            startTransientEdit(task.id);
-                                          }
-                                        }}
+                              <div className="flex flex-wrap gap-1 justify-end items-start ml-3">
+                                {task.tags.length > 0 && task.tags.map((tag) => (
+                                  <Popover key={tag}>
+                                    <PopoverTrigger asChild>
+                                      <span 
+                                        className="text-xs font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors cursor-pointer hover:bg-gray-100"
                                       >
-                                        {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                        <span className={cn(
+                                          "transition-colors font-semibold",
+                                          getTagTextColor(tag)
+                                        )}>#</span>
+                                        <span className="text-gray-700">{tag}</span>
+                                      </span>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="end">
+                                      <div className="p-2">
+                                        <div className="px-2 py-1 mb-2">
+                                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                            Change Category
+                                          </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          {categories.map((category) => (
+                                            <button
+                                              key={category.id}
+                                              onClick={async () => {
+                                                try {
+                                                  // Remove the old tag and add the new one
+                                                  const updatedTags = task.tags.filter(t => t !== tag);
+                                                  if (!updatedTags.includes(category.name)) {
+                                                    updatedTags.unshift(category.name);
+                                                  }
+                                                  await updateTask(task.id, { tags: updatedTags });
+                                                  toast.success(`Changed category to ${category.name}`);
+                                                } catch (error) {
+                                                  toast.error("Failed to update category");
+                                                }
+                                              }}
+                                              className={cn(
+                                                "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent",
+                                                category.name === tag && "bg-blue-50 border-blue-200 text-blue-700"
+                                              )}
+                                            >
+                                              <span className={cn(
+                                                "w-2 h-2 rounded-full",
+                                                category.name === tag ? "bg-blue-500" : "bg-gray-400"
+                                              )}></span>
+                                              <span className="flex-1">{category.name}</span>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                ))}
+                                {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
+                                      size="sm"
+                                      className={cn(
+                                        "h-6 px-2 text-[10px]",
+                                        transientEditingTaskIds.includes(task.id)
+                                          ? "bg-gray-900 hover:bg-gray-800 text-white"
+                                          : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                                      )}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (transientEditingTaskIds.includes(task.id)) {
+                                          confirmTransientEdit(task);
+                                        } else {
+                                          startTransientEdit(task.id);
+                                        }
+                                      }}
+                                    >
+                                      {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             {/* Delete button (show on hover) */}
                             <button
@@ -1910,7 +1968,7 @@ export default function TaskManager() {
                                     <div className="flex gap-1">
                                       {voicePreviewTags.map((tag) => (
                                         <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                          <span className="text-gray-500">{tag}</span> <span className={getTagTextColor(tag)}>#</span>
+                                          <span className={getTagTextColor(tag)}>#</span><span className="text-gray-500">{tag}</span>
                                         </span>
                                       ))}
                                     </div>
@@ -2118,12 +2176,16 @@ function BacklogView({
       }
       
       // Auto-categorize to prepend the most relevant category tag if applicable
-      const categoryNames = categories.map(cat => cat.name);
       let finalTags = tags;
-      if (categoryNames.length > 0) {
+      if (categories.length > 0) {
         try {
           const cleanText = newTaskText.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
-          const result = await categorizeTask(cleanText, categoryNames);
+          const categoryMetadata = categories.map(cat => ({
+            name: cat.name,
+            description: cat.description,
+            keywords: cat.keywords
+          }));
+          const result = await categorizeTask(cleanText, categoryMetadata);
           const suggested = result?.suggestedCategory;
           if (suggested) {
             finalTags = finalTags.includes(suggested)
@@ -2154,8 +2216,12 @@ function BacklogView({
     if (!user || !taskText.trim() || categories.length === 0) return;
     
     try {
-      const categoryNames = categories.map(cat => cat.name);
-      const result = await categorizeTask(taskText, categoryNames);
+      const categoryMetadata = categories.map(cat => ({
+        name: cat.name,
+        description: cat.description,
+        keywords: cat.keywords
+      }));
+      const result = await categorizeTask(taskText, categoryMetadata);
       
       if (result.suggestedCategory) {
         // Add the suggested category as a tag
@@ -3079,11 +3145,11 @@ function PomodoroTimer({
                             <Popover key={tag}>
                               <PopoverTrigger asChild>
                                 <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
-                                  <span className="text-gray-500">{tag}</span> 
                                   <span className={cn(
                                     "transition-colors",
                                     getTagTextColor(tag)
                                   )}>#</span>
+                                  <span className="text-gray-500">{tag}</span>
                                 </span>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0" align="end">

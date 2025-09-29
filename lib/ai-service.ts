@@ -11,6 +11,12 @@ export interface CategorizationResult {
   confidence: string;
 }
 
+export interface CategoryMetadata {
+  name: string;
+  description?: string;
+  keywords?: string[];
+}
+
 export async function processVoiceInput(rawInput: string): Promise<ProcessedTask> {
   try {
     console.log('Attempting to call AI service with input:', rawInput);
@@ -50,14 +56,21 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
   }
 }
 
-export async function categorizeTask(taskText: string, categories: string[]): Promise<CategorizationResult> {
+export async function categorizeTask(
+  taskText: string, 
+  categories: string[] | CategoryMetadata[]
+): Promise<CategorizationResult> {
   try {
     const response = await fetch('/api/ai/categorize-task', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ taskText, categories }),
+      body: JSON.stringify({ 
+        taskText, 
+        categoryMetadata: typeof categories[0] === 'object' ? categories : undefined,
+        categories: typeof categories[0] === 'string' ? categories : undefined
+      }),
     });
 
     if (!response.ok) {
@@ -132,32 +145,81 @@ function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
   };
 }
 
+// Simple sentiment analysis function
+const analyzeSentiment = (text: string): 'positive' | 'neutral' | 'negative' => {
+  const lowerText = text.toLowerCase();
+  
+  const positiveWords = ['happy', 'great', 'awesome', 'excellent', 'love', 'enjoy', 'excited', 'wonderful', 'amazing', 'fantastic', 'good', 'fun', 'celebrate', 'success', 'win'];
+  const negativeWords = ['sad', 'bad', 'terrible', 'hate', 'angry', 'upset', 'frustrated', 'problem', 'issue', 'error', 'fail', 'urgent', 'critical', 'fix', 'bug', 'broken'];
+  
+  let positiveScore = 0;
+  let negativeScore = 0;
+  
+  positiveWords.forEach(word => {
+    if (lowerText.includes(word)) positiveScore++;
+  });
+  
+  negativeWords.forEach(word => {
+    if (lowerText.includes(word)) negativeScore++;
+  });
+  
+  if (positiveScore > negativeScore) return 'positive';
+  if (negativeScore > positiveScore) return 'negative';
+  return 'neutral';
+};
+
 // Fallback categorization function that uses simple keyword matching
-function getFallbackCategorization(taskText: string, categories: string[]): CategorizationResult {
+function getFallbackCategorization(
+  taskText: string, 
+  categories: string[] | CategoryMetadata[]
+): CategorizationResult {
   console.log('Using fallback categorization for:', taskText, 'with categories:', categories);
   
   const lowerTaskText = taskText.toLowerCase();
+  const sentiment = analyzeSentiment(taskText);
   
   // Base keyword map for common task types (expanded per-category below)
-  const keywordMap: Record<string, string[]> = {
-    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline'],
-    'personal': ['personal', 'family', 'home', 'house', 'life'],
-    'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical', 'doctor', 'appointment'],
-    'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries', 'order'],
-    'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment', 'invoice', 'tax'],
-    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework'],
-    'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking', 'drive', 'commute'],
-    'social': ['social', 'friend', 'party', 'event', 'dinner', 'meet', 'hangout'],
-    'events': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue'],
-    'event': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue'],
-    'chores': ['chore', 'clean', 'laundry', 'dishes', 'organize', 'maintenance', 'repair'],
-    'hobby': ['hobby', 'craft', 'art', 'music', 'game', 'fun', 'entertainment', 'movie']
+  const defaultKeywordMap: Record<string, string[]> = {
+    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'report', 'email', 'call', 'interview'],
+    'personal': ['birthday', 'anniversary', 'family', 'relationship', 'self', 'personal goal'],
+    'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical', 'doctor', 'appointment', 'therapy', 'wellness'],
+    'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries', 'order', 'amazon', 'shop'],
+    'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment', 'invoice', 'tax', 'expense'],
+    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'tutorial', 'practice', 'review', 'midterm', 'final', 'textbook', 'notes', 'research', 'paper', 'essay', 'problem set', 'lab', 'school', 'college', 'university', 'student', 'grade', 'submit', 'due', 'chapter', 'complete', 'finish'],
+    'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking', 'airport', 'passport', 'visa'],
+    'social': ['social', 'friend', 'hangout', 'coffee', 'lunch', 'dinner', 'catch up'],
+    'events': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'ticket', 'tickets', 'venue', 'meetup', 'conference'],
+    'event': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'ticket', 'tickets', 'venue', 'meetup', 'conference'],
+    'chores': ['chore', 'clean', 'laundry', 'dishes', 'organize', 'maintenance', 'repair', 'vacuum', 'tidy'],
+    'hobby': ['hobby', 'craft', 'art', 'music', 'game', 'fun', 'entertainment', 'movie', 'watch', 'play']
   };
 
-  const expandKeywordsForCategory = (categoryName: string): string[] => {
-    const lc = categoryName.toLowerCase();
-    let keywords = keywordMap[lc] || [];
+  // Check if we have CategoryMetadata or just string names
+  const hasMetadata = categories.length > 0 && typeof categories[0] === 'object';
+  const categoryList: CategoryMetadata[] = hasMetadata 
+    ? (categories as CategoryMetadata[])
+    : (categories as string[]).map(name => ({ name }));
 
+  const expandKeywordsForCategory = (category: CategoryMetadata): string[] => {
+    const lc = category.name.toLowerCase();
+    
+    // Start with user-defined keywords if available
+    let keywords: string[] = [...(category.keywords || [])];
+    
+    // Add keywords from description if available
+    if (category.description) {
+      const descWords = category.description.toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3); // Only meaningful words
+      keywords = keywords.concat(descWords);
+    }
+    
+    // Fallback to default keywords if none provided
+    if (keywords.length === 0) {
+      keywords = defaultKeywordMap[lc] || [];
+    }
+
+    // Expand by semantic hints from the category name
     if (/(event|events|concert|show|gig|performance|festival|party|meetup|entertain|social|leisure)/.test(lc)) {
       keywords = keywords.concat(['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue']);
     }
@@ -165,21 +227,46 @@ function getFallbackCategorization(taskText: string, categories: string[]): Cate
       keywords = keywords.concat(['music', 'concert', 'show', 'gig', 'performance']);
     }
     if (/(work|job|office|client|project|business|meeting)/.test(lc)) {
-      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline']);
+      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation']);
     }
-    if (/(personal|home|family|life)/.test(lc)) {
-      keywords = keywords.concat(['personal', 'home', 'family']);
+    if (/(school|learn|study|homework|class|course|education|academic)/.test(lc)) {
+      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'complete', 'finish', 'submit', 'due', 'chapter', 'problem', 'practice']);
+    }
+    if (/(hobby|fun|entertainment|leisure)/.test(lc)) {
+      keywords = keywords.concat(['hobby', 'fun', 'entertainment', 'game', 'play', 'watch', 'enjoy']);
     }
 
-    return Array.from(new Set(keywords));
+    return Array.from(new Set(keywords.map(k => k.toLowerCase())));
   };
   
+  // Semantic pattern detection for better context understanding
+  
+  // Check for course code patterns (e.g., CS101, ENGIN26, MATH3A)
+  const courseCodePattern = /\b[a-z]{2,6}\s*\d{1,4}[a-z]?\b/i;
+  const hasCourseCode = courseCodePattern.test(lowerTaskText);
+  
+  // Check for academic action words
+  const academicActions = ['finish', 'complete', 'submit', 'study', 'review', 'read', 'practice', 'solve', 'write'];
+  const hasAcademicAction = academicActions.some(action => lowerTaskText.includes(action));
+  
+  // Check for food-related patterns
+  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'order', 'pick up', 'pickup', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'coffee', 'groceries', 'grocery'];
+  const hasFoodContext = foodPatterns.some(pattern => lowerTaskText.includes(pattern));
+  
+  // Check for shopping patterns
+  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store', 'get', 'pick up', 'order'];
+  const hasShoppingAction = shoppingPatterns.some(pattern => lowerTaskText.includes(pattern));
+  
+  // Check for event/entertainment patterns
+  const eventPatterns = ['concert', 'show', 'ticket', 'festival', 'performance', 'gig', 'venue'];
+  const hasEventContext = eventPatterns.some(pattern => lowerTaskText.includes(pattern));
+  
   // Find the best matching category
-  let bestMatch = categories[0];
+  let bestMatch = categoryList[0].name;
   let bestScore = 0;
   
-  for (const category of categories) {
-    const lowerCategory = category.toLowerCase();
+  for (const category of categoryList) {
+    const lowerCategory = category.name.toLowerCase();
     let score = 0;
     
     // Check direct category name match
@@ -187,24 +274,65 @@ function getFallbackCategorization(taskText: string, categories: string[]): Cate
       score += 10;
     }
     
-    // Check keyword matches (expanded by category name semantics)
-    const keywords = expandKeywordsForCategory(lowerCategory);
+    // Check description match (if available)
+    if (category.description && lowerTaskText.includes(category.description.toLowerCase())) {
+      score += 8;
+    }
+    
+    // Check keyword matches (user-defined + expanded by category name semantics)
+    const keywords = expandKeywordsForCategory(category);
     for (const keyword of keywords) {
       if (lowerTaskText.includes(keyword)) {
         score += 5;
       }
     }
     
+    // Context-aware boosting based on semantic patterns
+    
+    // Food/Shopping context
+    if (hasFoodContext && /(food|shop|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
+      score += 20; // Strong boost for food-related tasks
+    }
+    if (hasShoppingAction && hasFoodContext && /(shop|food|grocery)/.test(lowerCategory)) {
+      score += 10; // Additional boost for shopping + food
+    }
+    
+    // Academic context
+    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 20; // Strong boost for course codes
+    }
+    if (hasAcademicAction && hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 10; // Additional boost if both present
+    }
+    
+    // Event context
+    if (hasEventContext && /(event|entertainment|social|concert|show)/.test(lowerCategory)) {
+      score += 15; // Boost for clear event patterns
+    }
+    
+    // Sentiment-based bonus scoring
+    if (sentiment === 'positive' && /(hobby|fun|social|event|entertainment|leisure|vacation|travel)/.test(lowerCategory)) {
+      score += 3;
+    }
+    if (sentiment === 'negative' && /(work|problem|issue|urgent|critical|fix|chore)/.test(lowerCategory)) {
+      score += 3;
+    }
+    
+    // Penalize "personal" category unless it's a clear personal task
+    if (/personal/.test(lowerCategory) && !/(birthday|anniversary|family|relationship)/.test(lowerTaskText)) {
+      score -= 8; // Stronger penalty to avoid over-categorizing as personal
+    }
+    
     if (score > bestScore) {
       bestScore = score;
-      bestMatch = category;
+      bestMatch = category.name;
     }
   }
   
-  // On zero score, prefer neutral buckets over "Work" to avoid misclassification
+  // On zero score, prefer neutral buckets
   if (bestScore === 0) {
-    const neutral = categories.find(c => /uncategorized|general|misc|inbox|backlog|personal/.test(c.toLowerCase()));
-    if (neutral) bestMatch = neutral;
+    const neutral = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
+    if (neutral) bestMatch = neutral.name;
   }
   
   console.log('Fallback categorization result:', { suggestedCategory: bestMatch, confidence: bestScore > 0 ? "medium" : "low" });

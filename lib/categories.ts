@@ -19,6 +19,8 @@ export interface Category {
   userId: string;
   createdAt: Date;
   hiddenOnHome?: boolean;
+  description?: string;
+  keywords?: string[];
 }
 
 export function subscribeToCategories(userId: string, callback: (categories: Category[]) => void) {
@@ -33,18 +35,27 @@ export function subscribeToCategories(userId: string, callback: (categories: Cat
       ...doc.data(),
       createdAt: doc.data().createdAt.toDate(),
       hiddenOnHome: doc.data().hiddenOnHome ?? false,
+      description: doc.data().description,
+      keywords: doc.data().keywords || [],
     })) as Category[];
     callback(categories);
   });
 }
 
-export async function addCategory(name: string, userId: string) {
+export async function addCategory(
+  name: string, 
+  userId: string,
+  description?: string,
+  keywords?: string[]
+) {
   const now = new Date();
   const docRef = await addDoc(collection(db, 'categories'), {
     name,
     userId,
     createdAt: Timestamp.fromDate(now),
     hiddenOnHome: false,
+    description: description || '',
+    keywords: keywords || [],
   });
   return {
     id: docRef.id,
@@ -52,6 +63,8 @@ export async function addCategory(name: string, userId: string) {
     userId,
     createdAt: now,
     hiddenOnHome: false,
+    description: description || '',
+    keywords: keywords || [],
   } as Category;
 }
 
@@ -65,4 +78,11 @@ export async function renameCategory(categoryId: string, newName: string) {
 
 export async function setCategoryHiddenOnHome(categoryId: string, hidden: boolean) {
   await updateDoc(doc(db, 'categories', categoryId), { hiddenOnHome: hidden });
+}
+
+export async function updateCategory(
+  categoryId: string, 
+  updates: { name?: string; description?: string; keywords?: string[] }
+) {
+  await updateDoc(doc(db, 'categories', categoryId), updates);
 } 
