@@ -1,60 +1,90 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react"
-import { Plus, Search, MoreHorizontal, Mic, X, Check, ChevronDown, Settings, Calendar as CalendarIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
-import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion"
-import { Calendar } from "@/components/ui/calendar"
-import { useTheme } from "next-themes"
-import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
-import { useRouter } from "next/navigation"
-import { useTaskService } from "@/hooks/useTaskService"
-import type { Task } from "@/lib/tasks"
-import { toast } from "sonner"
-import { DatePicker } from "@/components/ui/date-picker"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { SlidingMenu } from "@/components/ui/sliding-menu"
-import { useTabGroupService } from "@/hooks/useTabGroupService"
-import { TabGroupManager } from "@/components/ui/tab-group-manager"
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import {
+  Plus,
+  Search,
+  MoreHorizontal,
+  Mic,
+  X,
+  Check,
+  ChevronDown,
+  Settings,
+  Calendar as CalendarIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import {
+  motion,
+  AnimatePresence,
+  Reorder,
+  useDragControls,
+} from "framer-motion";
+import { Calendar } from "@/components/ui/calendar";
+import { useTheme } from "next-themes";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
+import { useTaskService } from "@/hooks/useTaskService";
+import type { Task } from "@/lib/tasks";
+import { toast } from "sonner";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { SlidingMenu } from "@/components/ui/sliding-menu";
+import { useTabGroupService } from "@/hooks/useTabGroupService";
+import { TabGroupManager } from "@/components/ui/tab-group-manager";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { TabGroup } from "@/lib/tabgroups"
+} from "@/components/ui/tooltip";
+import type { TabGroup } from "@/lib/tabgroups";
 import {
-  Category,
+  type Category,
   subscribeToCategories,
   addCategory,
   deleteCategory,
   setCategoryHiddenOnHome,
   updateCategory,
-} from "@/lib/categories"
-import { processVoiceInput, type ProcessedTask, categorizeTask, type CategorizationResult } from "@/lib/ai-service"
-import { Loader } from "@/components/ui/loader"
-import { AIVoiceInput } from "@/components/ui/ai-voice-input"
+} from "@/lib/categories";
+import {
+  processVoiceInput,
+  type ProcessedTask,
+  categorizeTask,
+  type CategorizationResult,
+} from "@/lib/ai-service";
+import { Loader } from "@/components/ui/loader";
+import { AIVoiceInput } from "@/components/ui/ai-voice-input";
+import { CalendarView } from "@/components/task-manager/CalendarView";
 
 // Define a color palette for categories
 const categoryColors = [
-  'text-orange-500',
-  'text-blue-500',
-  'text-green-500',
-  'text-red-500',
-  'text-purple-500',
-  'text-yellow-500',
-  'text-pink-500',
-  'text-cyan-500',
-  'text-indigo-500',
-  'text-amber-500',
+  "text-orange-500",
+  "text-blue-500",
+  "text-green-500",
+  "text-red-500",
+  "text-purple-500",
+  "text-yellow-500",
+  "text-pink-500",
+  "text-cyan-500",
+  "text-indigo-500",
+  "text-amber-500",
 ];
 
 // Sound wave animation component
@@ -64,51 +94,55 @@ function SoundWave() {
       <motion.div
         className="w-0.5 h-full bg-red-500 rounded-full"
         animate={{
-          height: ["60%", "100%", "60%"]
+          height: ["60%", "100%", "60%"],
         }}
         transition={{
           duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
-          delay: 0
+          delay: 0,
         }}
       />
       <motion.div
         className="w-0.5 h-full bg-red-500 rounded-full"
         animate={{
-          height: ["100%", "60%", "100%"]
+          height: ["100%", "60%", "100%"],
         }}
         transition={{
           duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
-          delay: 0.4
+          delay: 0.4,
         }}
       />
       <motion.div
         className="w-0.5 h-full bg-red-500 rounded-full"
         animate={{
-          height: ["60%", "100%", "60%"]
+          height: ["60%", "100%", "60%"],
         }}
         transition={{
           duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut",
-          delay: 0.8
+          delay: 0.8,
         }}
       />
     </div>
-  )
+  );
 }
 
 // Create a custom styled checkbox component
-function StyledCheckbox({ checked, onCheckedChange, className }: { 
-  checked: boolean; 
+function StyledCheckbox({
+  checked,
+  onCheckedChange,
+  className,
+}: {
+  checked: boolean;
   onCheckedChange: () => void;
   className?: string;
 }) {
   return (
-    <div 
+    <div
       className={cn(
         "h-4 w-4 min-h-4 min-w-4 rounded-full border border-gray-300 flex items-center justify-center transition-colors cursor-pointer",
         checked ? "border-gray-400" : "bg-white",
@@ -118,28 +152,37 @@ function StyledCheckbox({ checked, onCheckedChange, className }: {
       data-task-checkbox
     >
       {checked && (
-        <div className="h-3.5 w-3.5 rounded-full bg-gray-400" style={{ boxShadow: '0 0 0 1px white inset' }} />
+        <div
+          className="h-3.5 w-3.5 rounded-full bg-gray-400"
+          style={{ boxShadow: "0 0 0 1px white inset" }}
+        />
       )}
     </div>
   );
 }
 
 // Sidebar component
-function Sidebar({ 
-  showBacklog, 
-  showPomodoro, 
-  setShowBacklog, 
-  setShowPomodoro, 
-  handleBacklogToggle, 
-  handleLightSwitch, 
-  handleLogout 
-}: { 
+function Sidebar({
+  showBacklog,
+  showPomodoro,
+  showCalendar,
+  setShowBacklog,
+  setShowPomodoro,
+  setShowCalendar,
+  handleBacklogToggle,
+  handleLightSwitch,
+  handleCalendarToggle,
+  handleLogout,
+}: {
   showBacklog: boolean;
   showPomodoro: boolean;
+  showCalendar: boolean;
   setShowBacklog: (show: boolean) => void;
   setShowPomodoro: (show: boolean) => void;
+  setShowCalendar: (show: boolean) => void;
   handleBacklogToggle: () => void;
   handleLightSwitch: () => void;
+  handleCalendarToggle: () => void;
   handleLogout: () => void;
 }) {
   return (
@@ -151,45 +194,51 @@ function Sidebar({
         </div>
         <span className="text-lg font-semibold text-gray-900">subspace</span>
       </div>
-      
+
       <div className="flex-1 flex flex-col justify-center gap-1 -translate-y-6">
-        <button 
+        <button
           className={cn(
             "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            !showBacklog && !showPomodoro
-              ? "text-gray-900" 
+            !showBacklog && !showPomodoro && !showCalendar
+              ? "text-gray-900"
               : "text-gray-500 hover:text-gray-700"
           )}
           onClick={() => {
             setShowBacklog(false);
             setShowPomodoro(false);
+            setShowCalendar(false);
           }}
         >
           Home
         </button>
-        <button 
+        <button
           className={cn(
             "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            showBacklog 
-              ? "text-gray-900" 
-              : "text-gray-500 hover:text-gray-700"
+            showCalendar ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
+          )}
+          onClick={handleCalendarToggle}
+        >
+          Calendar
+        </button>
+        <button
+          className={cn(
+            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+            showBacklog ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
           )}
           onClick={handleBacklogToggle}
         >
           Subspaces
         </button>
-        <button 
+        <button
           className={cn(
             "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            showPomodoro 
-              ? "text-gray-900" 
-              : "text-gray-500 hover:text-gray-700"
+            showPomodoro ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
           )}
           onClick={handleLightSwitch}
         >
           Focus Session
         </button>
-        <button 
+        <button
           className="text-left px-4 py-1.5 text-[13px] text-gray-500 hover:text-gray-700 transition-colors font-normal"
           onClick={handleLogout}
         >
@@ -201,15 +250,15 @@ function Sidebar({
 }
 
 // Category Popup Component
-function CategoryPopup({ 
-  isOpen, 
-  onClose, 
-  onSelect, 
-  categories, 
+function CategoryPopup({
+  isOpen,
+  onClose,
+  onSelect,
+  categories,
   position,
   inputValue,
   onInputChange,
-  user
+  user,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -222,16 +271,16 @@ function CategoryPopup({
 }) {
   const [customInput, setCustomInput] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  
-  const filteredCategories = categories.filter(cat => 
+
+  const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(inputValue.toLowerCase())
   );
-  
+
   const handleSelect = (categoryName: string) => {
     onSelect(categoryName);
     onClose();
   };
-  
+
   const handleCustomSubmit = async () => {
     if (customInput.trim() && user) {
       try {
@@ -253,33 +302,33 @@ function CategoryPopup({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      
+
       switch (e.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex(prev => 
+          setSelectedIndex((prev) =>
             prev < filteredCategories.length - 1 ? prev + 1 : prev
           );
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex(prev => prev > 0 ? prev - 1 : prev);
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
           break;
-        case 'Enter':
+        case "Enter":
           e.preventDefault();
           if (filteredCategories[selectedIndex]) {
             handleSelect(filteredCategories[selectedIndex].name);
           }
           break;
-        case 'Escape':
+        case "Escape":
           e.preventDefault();
           onClose();
           break;
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, filteredCategories, selectedIndex]);
 
   // Reset selected index when filtered categories change
@@ -308,7 +357,7 @@ function CategoryPopup({
             Choose Category
           </div>
         </div>
-        
+
         {/* Predefined Categories */}
         <div className="space-y-1 mb-2">
           {filteredCategories.map((category, index) => (
@@ -324,10 +373,12 @@ function CategoryPopup({
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <span className={cn(
-                "w-2 h-2 rounded-full transition-colors",
-                index === selectedIndex ? "bg-blue-500" : "bg-gray-400"
-              )}></span>
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full transition-colors",
+                  index === selectedIndex ? "bg-blue-500" : "bg-gray-400"
+                )}
+              ></span>
               <span className="flex-1">{category.name}</span>
               {index === selectedIndex && (
                 <motion.div
@@ -341,13 +392,13 @@ function CategoryPopup({
             </motion.button>
           ))}
         </div>
-        
+
         {filteredCategories.length === 0 && (
           <div className="px-3 py-2 text-sm text-gray-500 text-center">
             No categories found
           </div>
         )}
-        
+
         {/* Custom Input */}
         <div className="border-t border-gray-100 pt-2">
           <div className="px-1">
@@ -360,7 +411,7 @@ function CategoryPopup({
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleCustomSubmit();
                   }
@@ -387,27 +438,31 @@ function CategoryPopup({
 }
 
 export default function TaskManager() {
-  const { user, loading, logout } = useAuth()
-  const router = useRouter()
-  const { createTask, updateTask, deleteTask, subscribeToTasks } = useTaskService();
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
+  const { createTask, updateTask, deleteTask, subscribeToTasks } =
+    useTaskService();
   const { subscribeToTabGroups } = useTabGroupService();
-  const { theme, setTheme } = useTheme()
-  
+  const { theme, setTheme } = useTheme();
+
   // All useState hooks first
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [newTaskText, setNewTaskText] = useState("")
-  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined)
-  const [newTaskTime, setNewTaskTime] = useState<string | null>(null)
-  const [searchText, setSearchText] = useState("")
-  const [isRecording, setIsRecording] = useState(false)
-  const [isRecordingComplete, setIsRecordingComplete] = useState(false)
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
-  const [showSearch, setShowSearch] = useState(false)
-  const [showPomodoro, setShowPomodoro] = useState(false)
-  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
-  const [showVoiceMenu, setShowVoiceMenu] = useState(false)
-  const [voiceRaw, setVoiceRaw] = useState("")
-  const [voiceStep, setVoiceStep] = useState<'listening' | 'confirm' | 'manual'>('listening');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
+  const [newTaskTime, setNewTaskTime] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingComplete, setIsRecordingComplete] = useState(false);
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showPomodoro, setShowPomodoro] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [tabGroups, setTabGroups] = useState<TabGroup[]>([]);
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+  const [voiceRaw, setVoiceRaw] = useState("");
+  const [voiceStep, setVoiceStep] = useState<
+    "listening" | "confirm" | "manual"
+  >("listening");
   const [activeGroup, setActiveGroup] = useState("master");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -415,79 +470,112 @@ export default function TaskManager() {
   const [editCategoriesMode, setEditCategoriesMode] = useState(false);
   const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
-  const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(null);
+  const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(
+    null
+  );
   const [manualTaskText, setManualTaskText] = useState("");
   const [showBacklog, setShowBacklog] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  const [backlogFilter, setBacklogFilter] = useState<"all" | "active" | "completed">("all");
-  const [backlogSortBy, setBacklogSortBy] = useState<"date" | "alphabetical" | "category">("date");
+  const [backlogFilter, setBacklogFilter] = useState<
+    "all" | "active" | "completed"
+  >("all");
+  const [backlogSortBy, setBacklogSortBy] = useState<
+    "date" | "alphabetical" | "category"
+  >("date");
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
-  const [pendingCompletions, setPendingCompletions] = useState<Record<string, NodeJS.Timeout>>({});
+  const [pendingCompletions, setPendingCompletions] = useState<
+    Record<string, NodeJS.Timeout>
+  >({});
   const [showCategoryPopup, setShowCategoryPopup] = useState(false);
-  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
+  const [categoryPopupPosition, setCategoryPopupPosition] = useState({
+    top: 0,
+    left: 0,
+  });
   const [categoryInputValue, setCategoryInputValue] = useState("");
-  const [textareaHeight, setTextareaHeight] = useState(40)
-  const [speechDraft, setSpeechDraft] = useState("")
-  const [isAILoading, setIsAILoading] = useState(false)
-  const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([])
-  const [originalVoiceRaw, setOriginalVoiceRaw] = useState("")
-  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [textareaHeight, setTextareaHeight] = useState(40);
+  const [speechDraft, setSpeechDraft] = useState("");
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([]);
+  const [originalVoiceRaw, setOriginalVoiceRaw] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
   // Track tasks that should be temporarily visible on Home even if their category is hidden
-  const [temporaryVisibleTasks, setTemporaryVisibleTasks] = useState<Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>>({});
+  const [temporaryVisibleTasks, setTemporaryVisibleTasks] = useState<
+    Record<
+      string,
+      {
+        timeoutId: NodeJS.Timeout | null;
+        startMs: number;
+        durationMs: number;
+        remainingMs: number;
+        paused: boolean;
+      }
+    >
+  >({});
   // Track tasks that are in a transient edit mode (pauses disappearing)
-  const [transientEditingTaskIds, setTransientEditingTaskIds] = useState<string[]>([]);
+  const [transientEditingTaskIds, setTransientEditingTaskIds] = useState<
+    string[]
+  >([]);
   // Ticker for progress bar rendering
   const [nowTs, setNowTs] = useState<number>(Date.now());
 
   // Compute names of categories hidden from the Home view
-  const hiddenCategoryNames = useMemo(() => (
-    categories.filter(c => c.hiddenOnHome).map(c => c.name)
-  ), [categories]);
+  const hiddenCategoryNames = useMemo(
+    () => categories.filter((c) => c.hiddenOnHome).map((c) => c.name),
+    [categories]
+  );
 
   // All useRef hooks
-  const inputRef = useRef<HTMLInputElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const recognitionRef = useRef<any>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const finalTranscriptRef = useRef("");
-  
+
   // Helper function to check if two dates are the same day
   const isSameDay = (date1: Date, date2: Date) => {
-    return date1.getFullYear() === date2.getFullYear() &&
-           date1.getMonth() === date2.getMonth() &&
-           date1.getDate() === date2.getDate();
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
   };
 
   // Parse tags from text (words starting with #)
   const parseTagsFromText = (text: string): string[] => {
-    const tagRegex = /#(\w+)/g
-    const matches = text.match(tagRegex) || []
-    return matches.map((tag) => tag.substring(1))
-  }
+    const tagRegex = /#(\w+)/g;
+    const matches = text.match(tagRegex) || [];
+    return matches.map((tag) => tag.substring(1));
+  };
 
   // Format text with colored tags
   const formatTextWithTags = (text: string) => {
     // Remove all #tags from the text
-    return text.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+    return text
+      .replace(/#\w+/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
   };
 
   // Automatically suggest and prepend a category tag based on user's categories
-  const autoCategorizeTags = async (baseText: string, existingTags: string[]): Promise<string[]> => {
+  const autoCategorizeTags = async (
+    baseText: string,
+    existingTags: string[]
+  ): Promise<string[]> => {
     if (categories.length === 0) return existingTags;
     try {
       const cleanText = formatTextWithTags(baseText);
       // Pass full category metadata for better categorization
-      const categoryMetadata = categories.map(cat => ({
+      const categoryMetadata = categories.map((cat) => ({
         name: cat.name,
         description: cat.description,
-        keywords: cat.keywords
+        keywords: cat.keywords,
       }));
       const result = await categorizeTask(cleanText, categoryMetadata);
       const suggested = result?.suggestedCategory;
       if (!suggested) return existingTags; // fall back to Uncategorized (no category tag)
       if (existingTags.includes(suggested)) {
         // Ensure suggested category is first for consistent grouping
-        return [suggested, ...existingTags.filter(t => t !== suggested)];
+        return [suggested, ...existingTags.filter((t) => t !== suggested)];
       }
       return [suggested, ...existingTags];
     } catch {
@@ -510,20 +598,20 @@ export default function TaskManager() {
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart;
-    
+
     if (isRecording) {
       setSpeechDraft(value);
     } else {
       setNewTaskText(value);
     }
-    
+
     // Check if user typed # and show category popup
     const lastChar = value[cursorPosition - 1];
-    if (lastChar === '#' && textareaRef.current) {
+    if (lastChar === "#" && textareaRef.current) {
       const rect = textareaRef.current.getBoundingClientRect();
       setCategoryPopupPosition({
         top: rect.bottom + 8,
-        left: rect.left
+        left: rect.left,
       });
       setCategoryInputValue("");
       setShowCategoryPopup(true);
@@ -534,28 +622,31 @@ export default function TaskManager() {
 
   const handleCategorySelect = (categoryName: string) => {
     if (!textareaRef.current) return;
-    
+
     const currentValue = isRecording ? speechDraft : newTaskText;
     const cursorPosition = textareaRef.current.selectionStart;
-    
+
     // Find the last # position
-    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
+    const lastHashIndex = currentValue.lastIndexOf("#", cursorPosition - 1);
     if (lastHashIndex !== -1) {
       const beforeHash = currentValue.substring(0, lastHashIndex);
       const afterCursor = currentValue.substring(cursorPosition);
-      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
-      
+      const newValue = beforeHash + "#" + categoryName + " " + afterCursor;
+
       if (isRecording) {
         setSpeechDraft(newValue);
       } else {
         setNewTaskText(newValue);
       }
-      
+
       // Set cursor position after the inserted category
       setTimeout(() => {
         if (textareaRef.current) {
           const newCursorPosition = lastHashIndex + categoryName.length + 2;
-          textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          textareaRef.current.setSelectionRange(
+            newCursorPosition,
+            newCursorPosition
+          );
           textareaRef.current.focus();
         }
       }, 0);
@@ -564,20 +655,24 @@ export default function TaskManager() {
 
   // Add a new task
   const addTask = async (text?: string, date?: Date) => {
-    if (!user) return
-    
-    const value = isRecording ? speechDraft : (typeof text === "string" ? text : newTaskText);
+    if (!user) return;
+
+    const value = isRecording
+      ? speechDraft
+      : typeof text === "string"
+      ? text
+      : newTaskText;
     if (!value.trim()) return;
-    
+
     try {
       const tags = parseTagsFromText(value);
-      
+
       // Create the final date with time if both are selected
       let finalDate = (date ?? newTaskDate) || new Date();
-      
+
       // Always apply time if it's set, regardless of whether a date is selected
       if (newTaskTime) {
-        const [hours, minutes] = newTaskTime.split(':').map(Number);
+        const [hours, minutes] = newTaskTime.split(":").map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
       } else {
@@ -585,16 +680,16 @@ export default function TaskManager() {
         finalDate = new Date(finalDate);
         finalDate.setHours(0, 0, 0, 0);
       }
-      
+
       // Auto-categorize to prepend the most relevant category tag if applicable
       const finalTags = await autoCategorizeTags(value, tags);
-      
+
       const created = await createTask({
         text: value,
         completed: false,
         tags: finalTags,
         createdAt: finalDate,
-        group: "master"
+        group: "master",
       });
       setNewTaskText("");
       setSpeechDraft("");
@@ -626,41 +721,46 @@ export default function TaskManager() {
   // Handle AI categorization
   const handleAICategorization = async (taskText: string) => {
     if (!user || !taskText.trim()) return;
-    
+
     setIsAILoading(true);
-    
+
     try {
       // Process the input text to extract task details including date
       const result = await processVoiceInput(taskText);
-      
+
       // Create task with extracted information
       if (result) {
         // Format the task with any tags
-        const taskText = `${result.taskName} ${(result.tags || []).map(tag => `#${tag}`).join(' ')}`;
-        
+        const taskText = `${result.taskName} ${(result.tags || [])
+          .map((tag) => `#${tag}`)
+          .join(" ")}`;
+
         // Extract date from the result
         let taskDate: Date | undefined = undefined;
         if (result.date) {
-          const timeString = result.time || '00:00';
+          const timeString = result.time || "00:00";
           taskDate = new Date(`${result.date}T${timeString}`);
         }
-        
+
         // Auto-categorize tags using the user's categories
-        const finalTags = await autoCategorizeTags(result.taskName, result.tags || []);
-        
+        const finalTags = await autoCategorizeTags(
+          result.taskName,
+          result.tags || []
+        );
+
         // Add the task
         const created = await createTask({
           text: taskText,
           completed: false,
           tags: finalTags,
           createdAt: taskDate || new Date(),
-          group: "master"
+          group: "master",
         });
-        
+
         // Clear the input text
         setNewTaskText("");
-        
-        toast.success('Task created');
+
+        toast.success("Task created");
         // If added into a hidden category, temporarily reveal on Home
         const primary = finalTags[0];
         if (primary && hiddenCategoryNames.includes(primary) && created?.id) {
@@ -668,7 +768,7 @@ export default function TaskManager() {
         }
       }
     } catch (error) {
-      console.error('Error processing task:', error);
+      console.error("Error processing task:", error);
       toast.error("Failed to process task");
     } finally {
       setIsAILoading(false);
@@ -737,8 +837,8 @@ export default function TaskManager() {
 
   // Toggle task selection
   const toggleTaskSelection = (taskId: string) => {
-    setSelectedTaskIds((prev: string[]) => 
-      prev.includes(taskId) 
+    setSelectedTaskIds((prev: string[]) =>
+      prev.includes(taskId)
         ? prev.filter((id: string) => id !== taskId)
         : [...prev, taskId]
     );
@@ -746,15 +846,15 @@ export default function TaskManager() {
 
   // Delete a task
   const deleteTaskHandler = async (taskId: string) => {
-    if (!user) return
-    
+    if (!user) return;
+
     try {
-      await deleteTask(taskId)
+      await deleteTask(taskId);
       toast.success("Task deleted successfully!");
     } catch (error) {
       toast.error("Failed to delete task");
     }
-  }
+  };
 
   // Start voice recording and transcription
   const startRecording = () => {
@@ -769,7 +869,9 @@ export default function TaskManager() {
     setIsRecordingComplete(false);
     setSpeechDraft("");
     finalTranscriptRef.current = "";
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Sorry, your browser does not support Speech Recognition.");
       setIsRecording(false);
@@ -791,7 +893,8 @@ export default function TaskManager() {
           interimTranscript += transcript;
         }
       }
-      const combined = finalTranscript + (interimTranscript ? " " + interimTranscript : "");
+      const combined =
+        finalTranscript + (interimTranscript ? " " + interimTranscript : "");
       setSpeechDraft(combined);
       finalTranscriptRef.current = combined;
     };
@@ -809,7 +912,7 @@ export default function TaskManager() {
       if (!finalTranscriptRef.current.trim()) {
         // No speech detected, show manual input mode
         setShowVoiceMenu(true);
-        setVoiceStep('manual');
+        setVoiceStep("manual");
         setManualTaskText("");
         return;
       }
@@ -820,19 +923,19 @@ export default function TaskManager() {
           // Show the confirmation screen instead of directly creating the task
           setProcessedTask(result);
           setShowVoiceMenu(true);
-          setVoiceStep('confirm');
+          setVoiceStep("confirm");
         }
       } catch (error) {
         console.error("Failed to process voice input:", error);
         toast.error("Failed to process voice input");
         // Show manual input mode as fallback
         setShowVoiceMenu(true);
-        setVoiceStep('manual');
+        setVoiceStep("manual");
         setManualTaskText("");
       }
     };
     recognition.start();
-    setVoiceStep('listening');
+    setVoiceStep("listening");
   };
 
   // Stop voice recording
@@ -840,7 +943,7 @@ export default function TaskManager() {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-  }
+  };
 
   const handleManualGenerate = async () => {
     if (!manualTaskText.trim()) return;
@@ -850,7 +953,7 @@ export default function TaskManager() {
       setProcessedTask(result);
       setVoiceRaw(manualTaskText);
       setOriginalVoiceRaw(manualTaskText);
-      setVoiceStep('confirm');
+      setVoiceStep("confirm");
     } catch (error) {
       console.error("Failed to process manual input:", error);
       toast.error("Failed to generate task. Please try again.");
@@ -865,34 +968,51 @@ export default function TaskManager() {
       const result = await processVoiceInput(text);
       setProcessedTask(result);
       setOriginalVoiceRaw(text);
-      toast.success('Updated from transcription');
+      toast.success("Updated from transcription");
     } catch (error) {
-      console.error('Failed to regenerate from raw transcription:', error);
-      toast.error('Failed to regenerate task');
+      console.error("Failed to regenerate from raw transcription:", error);
+      toast.error("Failed to regenerate task");
     } finally {
       setIsRegenerating(false);
     }
   };
 
   // Filter tasks based on filter, search text, and selected tags
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks.filter((task) => {
     // Check if task is in 4-second waiting period
     const isInWaitingPeriod = completedTaskIds.includes(task.id);
     // Determine effective completion status (local state takes priority)
     const effectivelyCompleted = isInWaitingPeriod || task.completed;
-    
+
     // If on Home (not backlog), hide tasks whose primary category is hidden
     const primaryCategory = task.tags[0];
-    const hideBecauseHiddenCat = !showBacklog && primaryCategory && hiddenCategoryNames.includes(primaryCategory);
-    const tagOverride = selectedTags.length > 0 && primaryCategory && selectedTags.includes(primaryCategory);
-    const isTemporarilyVisible = Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id);
-    const hiddenOnHome = hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
-    
+    const hideBecauseHiddenCat =
+      !showBacklog &&
+      primaryCategory &&
+      hiddenCategoryNames.includes(primaryCategory);
+    const tagOverride =
+      selectedTags.length > 0 &&
+      primaryCategory &&
+      selectedTags.includes(primaryCategory);
+    const isTemporarilyVisible =
+      Boolean(temporaryVisibleTasks[task.id]) ||
+      transientEditingTaskIds.includes(task.id);
+    const hiddenOnHome =
+      hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
+
     return (
       (activeGroup === "master" ? true : task.group === "today") &&
-      (searchText ? task.text.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-      (filter === "completed" ? effectivelyCompleted : filter === "active" ? !effectivelyCompleted : true) &&
-      (selectedTags.length > 0 ? selectedTags.every(tag => task.tags.includes(tag)) : true) &&
+      (searchText
+        ? task.text.toLowerCase().includes(searchText.toLowerCase())
+        : true) &&
+      (filter === "completed"
+        ? effectivelyCompleted
+        : filter === "active"
+        ? !effectivelyCompleted
+        : true) &&
+      (selectedTags.length > 0
+        ? selectedTags.every((tag) => task.tags.includes(tag))
+        : true) &&
       // Hide completed tasks that are not in waiting period (only on home page)
       (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true) &&
       // Hide tasks whose category is hidden on Home (unless user explicitly filtered by that tag)
@@ -909,17 +1029,16 @@ export default function TaskManager() {
   }, {} as Record<string, number>);
 
   // Merge tags from tasks and categories
-  const allTags = Array.from(new Set([
-    ...Object.keys(tagCounts),
-    ...categories.map((cat) => cat.name),
-  ]))
-    .filter(tag => tag !== 'tag' && tag !== 'shopping')
+  const allTags = Array.from(
+    new Set([...Object.keys(tagCounts), ...categories.map((cat) => cat.name)])
+  )
+    .filter((tag) => tag !== "tag" && tag !== "shopping")
     .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
 
   // Helper function to get color for a tag
   const getTagColor = (tag: string) => {
     const index = allTags.indexOf(tag) % categoryColors.length;
-    return categoryColors[index].split(' ')[0]; // Get just the background color class to use as text color
+    return categoryColors[index].split(" ")[0]; // Get just the background color class to use as text color
   };
 
   // Helper function to convert bg color to text color
@@ -934,86 +1053,224 @@ export default function TaskManager() {
   const getColorName = (tag: string) => {
     const textColor = getTagTextColor(tag);
     const match = textColor.match(/text-(\w+)-/);
-    return match ? match[1] : 'gray';
+    return match ? match[1] : "gray";
   };
 
   const handleLightSwitch = () => {
     setShowPomodoro((prev) => !prev);
+    setShowBacklog(false);
+    setShowCalendar(false);
   };
 
   const handleBacklogToggle = () => {
     setShowBacklog((prev) => !prev);
     setShowPomodoro(false);
+    setShowCalendar(false);
+  };
+
+  const handleCalendarToggle = () => {
+    setShowCalendar((prev) => !prev);
+    setShowBacklog(false);
+    setShowPomodoro(false);
   };
 
   // Temporary visibility helpers (TaskManager scope)
-  const startTemporaryVisibility = (taskId: string, durationMs: number = 3000) => {
+  const startTemporaryVisibility = (
+    taskId: string,
+    durationMs: number = 3000
+  ) => {
     // If already tracked, reset timer fresh
-    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-      const existing = prev[taskId];
-      if (existing && existing.timeoutId) clearTimeout(existing.timeoutId);
-      const startMs = Date.now();
-      const timeoutId = setTimeout(() => {
-        setTemporaryVisibleTasks((p: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-          const updated = { ...p } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
-          delete updated[taskId];
-          return updated;
-        });
-      }, durationMs);
-      return {
-        ...prev,
-        [taskId]: { timeoutId, startMs, durationMs, remainingMs: durationMs, paused: false }
-      };
-    });
+    setTemporaryVisibleTasks(
+      (
+        prev: Record<
+          string,
+          {
+            timeoutId: NodeJS.Timeout | null;
+            startMs: number;
+            durationMs: number;
+            remainingMs: number;
+            paused: boolean;
+          }
+        >
+      ) => {
+        const existing = prev[taskId];
+        if (existing && existing.timeoutId) clearTimeout(existing.timeoutId);
+        const startMs = Date.now();
+        const timeoutId = setTimeout(() => {
+          setTemporaryVisibleTasks(
+            (
+              p: Record<
+                string,
+                {
+                  timeoutId: NodeJS.Timeout | null;
+                  startMs: number;
+                  durationMs: number;
+                  remainingMs: number;
+                  paused: boolean;
+                }
+              >
+            ) => {
+              const updated = { ...p } as Record<
+                string,
+                {
+                  timeoutId: NodeJS.Timeout | null;
+                  startMs: number;
+                  durationMs: number;
+                  remainingMs: number;
+                  paused: boolean;
+                }
+              >;
+              delete updated[taskId];
+              return updated;
+            }
+          );
+        }, durationMs);
+        return {
+          ...prev,
+          [taskId]: {
+            timeoutId,
+            startMs,
+            durationMs,
+            remainingMs: durationMs,
+            paused: false,
+          },
+        };
+      }
+    );
   };
 
   const clearTemporaryVisibility = (taskId: string) => {
     const existing = temporaryVisibleTasks[taskId];
     if (existing?.timeoutId) clearTimeout(existing.timeoutId);
-    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-      const updated = { ...prev } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
-      delete updated[taskId];
-      return updated;
-    });
+    setTemporaryVisibleTasks(
+      (
+        prev: Record<
+          string,
+          {
+            timeoutId: NodeJS.Timeout | null;
+            startMs: number;
+            durationMs: number;
+            remainingMs: number;
+            paused: boolean;
+          }
+        >
+      ) => {
+        const updated = { ...prev } as Record<
+          string,
+          {
+            timeoutId: NodeJS.Timeout | null;
+            startMs: number;
+            durationMs: number;
+            remainingMs: number;
+            paused: boolean;
+          }
+        >;
+        delete updated[taskId];
+        return updated;
+      }
+    );
   };
 
   const resumeTemporaryVisibility = (taskId: string) => {
-    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-      const entry = prev[taskId];
-      if (!entry) return prev;
-      const durationMs = Math.max(0, entry.remainingMs);
-      if (entry.timeoutId) clearTimeout(entry.timeoutId);
-      const startMs = Date.now();
-      const timeoutId = setTimeout(() => {
-        setTemporaryVisibleTasks((p: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-          const updated = { ...p } as Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>;
-          delete updated[taskId];
-          return updated;
-        });
-      }, durationMs);
-      return {
-        ...prev,
-        [taskId]: { timeoutId, startMs, durationMs, remainingMs: durationMs, paused: false }
-      };
-    });
+    setTemporaryVisibleTasks(
+      (
+        prev: Record<
+          string,
+          {
+            timeoutId: NodeJS.Timeout | null;
+            startMs: number;
+            durationMs: number;
+            remainingMs: number;
+            paused: boolean;
+          }
+        >
+      ) => {
+        const entry = prev[taskId];
+        if (!entry) return prev;
+        const durationMs = Math.max(0, entry.remainingMs);
+        if (entry.timeoutId) clearTimeout(entry.timeoutId);
+        const startMs = Date.now();
+        const timeoutId = setTimeout(() => {
+          setTemporaryVisibleTasks(
+            (
+              p: Record<
+                string,
+                {
+                  timeoutId: NodeJS.Timeout | null;
+                  startMs: number;
+                  durationMs: number;
+                  remainingMs: number;
+                  paused: boolean;
+                }
+              >
+            ) => {
+              const updated = { ...p } as Record<
+                string,
+                {
+                  timeoutId: NodeJS.Timeout | null;
+                  startMs: number;
+                  durationMs: number;
+                  remainingMs: number;
+                  paused: boolean;
+                }
+              >;
+              delete updated[taskId];
+              return updated;
+            }
+          );
+        }, durationMs);
+        return {
+          ...prev,
+          [taskId]: {
+            timeoutId,
+            startMs,
+            durationMs,
+            remainingMs: durationMs,
+            paused: false,
+          },
+        };
+      }
+    );
   };
 
   const startTransientEdit = (taskId: string) => {
     // Pause the disappearance timer if present
-    setTemporaryVisibleTasks((prev: Record<string, { timeoutId: NodeJS.Timeout | null; startMs: number; durationMs: number; remainingMs: number; paused: boolean }>) => {
-      const entry = prev[taskId];
-      if (!entry) return prev;
-      if (entry.timeoutId) clearTimeout(entry.timeoutId);
-      const elapsed = Math.max(0, Date.now() - entry.startMs);
-      const remainingMs = Math.max(0, entry.durationMs - elapsed);
-      return { ...prev, [taskId]: { ...entry, timeoutId: null, remainingMs, paused: true } };
-    });
-    setTransientEditingTaskIds((prev: string[]) => (prev.includes(taskId) ? prev : [...prev, taskId]));
-    toast('Editing task', { description: 'Adjust category or date, then click Done.' } as any);
+    setTemporaryVisibleTasks(
+      (
+        prev: Record<
+          string,
+          {
+            timeoutId: NodeJS.Timeout | null;
+            startMs: number;
+            durationMs: number;
+            remainingMs: number;
+            paused: boolean;
+          }
+        >
+      ) => {
+        const entry = prev[taskId];
+        if (!entry) return prev;
+        if (entry.timeoutId) clearTimeout(entry.timeoutId);
+        const elapsed = Math.max(0, Date.now() - entry.startMs);
+        const remainingMs = Math.max(0, entry.durationMs - elapsed);
+        return {
+          ...prev,
+          [taskId]: { ...entry, timeoutId: null, remainingMs, paused: true },
+        };
+      }
+    );
+    setTransientEditingTaskIds((prev: string[]) =>
+      prev.includes(taskId) ? prev : [...prev, taskId]
+    );
+    toast("Editing task", {
+      description: "Adjust category or date, then click Done.",
+    } as any);
   };
 
   const confirmTransientEdit = (task: Task) => {
-    setTransientEditingTaskIds((prev: string[]) => prev.filter((id: string) => id !== task.id));
+    setTransientEditingTaskIds((prev: string[]) =>
+      prev.filter((id: string) => id !== task.id)
+    );
     const primary = task.tags[0];
     const stillHidden = primary && hiddenCategoryNames.includes(primary);
     if (stillHidden) {
@@ -1031,8 +1288,8 @@ export default function TaskManager() {
 
   // Update task with new date
   const updateTaskDate = async (taskId: string, newDate: Date) => {
-    if (!user) return
-    
+    if (!user) return;
+
     try {
       await updateTask(taskId, { createdAt: newDate });
       toast.success("Task date updated!");
@@ -1043,7 +1300,14 @@ export default function TaskManager() {
 
   // Helper to reorder categories
   const moveCategory = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
+    if (
+      from === to ||
+      from < 0 ||
+      to < 0 ||
+      from >= categories.length ||
+      to >= categories.length
+    )
+      return;
     const updated = [...categories];
     const [removed] = updated.splice(from, 1);
     updated.splice(to, 0, removed);
@@ -1055,11 +1319,13 @@ export default function TaskManager() {
   const handleContainerClick = (e: React.MouseEvent) => {
     // Check if the click target is not a checkbox or its container
     const target = e.target as HTMLElement;
-    const isCheckboxClick = target.closest('[data-task-checkbox]') || target.closest('.checkbox-container');
-    
+    const isCheckboxClick =
+      target.closest("[data-task-checkbox]") ||
+      target.closest(".checkbox-container");
+
     if (!isCheckboxClick && Object.keys(pendingCompletions).length > 0) {
       // Immediately complete all pending tasks
-      Object.keys(pendingCompletions).forEach(taskId => {
+      Object.keys(pendingCompletions).forEach((taskId) => {
         clearTimeout(pendingCompletions[taskId]);
         updateTask(taskId, { completed: true });
       });
@@ -1072,19 +1338,21 @@ export default function TaskManager() {
   // Redirect to coming soon page if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/coming-soon')
+      router.push("/coming-soon");
     } else if (!loading && user) {
       // If user is authenticated, stay on the main page
-      console.log("User authenticated:", user.uid)
+      console.log("User authenticated:", user.uid);
     }
-  }, [user, loading, router])
+  }, [user, loading, router]);
 
   // Reset all state when user changes
   useEffect(() => {
     // Only run after initial loading is complete
     if (!loading) {
       // Clear any active temporary visibility timers
-      Object.values(temporaryVisibleTasks).forEach(entry => { if (entry?.timeoutId) clearTimeout(entry.timeoutId); });
+      Object.values(temporaryVisibleTasks).forEach((entry) => {
+        if (entry?.timeoutId) clearTimeout(entry.timeoutId);
+      });
       setTasks([]);
       setNewTaskText("");
       setNewTaskDate(undefined);
@@ -1111,84 +1379,92 @@ export default function TaskManager() {
   // Focus search input when search is shown
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
-      searchInputRef.current.focus()
+      searchInputRef.current.focus();
     }
-  }, [showSearch])
+  }, [showSearch]);
 
   // Handle keyboard events for voice control
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && !isRecording) {
-        startRecording()
+      if (e.key === "Control" && !isRecording) {
+        startRecording();
       }
-    }
+    };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control' && isRecording) {
-        stopRecording()
+      if (e.key === "Control" && isRecording) {
+        stopRecording();
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [isRecording])
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [isRecording]);
 
   // Subscribe to tasks
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
     const unsubscribe = subscribeToTasks((newTasks: Task[]) => {
-      setTasks(newTasks)
-    })
+      setTasks(newTasks);
+    });
 
-    return () => unsubscribe()
-  }, [user])
+    return () => unsubscribe();
+  }, [user]);
 
   // Subscribe to tab groups
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
     console.log("Setting up tab groups subscription in main component");
     try {
       const unsubscribe = subscribeToTabGroups((newTabGroups) => {
-        console.log("Tab groups updated in main component:", newTabGroups.length);
+        console.log(
+          "Tab groups updated in main component:",
+          newTabGroups.length
+        );
         setTabGroups(newTabGroups);
       });
 
       return () => {
         console.log("Cleaning up tab groups subscription in main component");
         unsubscribe();
-      }
+      };
     } catch (error) {
-      console.error("Error subscribing to tab groups in main component:", error);
+      console.error(
+        "Error subscribing to tab groups in main component:",
+        error
+      );
     }
   }, [user]);
 
   // Subscribe to categories
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = subscribeToCategories(user.uid, (cats) => setCategories(cats));
+    const unsubscribe = subscribeToCategories(user.uid, (cats) =>
+      setCategories(cats)
+    );
     return () => unsubscribe();
   }, [user]);
 
   // Force light theme on component mount
   useEffect(() => {
-    setTheme("light")
-  }, [setTheme])
+    setTheme("light");
+  }, [setTheme]);
 
   // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
-      Object.values(pendingCompletions).forEach(timeoutId => {
+      Object.values(pendingCompletions).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
       // Clear temporary visibility timers on unmount
-      Object.values(temporaryVisibleTasks).forEach(entry => {
+      Object.values(temporaryVisibleTasks).forEach((entry) => {
         if (entry?.timeoutId) clearTimeout(entry.timeoutId);
       });
     };
@@ -1197,30 +1473,44 @@ export default function TaskManager() {
   // Close category popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showCategoryPopup && textareaRef.current && !textareaRef.current.contains(event.target as Node)) {
+      if (
+        showCategoryPopup &&
+        textareaRef.current &&
+        !textareaRef.current.contains(event.target as Node)
+      ) {
         setShowCategoryPopup(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCategoryPopup]);
 
   // Compute voice preview tags (auto-categorized) whenever processedTask or categories change
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!processedTask) { setVoicePreviewTags([]); return; }
-      const tags = await autoCategorizeTags(processedTask.taskName, processedTask.tags || []);
+      if (!processedTask) {
+        setVoicePreviewTags([]);
+        return;
+      }
+      const tags = await autoCategorizeTags(
+        processedTask.taskName,
+        processedTask.tags || []
+      );
       if (!cancelled) setVoicePreviewTags(tags);
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [processedTask, categories]);
 
   // Ticking effect for progress bars when there are active timers
   useEffect(() => {
-    const hasActive = Object.values(temporaryVisibleTasks).some(v => v && !v.paused);
+    const hasActive = Object.values(temporaryVisibleTasks).some(
+      (v) => v && !v.paused
+    );
     if (!hasActive) return;
     const id = setInterval(() => setNowTs(Date.now()), 100);
     return () => clearInterval(id);
@@ -1228,23 +1518,29 @@ export default function TaskManager() {
 
   // Early returns after all hooks
   if (loading) {
-    return null
+    return null;
   }
 
   if (!user) {
-    return null
+    return null;
   }
 
   return (
-    <div className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-visible" onClick={handleContainerClick}>
+    <div
+      className="relative min-h-screen flex items-start justify-center bg-gray-50 overflow-visible"
+      onClick={handleContainerClick}
+    >
       {/* Custom Sidebar - ONLY Focus Session, Backlog and Log out */}
-      <Sidebar 
+      <Sidebar
         showBacklog={showBacklog}
         showPomodoro={showPomodoro}
+        showCalendar={showCalendar}
         setShowBacklog={setShowBacklog}
         setShowPomodoro={setShowPomodoro}
+        setShowCalendar={setShowCalendar}
         handleBacklogToggle={handleBacklogToggle}
         handleLightSwitch={handleLightSwitch}
+        handleCalendarToggle={handleCalendarToggle}
         handleLogout={handleLogout}
       />
 
@@ -1254,18 +1550,18 @@ export default function TaskManager() {
       </SlidingMenu>
 
       {/* Main content area with animation */}
-      <div className="w-full max-w-2xl flex flex-col justify-center items-center h-full">
+      <div className="w-full flex flex-col justify-center items-center h-full">
         <AnimatePresence mode="wait">
           {showPomodoro ? (
             <motion.div
               key="pomodoro"
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -40 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="flex justify-center items-center h-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex justify-center items-center h-full w-full"
             >
-              <PomodoroTimer 
+              <PomodoroTimer
                 tasks={tasks}
                 toggleTaskCompletion={toggleTaskCompletion}
                 deleteTask={deleteTaskHandler}
@@ -1283,20 +1579,22 @@ export default function TaskManager() {
           ) : showBacklog ? (
             <motion.div
               key="backlog"
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -40 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="w-full max-w-4xl space-y-6 pt-24 pb-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="w-full max-w-3xl space-y-6 pt-24 pb-8"
             >
-              <BacklogView 
+              <BacklogView
                 tasks={tasks}
                 toggleTaskCompletion={toggleTaskCompletion}
                 deleteTask={deleteTaskHandler}
                 formatTextWithTags={formatTextWithTags}
                 updateTaskDate={updateTaskDate}
                 updateTask={updateTask}
-                createTask={async (task) => { await createTask(task); }}
+                createTask={async (task) => {
+                  await createTask(task);
+                }}
                 allTags={allTags}
                 categories={categories}
                 selectedTaskIds={selectedTaskIds}
@@ -1312,14 +1610,30 @@ export default function TaskManager() {
                 parseTagsFromText={parseTagsFromText}
               />
             </motion.div>
+          ) : showCalendar ? (
+            <motion.div
+              key="calendar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="w-full h-full flex flex-col pt-16 pb-8 pl-[220px] pr-8"
+            >
+              <div
+                className="w-full h-full max-h-[calc(100vh-160px)] mx-auto"
+                style={{ maxWidth: "1200px" }}
+              >
+                <CalendarView tasks={tasks} getTagTextColor={getTagTextColor} />
+              </div>
+            </motion.div>
           ) : (
             <motion.div
               key="todo"
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -40 }}
-              transition={{ type: "spring", stiffness: 200, damping: 20 }}
-              className="w-full h-full flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="w-full h-full flex flex-col max-w-2xl"
             >
               {/* Fixed header + quick-add */}
               <div className="flex-shrink-0 bg-gray-50 pt-32 pb-8 px-4">
@@ -1328,22 +1642,29 @@ export default function TaskManager() {
                   <h1 className="text-4xl font-bold">
                     {(() => {
                       const date = new Date();
-                      const weekday = date.toLocaleDateString('en-US', { 
-                        weekday: 'long',
-                        timeZone: 'America/Los_Angeles'
+                      const weekday = date.toLocaleDateString("en-US", {
+                        weekday: "long",
+                        timeZone: "America/Los_Angeles",
                       });
-                      const dateString = date.toLocaleDateString('en-US', { 
-                        day: 'numeric',
-                        month: 'long',
-                        timeZone: 'America/Los_Angeles'
-                      }).replace(/(\d+)/, (match) => {
-                        const num = parseInt(match);
-                        const suffix = num % 10 === 1 && num !== 11 ? 'st' : 
-                                       num % 10 === 2 && num !== 12 ? 'nd' : 
-                                       num % 10 === 3 && num !== 13 ? 'rd' : 'th';
-                        return `${num}${suffix}`;
-                      });
-                      
+                      const dateString = date
+                        .toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "long",
+                          timeZone: "America/Los_Angeles",
+                        })
+                        .replace(/(\d+)/, (match) => {
+                          const num = parseInt(match);
+                          const suffix =
+                            num % 10 === 1 && num !== 11
+                              ? "st"
+                              : num % 10 === 2 && num !== 12
+                              ? "nd"
+                              : num % 10 === 3 && num !== 13
+                              ? "rd"
+                              : "th";
+                          return `${num}${suffix}`;
+                        });
+
                       return (
                         <>
                           <span className="text-gray-900">{weekday}, </span>
@@ -1369,7 +1690,9 @@ export default function TaskManager() {
                           }
                           if (e.key === "Enter" && e.shiftKey) {
                             e.preventDefault();
-                            const currentText = isRecording ? speechDraft : newTaskText;
+                            const currentText = isRecording
+                              ? speechDraft
+                              : newTaskText;
                             if (currentText.trim()) {
                               handleAICategorization(currentText);
                             }
@@ -1388,10 +1711,10 @@ export default function TaskManager() {
                           <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-lg border border-gray-200">
                             {newTaskDate && (
                               <span className="text-xs text-gray-600">
-                                {newTaskDate.toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  timeZone: 'America/Los_Angeles'
+                                {newTaskDate.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  timeZone: "America/Los_Angeles",
                                 })}
                               </span>
                             )}
@@ -1413,15 +1736,17 @@ export default function TaskManager() {
                             </Button>
                           </div>
                         )}
-                        
+
                         {/* Date Picker */}
                         <DatePicker
                           date={newTaskDate}
-                          setDate={setNewTaskDate as (date: Date | undefined) => void}
+                          setDate={
+                            setNewTaskDate as (date: Date | undefined) => void
+                          }
                           time={newTaskTime}
                           setTime={setNewTaskTime}
                         />
-                        
+
                         <Button
                           onClick={() => addTask()}
                           size="icon"
@@ -1436,23 +1761,26 @@ export default function TaskManager() {
                         </Button>
                       </div>
                     </div>
-                    
+
                     {/* AI Categorization Hint */}
                     <AnimatePresence>
-                      {(isRecording ? speechDraft : newTaskText).trim() && categories.length > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -5 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1"
-                        >
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
-                          <span>for AI categorization</span>
-                        </motion.div>
-                      )}
+                      {(isRecording ? speechDraft : newTaskText).trim() &&
+                        categories.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1"
+                          >
+                            <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                              Shift+Enter
+                            </span>
+                            <span>for AI categorization</span>
+                          </motion.div>
+                        )}
                     </AnimatePresence>
-                    
+
                     {/* Category Popup */}
                     <AnimatePresence>
                       {showCategoryPopup && (
@@ -1480,36 +1808,40 @@ export default function TaskManager() {
                           exit={{ opacity: 0 }}
                           className="fixed inset-0 bg-black/20 backdrop-blur-md"
                         />
-                        
+
                         {/* Main modal container */}
                         <motion.div
                           initial={{ scale: 0.9, opacity: 0, y: 20 }}
                           animate={{ scale: 1, opacity: 1, y: 0 }}
                           exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                          transition={{ 
-                            type: "spring", 
-                            stiffness: 300, 
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
                             damping: 30,
-                            duration: 0.4
+                            duration: 0.4,
                           }}
                           className="relative z-10 w-full max-w-xl mx-4"
                         >
                           {/* Glass container */}
-                          <div 
-                            className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl"
-                          >
+                          <div className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl">
                             {/* Content */}
                             <div className="relative p-8">
                               <div className="flex flex-col">
-                                <h2 className="text-2xl font-semibold mb-2 text-center text-gray-900">Voice Input</h2>
-                                
+                                <h2 className="text-2xl font-semibold mb-2 text-center text-gray-900">
+                                  Voice Input
+                                </h2>
+
                                 {/* AI Voice Input Component */}
-                                <AIVoiceInput 
+                                <AIVoiceInput
                                   isRecording={isRecording}
-                                  onStart={() => console.log('Recording started')}
-                                  onStop={(duration) => console.log('Recording stopped:', duration)}
+                                  onStart={() =>
+                                    console.log("Recording started")
+                                  }
+                                  onStop={(duration) =>
+                                    console.log("Recording stopped:", duration)
+                                  }
                                 />
-                                
+
                                 {/* Speech display container */}
                                 {speechDraft && (
                                   <div className="mt-4 text-center">
@@ -1522,13 +1854,13 @@ export default function TaskManager() {
                                     </div>
                                   </div>
                                 )}
-                                
+
                                 <p className="text-sm text-gray-500 font-medium text-center mt-6">
                                   Release Ctrl to stop recording
                                 </p>
                               </div>
                             </div>
-                            
+
                             {/* Bottom accent */}
                             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400/30 to-transparent rounded-b-3xl" />
                           </div>
@@ -1549,56 +1881,70 @@ export default function TaskManager() {
                         const hasDate = task.createdAt instanceof Date;
                         const today = new Date();
                         let isPastOrToday = false;
-                        let dateString = '';
-                        let timeString = '';
+                        let dateString = "";
+                        let timeString = "";
                         if (hasDate) {
                           const d = task.createdAt;
-                          dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
+                          dateString = `${d.getMonth() + 1}/${d.getDate()}/${d
+                            .getFullYear()
+                            .toString()
+                            .slice(-2)}`;
                           // Create copies for comparison to avoid mutating the original date
                           const dateOnly = new Date(d);
-                          dateOnly.setHours(0,0,0,0);
+                          dateOnly.setHours(0, 0, 0, 0);
                           const todayOnly = new Date(today);
-                          todayOnly.setHours(0,0,0,0);
-                          isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
+                          todayOnly.setHours(0, 0, 0, 0);
+                          isPastOrToday =
+                            dateOnly.getTime() <= todayOnly.getTime();
                           // Only show time if it's not midnight (midnight indicates no specific time was set)
                           const hours = d.getHours();
                           const minutes = d.getMinutes();
                           if (hours !== 0 || minutes !== 0) {
-                            timeString = d.toLocaleTimeString('en-US', {
-                              hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
+                            timeString = d.toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                              timeZone: "America/Los_Angeles",
                             });
                           }
                         }
-                        
+
                         // Determine effective completion status using local state
-                        const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                        const effectivelyCompleted = isInWaitingPeriod || task.completed;
-                        
+                        const isInWaitingPeriod = completedTaskIds.includes(
+                          task.id
+                        );
+                        const effectivelyCompleted =
+                          isInWaitingPeriod || task.completed;
+
                         return (
                           <motion.div
                             key={task.id}
                             layout="position"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            exit={{ 
+                            exit={{
                               opacity: 0,
-                              transition: { 
+                              transition: {
                                 duration: 0.25, // quick fade
-                                ease: "easeInOut"
-                              }
+                                ease: "easeInOut",
+                              },
                             }}
-                            transition={{ 
+                            transition={{
                               duration: 0.4,
-                              ease: "easeOut"
+                              ease: "easeOut",
                             }}
                             className={cn(
                               "flex items-center px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                              idx !== tasks.length - 1 && "border-b border-gray-200",
+                              idx !== tasks.length - 1 &&
+                                "border-b border-gray-200",
                               effectivelyCompleted ? "bg-muted/30" : ""
                             )}
                             tabIndex={0}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter' && transientEditingTaskIds.includes(task.id)) {
+                              if (
+                                e.key === "Enter" &&
+                                transientEditingTaskIds.includes(task.id)
+                              ) {
                                 e.preventDefault();
                                 confirmTransientEdit(task);
                               }
@@ -1607,28 +1953,42 @@ export default function TaskManager() {
                             {/* Checkbox */}
                             <StyledCheckbox
                               checked={effectivelyCompleted}
-                              onCheckedChange={() => toggleTaskCompletion(task.id)}
+                              onCheckedChange={() =>
+                                toggleTaskCompletion(task.id)
+                              }
                               className="flex-shrink-0 mr-3"
                             />
                             {/* Main content */}
                             <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
-                              <span className={cn(
-                                "text-sm font-normal transition-colors duration-200",
-                                effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                              )}>
+                              <span
+                                className={cn(
+                                  "text-sm font-normal transition-colors duration-200",
+                                  effectivelyCompleted
+                                    ? "text-muted-foreground opacity-70"
+                                    : "text-gray-900"
+                                )}
+                              >
                                 {formatTextWithTags(task.text)}
                               </span>
                               {hasDate && (
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <span className={cn(
-                                      "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
-                                      isPastOrToday ? "text-red-600" : "text-gray-400"
-                                    )}>
-                                      {dateString}{timeString ? `, ${timeString}` : ''}
+                                    <span
+                                      className={cn(
+                                        "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                                        isPastOrToday
+                                          ? "text-red-600"
+                                          : "text-gray-400"
+                                      )}
+                                    >
+                                      {dateString}
+                                      {timeString ? `, ${timeString}` : ""}
                                     </span>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0" align="start">
+                                  <PopoverContent
+                                    className="w-auto p-0"
+                                    align="start"
+                                  >
                                     <Calendar
                                       mode="single"
                                       selected={task.createdAt}
@@ -1636,7 +1996,8 @@ export default function TaskManager() {
                                         if (!newDate) return;
                                         const merged = new Date(newDate);
                                         const hours = task.createdAt.getHours();
-                                        const minutes = task.createdAt.getMinutes();
+                                        const minutes =
+                                          task.createdAt.getMinutes();
                                         merged.setHours(hours, minutes, 0, 0);
                                         updateTaskDate(task.id, merged);
                                       }}
@@ -1646,24 +2007,31 @@ export default function TaskManager() {
                                 </Popover>
                               )}
                             </div>
-                            
+
                             {/* Category badge - bottom right */}
                             {task.tags.length > 0 && (
                               <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end items-end">
                                 {task.tags.map((tag) => (
                                   <Popover key={tag}>
                                     <PopoverTrigger asChild>
-                                      <span 
-                                        className="text-xs font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors cursor-pointer hover:bg-gray-100"
-                                      >
-                                        <span className={cn(
-                                          "transition-colors font-semibold",
-                                          getTagTextColor(tag)
-                                        )}>#</span>
-                                        <span className="text-gray-700">{tag}</span>
+                                      <span className="text-xs font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded transition-colors cursor-pointer hover:bg-gray-100">
+                                        <span
+                                          className={cn(
+                                            "transition-colors font-semibold",
+                                            getTagTextColor(tag)
+                                          )}
+                                        >
+                                          #
+                                        </span>
+                                        <span className="text-gray-700">
+                                          {tag}
+                                        </span>
                                       </span>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="end">
+                                    <PopoverContent
+                                      className="w-auto p-0"
+                                      align="end"
+                                    >
                                       <div className="p-2">
                                         <div className="px-2 py-1 mb-2">
                                           <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
@@ -1672,8 +2040,11 @@ export default function TaskManager() {
                                         </div>
                                         <div className="space-y-1">
                                           {categories.map((category) => {
-                                            const colorName = getColorName(category.name);
-                                            const isSelected = category.name === tag;
+                                            const colorName = getColorName(
+                                              category.name
+                                            );
+                                            const isSelected =
+                                              category.name === tag;
                                             return (
                                               <button
                                                 key={category.id}
@@ -1681,31 +2052,56 @@ export default function TaskManager() {
                                                   try {
                                                     // If category is hidden, start temporary visibility BEFORE update
                                                     if (category.hiddenOnHome) {
-                                                      startTemporaryVisibility(task.id);
+                                                      startTemporaryVisibility(
+                                                        task.id
+                                                      );
                                                     }
-                                                    
+
                                                     // Remove the old tag and add the new one
-                                                    const updatedTags = task.tags.filter(t => t !== tag);
-                                                    if (!updatedTags.includes(category.name)) {
-                                                      updatedTags.unshift(category.name);
+                                                    const updatedTags =
+                                                      task.tags.filter(
+                                                        (t) => t !== tag
+                                                      );
+                                                    if (
+                                                      !updatedTags.includes(
+                                                        category.name
+                                                      )
+                                                    ) {
+                                                      updatedTags.unshift(
+                                                        category.name
+                                                      );
                                                     }
-                                                    await updateTask(task.id, { tags: updatedTags });
-                                                    
-                                                    toast.success(`Changed category to ${category.name}`);
+                                                    await updateTask(task.id, {
+                                                      tags: updatedTags,
+                                                    });
+
+                                                    toast.success(
+                                                      `Changed category to ${category.name}`
+                                                    );
                                                   } catch (error) {
-                                                    toast.error("Failed to update category");
+                                                    toast.error(
+                                                      "Failed to update category"
+                                                    );
                                                   }
                                                 }}
                                                 className={cn(
                                                   "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
-                                                  isSelected ? `border-${colorName}-500 bg-${colorName}-50` : "border-transparent"
+                                                  isSelected
+                                                    ? `border-${colorName}-500 bg-${colorName}-50`
+                                                    : "border-transparent"
                                                 )}
                                               >
-                                                <span className={cn(
-                                                  "w-2 h-2 rounded-full transition-colors",
-                                                  getTagTextColor(category.name).replace('text-', 'bg-')
-                                                )}></span>
-                                                <span className="flex-1">{category.name}</span>
+                                                <span
+                                                  className={cn(
+                                                    "w-2 h-2 rounded-full transition-colors",
+                                                    getTagTextColor(
+                                                      category.name
+                                                    ).replace("text-", "bg-")
+                                                  )}
+                                                ></span>
+                                                <span className="flex-1">
+                                                  {category.name}
+                                                </span>
                                               </button>
                                             );
                                           })}
@@ -1716,12 +2112,17 @@ export default function TaskManager() {
                                 ))}
                               </div>
                             )}
-                            
+
                             {/* Edit button - temporary visibility */}
-                            {(Boolean(temporaryVisibleTasks[task.id]) || transientEditingTaskIds.includes(task.id)) && (
+                            {(Boolean(temporaryVisibleTasks[task.id]) ||
+                              transientEditingTaskIds.includes(task.id)) && (
                               <div className="absolute top-2 right-10 flex items-center gap-2">
                                 <Button
-                                  variant={transientEditingTaskIds.includes(task.id) ? "default" : "outline"}
+                                  variant={
+                                    transientEditingTaskIds.includes(task.id)
+                                      ? "default"
+                                      : "outline"
+                                  }
                                   size="sm"
                                   className={cn(
                                     "h-6 px-2 text-[10px]",
@@ -1731,21 +2132,28 @@ export default function TaskManager() {
                                   )}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (transientEditingTaskIds.includes(task.id)) {
+                                    if (
+                                      transientEditingTaskIds.includes(task.id)
+                                    ) {
                                       confirmTransientEdit(task);
                                     } else {
                                       startTransientEdit(task.id);
                                     }
                                   }}
                                 >
-                                  {transientEditingTaskIds.includes(task.id) ? "Done" : "Edit"}
+                                  {transientEditingTaskIds.includes(task.id)
+                                    ? "Done"
+                                    : "Edit"}
                                 </Button>
                               </div>
                             )}
-                            
+
                             {/* Delete button (show on hover) - top right */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteTask(task.id);
+                              }}
                               className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
                               aria-label="Delete task"
                             >
@@ -1755,12 +2163,18 @@ export default function TaskManager() {
                             {(() => {
                               const entry = temporaryVisibleTasks[task.id];
                               if (!entry || entry.paused) return null;
-                              const progress = Math.max(0, Math.min(1, (nowTs - entry.startMs) / entry.durationMs));
+                              const progress = Math.max(
+                                0,
+                                Math.min(
+                                  1,
+                                  (nowTs - entry.startMs) / entry.durationMs
+                                )
+                              );
                               return (
                                 <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-gray-100">
-                                  <div 
-                                    className="h-full bg-yellow-500 transition-all duration-100 ease-linear" 
-                                    style={{ width: `${progress * 100}%` }} 
+                                  <div
+                                    className="h-full bg-yellow-500 transition-all duration-100 ease-linear"
+                                    style={{ width: `${progress * 100}%` }}
                                   />
                                 </div>
                               );
@@ -1819,28 +2233,26 @@ export default function TaskManager() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/20 backdrop-blur-md"
           />
-          
+
           {/* Main modal container */}
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            transition={{ 
-              type: "spring", 
-              stiffness: 300, 
+            transition={{
+              type: "spring",
+              stiffness: 300,
               damping: 30,
-              duration: 0.4
+              duration: 0.4,
             }}
             className="relative z-10 w-full max-w-xl mx-4"
           >
             {/* Glass container */}
-            <div 
-              className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl"
-            >
+            <div className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl">
               {/* Content */}
               <div className="relative p-8">
                 <AnimatePresence mode="wait" initial={false}>
-                  {voiceStep === 'listening' ? (
+                  {voiceStep === "listening" ? (
                     <motion.div
                       key="listening"
                       initial={{ opacity: 0, y: 10 }}
@@ -1849,7 +2261,9 @@ export default function TaskManager() {
                       transition={{ duration: 0.2 }}
                       className="flex flex-col"
                     >
-                      <h2 className="text-2xl font-semibold mb-6 text-gray-900">Listening...</h2>
+                      <h2 className="text-2xl font-semibold mb-6 text-gray-900">
+                        Listening...
+                      </h2>
                       <div className="flex flex-col items-center space-y-6">
                         {/* Simplified microphone icon */}
                         <div className="relative">
@@ -1857,7 +2271,7 @@ export default function TaskManager() {
                             <SoundWave />
                           </div>
                         </div>
-                        
+
                         <div className="text-center space-y-4">
                           {/* Speech display container */}
                           <div className="relative">
@@ -1867,14 +2281,14 @@ export default function TaskManager() {
                               </p>
                             </div>
                           </div>
-                          
+
                           <p className="text-sm text-gray-500 font-medium">
                             Release Ctrl to stop recording
                           </p>
                         </div>
                       </div>
                     </motion.div>
-                  ) : voiceStep === 'confirm' ? (
+                  ) : voiceStep === "confirm" ? (
                     <motion.div
                       key="confirm"
                       initial={{ opacity: 0, y: 10 }}
@@ -1883,11 +2297,15 @@ export default function TaskManager() {
                       transition={{ duration: 0.2 }}
                       className="flex flex-col space-y-6"
                     >
-                      <h2 className="text-2xl font-semibold text-gray-900">Voice Input</h2>
-                      
+                      <h2 className="text-2xl font-semibold text-gray-900">
+                        Voice Input
+                      </h2>
+
                       <div className="space-y-4">
                         <div>
-                          <div className="mb-2 text-sm font-medium text-gray-700">Raw Transcription</div>
+                          <div className="mb-2 text-sm font-medium text-gray-700">
+                            Raw Transcription
+                          </div>
                           <div className="relative">
                             {/* Bottom-right overlay: show hint or a tiny loading bubble */}
                             <AnimatePresence initial={false}>
@@ -1912,7 +2330,9 @@ export default function TaskManager() {
                                     transition={{ duration: 0.2 }}
                                     className="pointer-events-none absolute bottom-2 right-2 text-xs text-gray-400 flex items-center gap-1"
                                   >
-                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                      Shift+Enter
+                                    </span>
                                     <span>to regenerate</span>
                                   </motion.div>
                                 )
@@ -1933,7 +2353,8 @@ export default function TaskManager() {
                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse shadow-sm" />
                                   </motion.div>
                                 ) : (
-                                  voiceRaw.trim() !== originalVoiceRaw.trim() && (
+                                  voiceRaw.trim() !==
+                                    originalVoiceRaw.trim() && (
                                     <motion.div
                                       key="regen-hint"
                                       initial={{ opacity: 0, y: 5 }}
@@ -1942,7 +2363,9 @@ export default function TaskManager() {
                                       transition={{ duration: 0.2 }}
                                       className="pointer-events-none absolute bottom-2 right-2 text-xs text-gray-400 flex items-center gap-1"
                                     >
-                                      <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">Shift+Enter</span>
+                                      <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                        Shift+Enter
+                                      </span>
                                       <span>to regenerate</span>
                                     </motion.div>
                                   )
@@ -1954,7 +2377,7 @@ export default function TaskManager() {
                                 value={voiceRaw}
                                 onChange={(e) => setVoiceRaw(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && e.shiftKey) {
+                                  if (e.key === "Enter" && e.shiftKey) {
                                     e.preventDefault();
                                     if (!isRegenerating && voiceRaw.trim()) {
                                       regenerateFromRaw();
@@ -1965,36 +2388,52 @@ export default function TaskManager() {
                             </div>
                           </div>
                         </div>
-                        
+
                         {processedTask && (
                           <div>
-                            <div className="text-sm font-medium mb-2 text-gray-700">Processed Task</div>
+                            <div className="text-sm font-medium mb-2 text-gray-700">
+                              Processed Task
+                            </div>
                             <div className="space-y-3">
                               <div className="relative">
                                 <div className="flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
-                                  <input type="checkbox" className="mr-2 mt-1" />
+                                  <input
+                                    type="checkbox"
+                                    className="mr-2 mt-1"
+                                  />
                                   <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-900">{processedTask.taskName}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{processedTask.description}</div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {processedTask.taskName}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {processedTask.description}
+                                    </div>
                                   </div>
                                   <div className="flex-shrink-0 text-right">
                                     {processedTask.date && (
                                       <div className="text-xs text-gray-500 whitespace-nowrap">
-                                        {new Date(processedTask.date + 'T00:00:00').toLocaleDateString('en-US', { month: "short", day: "numeric", timeZone: 'America/Los_Angeles' })}
+                                        {new Date(
+                                          processedTask.date + "T00:00:00"
+                                        ).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          timeZone: "America/Los_Angeles",
+                                        })}
                                       </div>
                                     )}
                                     {processedTask.time && (
                                       <div className="text-xs font-semibold text-gray-800 whitespace-nowrap">
                                         {(() => {
-                                          const [hours, minutes] = processedTask.time.split(':');
+                                          const [hours, minutes] =
+                                            processedTask.time.split(":");
                                           const d = new Date(0);
                                           d.setHours(parseInt(hours, 10));
                                           d.setMinutes(parseInt(minutes, 10));
-                                          return d.toLocaleTimeString('en-US', {
-                                            hour: 'numeric',
-                                            minute: 'numeric',
+                                          return d.toLocaleTimeString("en-US", {
+                                            hour: "numeric",
+                                            minute: "numeric",
                                             hour12: true,
-                                            timeZone: 'America/Los_Angeles'
+                                            timeZone: "America/Los_Angeles",
                                           });
                                         })()}
                                       </div>
@@ -2003,8 +2442,18 @@ export default function TaskManager() {
                                   {voicePreviewTags.length > 0 && (
                                     <div className="flex gap-1">
                                       {voicePreviewTags.map((tag) => (
-                                        <span key={tag} className="text-xs font-medium flex items-center gap-0.5">
-                                          <span className={getTagTextColor(tag)}>#</span><span className="text-gray-500">{tag}</span>
+                                        <span
+                                          key={tag}
+                                          className="text-xs font-medium flex items-center gap-0.5"
+                                        >
+                                          <span
+                                            className={getTagTextColor(tag)}
+                                          >
+                                            #
+                                          </span>
+                                          <span className="text-gray-500">
+                                            {tag}
+                                          </span>
                                         </span>
                                       ))}
                                     </div>
@@ -2015,10 +2464,10 @@ export default function TaskManager() {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="flex justify-end gap-3">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => setShowVoiceMenu(false)}
                           className="bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90"
                         >
@@ -2027,14 +2476,21 @@ export default function TaskManager() {
                         <Button
                           onClick={() => {
                             if (processedTask) {
-                              const taskText = `${processedTask.taskName} ${processedTask.tags.map(tag => `#${tag}`).join(' ')}`;
-                              
+                              const taskText = `${
+                                processedTask.taskName
+                              } ${processedTask.tags
+                                .map((tag) => `#${tag}`)
+                                .join(" ")}`;
+
                               let taskDate: Date | undefined = undefined;
                               if (processedTask.date) {
-                                const timeString = processedTask.time || '00:00';
-                                taskDate = new Date(`${processedTask.date}T${timeString}`);
+                                const timeString =
+                                  processedTask.time || "00:00";
+                                taskDate = new Date(
+                                  `${processedTask.date}T${timeString}`
+                                );
                               }
-                              
+
                               addTask(taskText, taskDate);
                             }
                             setShowVoiceMenu(false);
@@ -2054,16 +2510,22 @@ export default function TaskManager() {
                       transition={{ duration: 0.2 }}
                       className="flex flex-col space-y-6"
                     >
-                      <h2 className="text-2xl font-semibold text-gray-900">Manual Input</h2>
+                      <h2 className="text-2xl font-semibold text-gray-900">
+                        Manual Input
+                      </h2>
                       <div className="space-y-4">
                         <div>
-                          <div className="text-sm font-medium mb-2 text-gray-700">What's on your mind?</div>
+                          <div className="text-sm font-medium mb-2 text-gray-700">
+                            What's on your mind?
+                          </div>
                           <div className="relative">
                             <div className="w-full border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
                               <textarea
                                 className="w-full bg-transparent outline-none resize-none text-sm text-gray-700 min-h-[80px]"
                                 value={manualTaskText}
-                                onChange={(e) => setManualTaskText(e.target.value)}
+                                onChange={(e) =>
+                                  setManualTaskText(e.target.value)
+                                }
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && !e.shiftKey) {
                                     e.preventDefault();
@@ -2077,14 +2539,14 @@ export default function TaskManager() {
                         </div>
                       </div>
                       <div className="flex justify-end gap-3">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => setShowVoiceMenu(false)}
                           className="bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white/90"
                         >
                           Cancel
                         </Button>
-                        <Button 
+                        <Button
                           onClick={handleManualGenerate}
                           className="bg-gray-900 hover:bg-gray-800 text-white"
                         >
@@ -2095,7 +2557,7 @@ export default function TaskManager() {
                   )}
                 </AnimatePresence>
               </div>
-              
+
               {/* Bottom accent */}
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gray-400/30 to-transparent rounded-b-3xl" />
             </div>
@@ -2103,14 +2565,14 @@ export default function TaskManager() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // Backlog View Component
-function BacklogView({ 
-  tasks, 
-  toggleTaskCompletion, 
-  deleteTask, 
+function BacklogView({
+  tasks,
+  toggleTaskCompletion,
+  deleteTask,
   formatTextWithTags,
   updateTaskDate,
   updateTask,
@@ -2127,15 +2589,15 @@ function BacklogView({
   user,
   completedTaskIds,
   getTagTextColor,
-  parseTagsFromText
-}: { 
-  tasks: Task[]; 
-  toggleTaskCompletion: (id: string) => void; 
-  deleteTask: (id: string) => void; 
+  parseTagsFromText,
+}: {
+  tasks: Task[];
+  toggleTaskCompletion: (id: string) => void;
+  deleteTask: (id: string) => void;
   formatTextWithTags: (text: string) => React.ReactNode;
   updateTaskDate: (id: string, date: Date) => void;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
-  createTask: (task: Omit<Task, 'id' | 'userId'>) => Promise<void>;
+  createTask: (task: Omit<Task, "id" | "userId">) => Promise<void>;
   allTags: string[];
   categories: Category[];
   selectedTaskIds: string[];
@@ -2166,27 +2628,43 @@ function BacklogView({
 
   // Category popup state
   const [showCategoryPopup, setShowCategoryPopup] = useState(false);
-  const [categoryPopupPosition, setCategoryPopupPosition] = useState({ top: 0, left: 0 });
+  const [categoryPopupPosition, setCategoryPopupPosition] = useState({
+    top: 0,
+    left: 0,
+  });
   const [categoryInputValue, setCategoryInputValue] = useState("");
   const backlogTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Add at the top of BacklogView, after other useState hooks:
-  const [cardStates, setCardStates] = useState<Record<string, { showAdd: boolean, input: string, date?: Date }>>({});
+  const [cardStates, setCardStates] = useState<
+    Record<string, { showAdd: boolean; input: string; date?: Date }>
+  >({});
 
   // Helper to get state for a card
-  const getCardState = (catName: string) => cardStates[catName] || { showAdd: false, input: "", date: undefined };
+  const getCardState = (catName: string) =>
+    cardStates[catName] || { showAdd: false, input: "", date: undefined };
 
   // Handler to update state for a card
-  const setCardState = (catName: string, newState: Partial<{ showAdd: boolean, input: string, date?: Date }>) => {
-    setCardStates(prev => ({
+  const setCardState = (
+    catName: string,
+    newState: Partial<{ showAdd: boolean; input: string; date?: Date }>
+  ) => {
+    setCardStates((prev) => ({
       ...prev,
-      [catName]: { ...getCardState(catName), ...newState }
+      [catName]: { ...getCardState(catName), ...newState },
     }));
   };
 
   // Helper to reorder categories (moved from TaskManager)
   const moveCategory = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= categories.length || to >= categories.length) return;
+    if (
+      from === to ||
+      from < 0 ||
+      to < 0 ||
+      from >= categories.length ||
+      to >= categories.length
+    )
+      return;
     const updated = [...categories];
     const [removed] = updated.splice(from, 1);
     updated.splice(to, 0, removed);
@@ -2196,17 +2674,17 @@ function BacklogView({
 
   // Add a new task to backlog
   const addTask = async () => {
-    if (!user || !newTaskText.trim()) return
-    
+    if (!user || !newTaskText.trim()) return;
+
     try {
       const tags = parseTagsFromText(newTaskText);
-      
+
       // Create the final date with time if both are selected
       let finalDate = newTaskDate || new Date();
-      
+
       // Always apply time if it's set, regardless of whether a date is selected
       if (newTaskTime) {
-        const [hours, minutes] = newTaskTime.split(':').map(Number);
+        const [hours, minutes] = newTaskTime.split(":").map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
       } else {
@@ -2214,33 +2692,36 @@ function BacklogView({
         finalDate = new Date(finalDate);
         finalDate.setHours(0, 0, 0, 0);
       }
-      
+
       // Auto-categorize to prepend the most relevant category tag if applicable
       let finalTags = tags;
       if (categories.length > 0) {
         try {
-          const cleanText = newTaskText.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
-          const categoryMetadata = categories.map(cat => ({
+          const cleanText = newTaskText
+            .replace(/#\w+/g, "")
+            .replace(/\s{2,}/g, " ")
+            .trim();
+          const categoryMetadata = categories.map((cat) => ({
             name: cat.name,
             description: cat.description,
-            keywords: cat.keywords
+            keywords: cat.keywords,
           }));
           const result = await categorizeTask(cleanText, categoryMetadata);
           const suggested = result?.suggestedCategory;
           if (suggested) {
             finalTags = finalTags.includes(suggested)
-              ? [suggested, ...finalTags.filter(t => t !== suggested)]
+              ? [suggested, ...finalTags.filter((t) => t !== suggested)]
               : [suggested, ...finalTags];
           }
         } catch {}
       }
-      
+
       await createTask({
         text: newTaskText,
         completed: false,
         tags: finalTags,
         createdAt: finalDate,
-        group: "master"
+        group: "master",
       });
       setNewTaskText("");
       setNewTaskDate(undefined);
@@ -2254,15 +2735,15 @@ function BacklogView({
   // Handle AI categorization for backlog
   const handleAICategorization = async (taskText: string) => {
     if (!user || !taskText.trim() || categories.length === 0) return;
-    
+
     try {
-      const categoryMetadata = categories.map(cat => ({
+      const categoryMetadata = categories.map((cat) => ({
         name: cat.name,
         description: cat.description,
-        keywords: cat.keywords
+        keywords: cat.keywords,
       }));
       const result = await categorizeTask(taskText, categoryMetadata);
-      
+
       if (result.suggestedCategory) {
         // Add the suggested category as a tag
         const categorizedText = taskText + ` #${result.suggestedCategory}`;
@@ -2270,21 +2751,25 @@ function BacklogView({
         toast.success(`Categorized as: ${result.suggestedCategory}`);
       }
     } catch (error) {
-      console.error('Error categorizing task:', error);
+      console.error("Error categorizing task:", error);
       toast.error("Failed to categorize task");
     }
   };
 
   // Filter and sort tasks
   const filteredAndSortedTasks = tasks
-    .filter(task => {
+    .filter((task) => {
       // Filter by completion status
       if (backlogFilter === "completed" && !task.completed) return false;
       if (backlogFilter === "active" && task.completed) return false;
-      
+
       // Filter by search text
-      if (searchText && !task.text.toLowerCase().includes(searchText.toLowerCase())) return false;
-      
+      if (
+        searchText &&
+        !task.text.toLowerCase().includes(searchText.toLowerCase())
+      )
+        return false;
+
       // Filter by category
       if (selectedCategory) {
         if (selectedCategory === "Uncategorized") {
@@ -2293,7 +2778,7 @@ function BacklogView({
           if (!task.tags.includes(selectedCategory)) return false;
         }
       }
-      
+
       return true;
     })
     .sort((a, b) => {
@@ -2312,7 +2797,7 @@ function BacklogView({
 
   // Select all visible tasks
   const selectAllTasks = () => {
-    const allVisibleIds = filteredAndSortedTasks.map(task => task.id);
+    const allVisibleIds = filteredAndSortedTasks.map((task) => task.id);
     setSelectedTaskIds(allVisibleIds);
   };
 
@@ -2325,7 +2810,7 @@ function BacklogView({
   const bulkComplete = async () => {
     try {
       await Promise.all(
-        selectedTaskIds.map(id => updateTask(id, { completed: true }))
+        selectedTaskIds.map((id) => updateTask(id, { completed: true }))
       );
       toast.success(`Completed ${selectedTaskIds.length} tasks`);
       clearSelection();
@@ -2336,7 +2821,7 @@ function BacklogView({
 
   const bulkDelete = async () => {
     try {
-      await Promise.all(selectedTaskIds.map(id => deleteTask(id)));
+      await Promise.all(selectedTaskIds.map((id) => deleteTask(id)));
       toast.success(`Deleted ${selectedTaskIds.length} tasks`);
       clearSelection();
     } catch (error) {
@@ -2347,8 +2832,8 @@ function BacklogView({
   const bulkAddTag = async (tag: string) => {
     try {
       await Promise.all(
-        selectedTaskIds.map(id => {
-          const task = tasks.find(t => t.id === id);
+        selectedTaskIds.map((id) => {
+          const task = tasks.find((t) => t.id === id);
           if (task && !task.tags.includes(tag)) {
             return updateTask(id, { tags: [...task.tags, tag] });
           }
@@ -2371,19 +2856,21 @@ function BacklogView({
   }, {} as Record<string, Task[]>);
 
   // Handle category popup logic for backlog textarea
-  const handleBacklogTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleBacklogTextareaChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart;
-    
+
     setNewTaskText(value);
-    
+
     // Check if user typed # and show category popup
     const lastChar = value[cursorPosition - 1];
-    if (lastChar === '#' && backlogTextareaRef.current) {
+    if (lastChar === "#" && backlogTextareaRef.current) {
       const rect = backlogTextareaRef.current.getBoundingClientRect();
       setCategoryPopupPosition({
         top: rect.bottom + 8,
-        left: rect.left
+        left: rect.left,
       });
       setCategoryInputValue("");
       setShowCategoryPopup(true);
@@ -2394,24 +2881,27 @@ function BacklogView({
 
   const handleBacklogCategorySelect = (categoryName: string) => {
     if (!backlogTextareaRef.current) return;
-    
+
     const currentValue = newTaskText;
     const cursorPosition = backlogTextareaRef.current.selectionStart;
-    
+
     // Find the last # position
-    const lastHashIndex = currentValue.lastIndexOf('#', cursorPosition - 1);
+    const lastHashIndex = currentValue.lastIndexOf("#", cursorPosition - 1);
     if (lastHashIndex !== -1) {
       const beforeHash = currentValue.substring(0, lastHashIndex);
       const afterCursor = currentValue.substring(cursorPosition);
-      const newValue = beforeHash + '#' + categoryName + ' ' + afterCursor;
-      
+      const newValue = beforeHash + "#" + categoryName + " " + afterCursor;
+
       setNewTaskText(newValue);
-      
+
       // Set cursor position after the inserted category
       setTimeout(() => {
         if (backlogTextareaRef.current) {
           const newCursorPosition = lastHashIndex + categoryName.length + 2;
-          backlogTextareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          backlogTextareaRef.current.setSelectionRange(
+            newCursorPosition,
+            newCursorPosition
+          );
           backlogTextareaRef.current.focus();
         }
       }, 0);
@@ -2421,13 +2911,17 @@ function BacklogView({
   // Close category popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showCategoryPopup && backlogTextareaRef.current && !backlogTextareaRef.current.contains(event.target as Node)) {
+      if (
+        showCategoryPopup &&
+        backlogTextareaRef.current &&
+        !backlogTextareaRef.current.contains(event.target as Node)
+      ) {
         setShowCategoryPopup(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCategoryPopup]);
 
   // Add at the top of BacklogView, after other useState hooks:
@@ -2458,12 +2952,12 @@ function BacklogView({
 
   // In BacklogView, add state for card order using unique ids
   const UNCATEGORIZED_ID = "__uncategorized__";
-  const initialOrder = [...categories.map(c => c.id), UNCATEGORIZED_ID];
+  const initialOrder = [...categories.map((c) => c.id), UNCATEGORIZED_ID];
   const [categoryOrder, setCategoryOrder] = useState<string[]>(initialOrder);
-  
+
   // Keep order in sync with categories
   useEffect(() => {
-    setCategoryOrder([...categories.map(c => c.id), UNCATEGORIZED_ID]);
+    setCategoryOrder([...categories.map((c) => c.id), UNCATEGORIZED_ID]);
   }, [categories]);
 
   // Create a single drag control for all cards
@@ -2471,7 +2965,9 @@ function BacklogView({
 
   // Helper function to distribute items into columns
   const distributeIntoColumns = (items: string[], numColumns: number = 2) => {
-    const columns: string[][] = Array(numColumns).fill(null).map(() => []);
+    const columns: string[][] = Array(numColumns)
+      .fill(null)
+      .map(() => []);
     items.forEach((item, index) => {
       columns[index % numColumns].push(item);
     });
@@ -2491,7 +2987,9 @@ function BacklogView({
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Subspaces</h1>
-        <p className="text-gray-500 text-sm">Your complete task brain dump and management center</p>
+        <p className="text-gray-500 text-sm">
+          Your complete task brain dump and management center
+        </p>
       </div>
 
       {/* Create a new list (category) */}
@@ -2500,7 +2998,11 @@ function BacklogView({
           className="flex gap-2 items-center"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (newTaskText.trim() && !allTags.includes(newTaskText.trim()) && user) {
+            if (
+              newTaskText.trim() &&
+              !allTags.includes(newTaskText.trim()) &&
+              user
+            ) {
               await addCategory(newTaskText.trim(), user.uid);
               setNewTaskText("");
             }
@@ -2510,9 +3012,9 @@ function BacklogView({
             placeholder="Create a new list..."
             className="flex-1 text-sm rounded-lg"
             value={newTaskText}
-            onChange={e => setNewTaskText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Escape') setNewTaskText('');
+            onChange={(e) => setNewTaskText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setNewTaskText("");
             }}
           />
           <Button type="submit" size="sm" className="text-xs">
@@ -2536,7 +3038,9 @@ function BacklogView({
                 const newIndex = newColumnOrder.indexOf(item);
                 if (newIndex !== oldIndex) {
                   const globalOldIndex = categoryOrder.indexOf(item);
-                  const globalNewIndex = columnIndex * Math.ceil(categoryOrder.length / 2) + newIndex;
+                  const globalNewIndex =
+                    columnIndex * Math.ceil(categoryOrder.length / 2) +
+                    newIndex;
                   if (globalOldIndex !== -1) {
                     newOrder.splice(globalOldIndex, 1);
                     newOrder.splice(globalNewIndex, 0, item);
@@ -2549,27 +3053,29 @@ function BacklogView({
           >
             {column.map((catId, localIdx) => {
               const isUncategorized = catId === UNCATEGORIZED_ID;
-              const catName = isUncategorized ? "Uncategorized" : (categories.find(c => c.id === catId)?.name || "Unnamed");
+              const catName = isUncategorized
+                ? "Uncategorized"
+                : categories.find((c) => c.id === catId)?.name || "Unnamed";
               const catTasks = isUncategorized
-                ? filteredAndSortedTasks.filter(t => t.tags.length === 0)
-                : filteredAndSortedTasks.filter(t => t.tags[0] === catName);
+                ? filteredAndSortedTasks.filter((t) => t.tags.length === 0)
+                : filteredAndSortedTasks.filter((t) => t.tags[0] === catName);
               const cardState = getCardState(catName);
-              
+
               return (
                 <Reorder.Item
                   key={`${catId}-${columnIndex}-${localIdx}`}
                   value={catId}
                   dragListener={true}
                   dragControls={dragControls}
-                  whileDrag={{ 
-                    scale: 1.01, 
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.08)", 
+                  whileDrag={{
+                    scale: 1.01,
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
                     zIndex: 1000,
-                    cursor: "grabbing"
+                    cursor: "grabbing",
                   }}
-                  dragTransition={{ 
-                    bounceStiffness: 300, 
-                    bounceDamping: 20 
+                  dragTransition={{
+                    bounceStiffness: 300,
+                    bounceDamping: 20,
                   }}
                   className="group bg-white rounded-lg border border-gray-100 flex flex-col relative cursor-pointer select-none hover:border-gray-200 transition-colors duration-200"
                 >
@@ -2583,9 +3089,11 @@ function BacklogView({
                     </h2>
                     <div className="flex items-center gap-2">
                       {/* Hide on Home toggle (not for Uncategorized) */}
-                      {!isUncategorized && (
+                      {!isUncategorized &&
                         (() => {
-                          const category = categories.find(c => c.name === catName);
+                          const category = categories.find(
+                            (c) => c.name === catName
+                          );
                           const hidden = category?.hiddenOnHome ?? false;
                           return (
                             <TooltipProvider>
@@ -2594,28 +3102,41 @@ function BacklogView({
                                   <button
                                     onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (category) await setCategoryHiddenOnHome(category.id, !hidden);
+                                      if (category)
+                                        await setCategoryHiddenOnHome(
+                                          category.id,
+                                          !hidden
+                                        );
                                     }}
                                     className={cn(
                                       "px-2 py-1 text-xs rounded border transition-colors",
-                                      hidden ? "text-gray-500 border-gray-200 bg-gray-50" : "text-gray-700 border-gray-200 hover:border-gray-300"
+                                      hidden
+                                        ? "text-gray-500 border-gray-200 bg-gray-50"
+                                        : "text-gray-700 border-gray-200 hover:border-gray-300"
                                     )}
-                                    title={hidden ? "Hidden on Home" : "Visible on Home"}
+                                    title={
+                                      hidden
+                                        ? "Hidden on Home"
+                                        : "Visible on Home"
+                                    }
                                     type="button"
                                   >
                                     {hidden ? "Hidden" : "Shown"}
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <span className="text-xs">Toggle visibility on Home</span>
+                                  <span className="text-xs">
+                                    Toggle visibility on Home
+                                  </span>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           );
-                        })()
-                      )}
+                        })()}
                       <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
-                        {isUncategorized ? tasks.filter(t => t.tags.length === 0).length : tasks.filter(t => t.tags[0] === catName).length}
+                        {isUncategorized
+                          ? tasks.filter((t) => t.tags.length === 0).length
+                          : tasks.filter((t) => t.tags[0] === catName).length}
                       </span>
                       {!isUncategorized && (
                         <button
@@ -2624,16 +3145,31 @@ function BacklogView({
                           aria-label={`Delete ${catName}`}
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const category = categories.find(c => c.name === catName);
+                            const category = categories.find(
+                              (c) => c.name === catName
+                            );
                             if (!category) return;
-                            const confirmed = typeof window !== 'undefined' ? window.confirm(`Delete '${catName}'? Tasks will move to Uncategorized.`) : true;
+                            const confirmed =
+                              typeof window !== "undefined"
+                                ? window.confirm(
+                                    `Delete '${catName}'? Tasks will move to Uncategorized.`
+                                  )
+                                : true;
                             if (!confirmed) return;
                             try {
-                              const affected = tasks.filter(t => t.tags.includes(catName));
-                              await Promise.all(affected.map(t => {
-                                const updatedTags = t.tags.filter(tag => tag !== catName);
-                                return updateTask(t.id, { tags: updatedTags });
-                              }));
+                              const affected = tasks.filter((t) =>
+                                t.tags.includes(catName)
+                              );
+                              await Promise.all(
+                                affected.map((t) => {
+                                  const updatedTags = t.tags.filter(
+                                    (tag) => tag !== catName
+                                  );
+                                  return updateTask(t.id, {
+                                    tags: updatedTags,
+                                  });
+                                })
+                              );
                               await deleteCategory(category.id);
                               toast.success(`Deleted '${catName}'`);
                             } catch (err) {
@@ -2655,24 +3191,29 @@ function BacklogView({
                         aria-label="Drag card"
                         type="button"
                       >
-                        <svg width="12" height="12" fill="none" viewBox="0 0 20 20">
-                          <circle cx="5" cy="6" r="1" fill="currentColor"/>
-                          <circle cx="5" cy="10" r="1" fill="currentColor"/>
-                          <circle cx="5" cy="14" r="1" fill="currentColor"/>
-                          <circle cx="10" cy="6" r="1" fill="currentColor"/>
-                          <circle cx="10" cy="10" r="1" fill="currentColor"/>
-                          <circle cx="10" cy="14" r="1" fill="currentColor"/>
-                          <circle cx="15" cy="6" r="1" fill="currentColor"/>
-                          <circle cx="15" cy="10" r="1" fill="currentColor"/>
-                          <circle cx="15" cy="14" r="1" fill="currentColor"/>
+                        <svg
+                          width="12"
+                          height="12"
+                          fill="none"
+                          viewBox="0 0 20 20"
+                        >
+                          <circle cx="5" cy="6" r="1" fill="currentColor" />
+                          <circle cx="5" cy="10" r="1" fill="currentColor" />
+                          <circle cx="5" cy="14" r="1" fill="currentColor" />
+                          <circle cx="10" cy="6" r="1" fill="currentColor" />
+                          <circle cx="10" cy="10" r="1" fill="currentColor" />
+                          <circle cx="10" cy="14" r="1" fill="currentColor" />
+                          <circle cx="15" cy="6" r="1" fill="currentColor" />
+                          <circle cx="15" cy="10" r="1" fill="currentColor" />
+                          <circle cx="15" cy="14" r="1" fill="currentColor" />
                         </svg>
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Content */}
-                  <div 
-                    className="flex flex-col flex-1 p-4 cursor-pointer" 
+                  <div
+                    className="flex flex-col flex-1 p-4 cursor-pointer"
                     onClick={() => openCategoryModal(catName)}
                   >
                     {catTasks.length === 0 ? (
@@ -2688,23 +3229,40 @@ function BacklogView({
                               layout="position"
                               initial={{ opacity: 0, y: 5 }}
                               animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -5, transition: { duration: 0.15 } }}
+                              exit={{
+                                opacity: 0,
+                                y: -5,
+                                transition: { duration: 0.15 },
+                              }}
                               transition={{ duration: 0.2, ease: "easeOut" }}
                               className={cn(
                                 "flex items-start gap-3 p-2 rounded transition-colors",
-                                completedTaskIds.includes(task.id) || task.completed ? "opacity-50" : "hover:bg-gray-50"
+                                completedTaskIds.includes(task.id) ||
+                                  task.completed
+                                  ? "opacity-50"
+                                  : "hover:bg-gray-50"
                               )}
                             >
                               <StyledCheckbox
-                                checked={completedTaskIds.includes(task.id) || task.completed}
-                                onCheckedChange={() => toggleTaskCompletion(task.id)}
+                                checked={
+                                  completedTaskIds.includes(task.id) ||
+                                  task.completed
+                                }
+                                onCheckedChange={() =>
+                                  toggleTaskCompletion(task.id)
+                                }
                                 className="flex-shrink-0 mt-0.5"
                               />
                               <div className="flex-1 min-w-0">
-                                <span className={cn(
-                                  "text-sm leading-relaxed block",
-                                  completedTaskIds.includes(task.id) || task.completed ? "text-gray-500 line-through" : "text-gray-900"
-                                )}>
+                                <span
+                                  className={cn(
+                                    "text-sm leading-relaxed block",
+                                    completedTaskIds.includes(task.id) ||
+                                      task.completed
+                                      ? "text-gray-500 line-through"
+                                      : "text-gray-900"
+                                  )}
+                                >
                                   {formatTextWithTags(task.text)}
                                 </span>
                               </div>
@@ -2719,7 +3277,7 @@ function BacklogView({
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Footer */}
                   <div className="p-4 border-t border-gray-50">
                     <button
@@ -2743,19 +3301,27 @@ function BacklogView({
       <Card className="p-4 mt-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-gray-900">{tasks.length}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {tasks.length}
+            </div>
             <div className="text-sm text-gray-500">Total Tasks</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">{tasks.filter(t => t.completed).length}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {tasks.filter((t) => t.completed).length}
+            </div>
             <div className="text-sm text-gray-500">Completed</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-600">{tasks.filter(t => !t.completed).length}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {tasks.filter((t) => !t.completed).length}
+            </div>
             <div className="text-sm text-gray-500">Active</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-purple-600">{allTags.length}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {allTags.length}
+            </div>
             <div className="text-sm text-gray-500">Categories</div>
           </div>
         </div>
@@ -2767,16 +3333,16 @@ function BacklogView({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          style={{ 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            position: 'fixed',
-            width: '100vw',
-            height: '100vh',
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            position: "fixed",
+            width: "100vw",
+            height: "100vh",
             margin: 0,
-            padding: 0
+            padding: 0,
           }}
           onClick={closeCategoryModal}
         >
@@ -2786,129 +3352,190 @@ function BacklogView({
             exit={{ scale: 0.98, opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="bg-white text-gray-900 border border-gray-200 shadow-xl rounded-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden"
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             tabIndex={-1}
-            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+            style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedCategory}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {selectedCategory}
+              </h2>
               <div className="flex items-center gap-3">
-                {selectedCategory !== "Uncategorized" && (() => {
-                  const cat = categories.find(c => c.name === selectedCategory);
-                  const hidden = cat?.hiddenOnHome ?? false;
-                  return (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            className={cn(
-                              "px-2 py-1 text-xs rounded border transition-colors",
-                              hidden ? "text-gray-500 border-gray-200 bg-gray-50" : "text-gray-700 border-gray-200 hover:border-gray-300"
-                            )}
-                            onClick={async () => { if (cat) await setCategoryHiddenOnHome(cat.id, !hidden); }}
-                            type="button"
-                          >
-                            {hidden ? "Hidden on Home" : "Shown on Home"}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <span className="text-xs">Toggle visibility on Home</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })()}
+                {selectedCategory !== "Uncategorized" &&
+                  (() => {
+                    const cat = categories.find(
+                      (c) => c.name === selectedCategory
+                    );
+                    const hidden = cat?.hiddenOnHome ?? false;
+                    return (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className={cn(
+                                "px-2 py-1 text-xs rounded border transition-colors",
+                                hidden
+                                  ? "text-gray-500 border-gray-200 bg-gray-50"
+                                  : "text-gray-700 border-gray-200 hover:border-gray-300"
+                              )}
+                              onClick={async () => {
+                                if (cat)
+                                  await setCategoryHiddenOnHome(
+                                    cat.id,
+                                    !hidden
+                                  );
+                              }}
+                              type="button"
+                            >
+                              {hidden ? "Hidden on Home" : "Shown on Home"}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <span className="text-xs">
+                              Toggle visibility on Home
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })()}
                 <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M9 11h.01M9 8h.01" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 17h5l-5 5v-5z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M9 11h.01M9 8h.01"
+                    />
                   </svg>
                 </button>
-                <button onClick={closeCategoryModal} className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
+                <button
+                  onClick={closeCategoryModal}
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
-            
+
             {/* Content */}
             <div className="p-6">
               <div className="flex flex-col gap-3 mb-6 max-h-96 overflow-y-auto">
-                {filteredAndSortedTasks.filter(t => (selectedCategory === "Uncategorized" ? t.tags.length === 0 : t.tags[0] === selectedCategory)).map(task => (
-                  <div key={task.id} className="flex items-center group rounded-lg px-4 py-3 transition-colors hover:bg-gray-50">
-                    {/* Drag handle */}
-                    <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <circle cx="5" cy="6" r="1" />
-                        <circle cx="5" cy="10" r="1" />
-                        <circle cx="5" cy="14" r="1" />
-                        <circle cx="10" cy="6" r="1" />
-                        <circle cx="10" cy="10" r="1" />
-                        <circle cx="10" cy="14" r="1" />
-                        <circle cx="15" cy="6" r="1" />
-                        <circle cx="15" cy="10" r="1" />
-                        <circle cx="15" cy="14" r="1" />
-                      </svg>
-                    </div>
-                    
-                    {/* Checkbox */}
-                    <div className="mr-4">
-                      <StyledCheckbox
-                        checked={completedTaskIds.includes(task.id) || task.completed}
-                        onCheckedChange={() => toggleTaskCompletion(task.id)}
-                        className="border-gray-300"
-                      />
-                    </div>
-                    
-                    {/* Task text */}
-                    {editTaskId === task.id ? (
-                      <input
-                        className="flex-1 bg-transparent border-b border-gray-300 text-gray-900 px-1 py-2 outline-none text-base"
-                        value={editTaskText}
-                        onChange={e => setEditTaskText(e.target.value)}
-                        onBlur={() => saveEditTask(task)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') saveEditTask(task);
-                          if (e.key === 'Escape') { setEditTaskId(null); setEditTaskText(""); }
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <span
-                        className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
-                        onClick={() => startEditTask(task)}
-                      >
-                        {task.text}
-                      </span>
-                    )}
-                    
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                      className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Delete task"
+                {filteredAndSortedTasks
+                  .filter((t) =>
+                    selectedCategory === "Uncategorized"
+                      ? t.tags.length === 0
+                      : t.tags[0] === selectedCategory
+                  )
+                  .map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex items-center group rounded-lg px-4 py-3 transition-colors hover:bg-gray-50"
                     >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      {/* Drag handle */}
+                      <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle cx="5" cy="6" r="1" />
+                          <circle cx="5" cy="10" r="1" />
+                          <circle cx="5" cy="14" r="1" />
+                          <circle cx="10" cy="6" r="1" />
+                          <circle cx="10" cy="10" r="1" />
+                          <circle cx="10" cy="14" r="1" />
+                          <circle cx="15" cy="6" r="1" />
+                          <circle cx="15" cy="10" r="1" />
+                          <circle cx="15" cy="14" r="1" />
+                        </svg>
+                      </div>
+
+                      {/* Checkbox */}
+                      <div className="mr-4">
+                        <StyledCheckbox
+                          checked={
+                            completedTaskIds.includes(task.id) || task.completed
+                          }
+                          onCheckedChange={() => toggleTaskCompletion(task.id)}
+                          className="border-gray-300"
+                        />
+                      </div>
+
+                      {/* Task text */}
+                      {editTaskId === task.id ? (
+                        <input
+                          className="flex-1 bg-transparent border-b border-gray-300 text-gray-900 px-1 py-2 outline-none text-base"
+                          value={editTaskText}
+                          onChange={(e) => setEditTaskText(e.target.value)}
+                          onBlur={() => saveEditTask(task)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEditTask(task);
+                            if (e.key === "Escape") {
+                              setEditTaskId(null);
+                              setEditTaskText("");
+                            }
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <span
+                          className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
+                          onClick={() => startEditTask(task)}
+                        >
+                          {task.text}
+                        </span>
+                      )}
+
+                      {/* Delete button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTask(task.id);
+                        }}
+                        className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Delete task"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
               </div>
-              
+
               {/* Add Task Input */}
               <form
                 className="flex gap-3 items-center"
-                onSubmit={async e => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  if (!user || !cardStates[selectedCategory]?.input?.trim()) return;
-                  const tags = selectedCategory === "Uncategorized" ? [] : [selectedCategory];
+                  if (!user || !cardStates[selectedCategory]?.input?.trim())
+                    return;
+                  const tags =
+                    selectedCategory === "Uncategorized"
+                      ? []
+                      : [selectedCategory];
                   await createTask({
                     text: cardStates[selectedCategory]?.input,
                     completed: false,
                     tags,
                     createdAt: cardStates[selectedCategory]?.date || new Date(),
-                    group: "master"
+                    group: "master",
                   });
-                  setCardState(selectedCategory, { input: "", date: undefined });
+                  setCardState(selectedCategory, {
+                    input: "",
+                    date: undefined,
+                  });
                 }}
               >
                 <div className="flex-1 relative">
@@ -2916,27 +3543,37 @@ function BacklogView({
                     placeholder="Add a new task..."
                     className="flex-1 text-base rounded-lg bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300"
                     value={cardStates[selectedCategory]?.input || ""}
-                    onChange={e => setCardState(selectedCategory, { input: e.target.value })}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && e.shiftKey) {
+                    onChange={(e) =>
+                      setCardState(selectedCategory, { input: e.target.value })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && e.shiftKey) {
                         e.preventDefault();
-                        const currentText = cardStates[selectedCategory]?.input || "";
+                        const currentText =
+                          cardStates[selectedCategory]?.input || "";
                         if (currentText.trim()) {
                           handleAICategorization(currentText);
                         }
                       }
                     }}
                   />
-                  
+
                   {/* AI Categorization Hint */}
-                  {(cardStates[selectedCategory]?.input || "").trim() && categories.length > 0 && (
-                    <div className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1">
-                      <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">Shift+Enter</span>
-                      <span>to extract date and generate task</span>
-                    </div>
-                  )}
+                  {(cardStates[selectedCategory]?.input || "").trim() &&
+                    categories.length > 0 && (
+                      <div className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1">
+                        <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">
+                          Shift+Enter
+                        </span>
+                        <span>to extract date and generate task</span>
+                      </div>
+                    )}
                 </div>
-                <Button type="submit" size="sm" className="text-sm bg-gray-900 hover:bg-gray-800 text-white">
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="text-sm bg-gray-900 hover:bg-gray-800 text-white"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add
                 </Button>
@@ -2949,10 +3586,10 @@ function BacklogView({
   );
 }
 
-function PomodoroTimer({ 
-  tasks, 
-  toggleTaskCompletion, 
-  deleteTask, 
+function PomodoroTimer({
+  tasks,
+  toggleTaskCompletion,
+  deleteTask,
   formatTextWithTags,
   updateTaskDate,
   tabGroups,
@@ -2961,11 +3598,11 @@ function PomodoroTimer({
   getTagTextColor,
   getColorName,
   categories,
-  updateTask
-}: { 
-  tasks: Task[]; 
-  toggleTaskCompletion: (id: string) => void; 
-  deleteTask: (id: string) => void; 
+  updateTask,
+}: {
+  tasks: Task[];
+  toggleTaskCompletion: (id: string) => void;
+  deleteTask: (id: string) => void;
   formatTextWithTags: (text: string) => React.ReactNode;
   updateTaskDate: (id: string, date: Date) => void;
   tabGroups: TabGroup[];
@@ -2996,7 +3633,9 @@ function PomodoroTimer({
         const newSeconds = s > 0 ? s - 1 : 0;
         const minutes = Math.floor(newSeconds / 60);
         const secs = newSeconds % 60;
-        document.title = `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")} - subspace`;
+        document.title = `${minutes.toString().padStart(2, "0")}:${secs
+          .toString()
+          .padStart(2, "0")} - subspace`;
         return newSeconds;
       });
     }, 1000);
@@ -3010,7 +3649,7 @@ function PomodoroTimer({
   const secs = seconds % 60;
 
   // Filter tasks similar to main view - hide completed tasks that are not in waiting period
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks.filter((task) => {
     const isInWaitingPeriod = completedTaskIds.includes(task.id);
     const effectivelyCompleted = isInWaitingPeriod || task.completed;
     // Hide completed tasks that are not in waiting period
@@ -3023,10 +3662,16 @@ function PomodoroTimer({
         {/* Left: Timer */}
         <div className="flex flex-1 items-center justify-end pr-32">
           <div className="flex flex-col items-center justify-center">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Focus Time</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-center">
+              Focus Time
+            </h2>
             <div className="mb-8">
-              <div className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-                {minutes.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
+              <div
+                className="text-[80px] font-semibold leading-none px-12 py-4 border border-gray-200 rounded-2xl bg-white shadow-none font-sans"
+                style={{ fontFamily: "Inter, system-ui, sans-serif" }}
+              >
+                {minutes.toString().padStart(2, "0")}:
+                {secs.toString().padStart(2, "0")}
               </div>
             </div>
             <div className="flex gap-4 mt-2">
@@ -3054,12 +3699,19 @@ function PomodoroTimer({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-1"
+                      >
                         <Settings className="h-3 w-3" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p className="text-xs max-w-52">Configure tab groups in the side menu to quickly launch multiple websites at once</p>
+                      <p className="text-xs max-w-52">
+                        Configure tab groups in the side menu to quickly launch
+                        multiple websites at once
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -3080,7 +3732,9 @@ function PomodoroTimer({
                 </div>
               ) : (
                 <div className="text-xs text-muted-foreground bg-accent/50 p-3 rounded-md">
-                  Create tab groups from the side menu to quickly launch multiple websites together. Perfect for study sessions or projects!
+                  Create tab groups from the side menu to quickly launch
+                  multiple websites together. Perfect for study sessions or
+                  projects!
                 </div>
               )}
             </div>
@@ -3090,182 +3744,229 @@ function PomodoroTimer({
         <div className="w-px bg-gray-200 h-3/4" />
         {/* Right: Task List */}
         <div className="flex flex-1 items-center justify-start pl-32">
-        <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
-          <div className="py-0 flex flex-col gap-0">
-            <AnimatePresence initial={false}>
-              {filteredTasks.map((task, idx) => {
-                // Date logic
-                const hasDate = task.createdAt instanceof Date;
-                const today = new Date();
-                let isPastOrToday = false;
-                let dateString = '';
-                let timeString = '';
-                if (hasDate) {
-                  const d = task.createdAt;
-                  dateString = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear().toString().slice(-2)}`;
-                  // Create copies for comparison to avoid mutating the original date
-                  const dateOnly = new Date(d);
-                  dateOnly.setHours(0,0,0,0);
-                  const todayOnly = new Date(today);
-                  todayOnly.setHours(0,0,0,0);
-                  isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
-                  // Only show time if it's not midnight (midnight indicates no specific time was set)
-                  const hours = d.getHours();
-                  const minutes = d.getMinutes();
-                  if (hours !== 0 || minutes !== 0) {
-                    timeString = d.toLocaleTimeString('en-US', {
-                      hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
-                    });
+          <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
+            <div className="py-0 flex flex-col gap-0">
+              <AnimatePresence initial={false}>
+                {filteredTasks.map((task, idx) => {
+                  // Date logic
+                  const hasDate = task.createdAt instanceof Date;
+                  const today = new Date();
+                  let isPastOrToday = false;
+                  let dateString = "";
+                  let timeString = "";
+                  if (hasDate) {
+                    const d = task.createdAt;
+                    dateString = `${d.getMonth() + 1}/${d.getDate()}/${d
+                      .getFullYear()
+                      .toString()
+                      .slice(-2)}`;
+                    // Create copies for comparison to avoid mutating the original date
+                    const dateOnly = new Date(d);
+                    dateOnly.setHours(0, 0, 0, 0);
+                    const todayOnly = new Date(today);
+                    todayOnly.setHours(0, 0, 0, 0);
+                    isPastOrToday = dateOnly.getTime() <= todayOnly.getTime();
+                    // Only show time if it's not midnight (midnight indicates no specific time was set)
+                    const hours = d.getHours();
+                    const minutes = d.getMinutes();
+                    if (hours !== 0 || minutes !== 0) {
+                      timeString = d.toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                        timeZone: "America/Los_Angeles",
+                      });
+                    }
                   }
-                }
-                
-                // Determine effective completion status using local state
-                const isInWaitingPeriod = completedTaskIds.includes(task.id);
-                const effectivelyCompleted = isInWaitingPeriod || task.completed;
-                
-                return (
-                  <motion.div
-                    key={task.id}
-                    layout="position"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ 
-                      opacity: 0,
-                      transition: { 
-                        duration: 0.25, // quick fade
-                        ease: "easeInOut"
-                      }
-                    }}
-                    transition={{ 
-                      duration: 0.4,
-                      ease: "easeOut"
-                    }}
-                    className={cn(
-                      "flex items-center px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                      idx !== tasks.length - 1 && "border-b border-gray-200",
-                      effectivelyCompleted ? "bg-muted/30" : ""
-                    )}
-                  >
-                    {/* Checkbox */}
-                    <StyledCheckbox
-                      checked={effectivelyCompleted}
-                      onCheckedChange={() => toggleTaskCompletion(task.id)}
-                      className="flex-shrink-0 mr-3"
-                    />
-                    {/* Main content */}
-                    <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
-                      <span className={cn(
-                        "text-sm font-normal transition-colors duration-200",
-                        effectivelyCompleted ? "text-muted-foreground opacity-70" : "text-gray-900"
-                      )}>
-                        {formatTextWithTags(task.text)}
-                      </span>
-                      {hasDate && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <span className={cn(
-                              "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
-                              isPastOrToday ? "text-red-600" : "text-gray-400"
-                            )}>
-                              {dateString}{timeString ? `, ${timeString}` : ''}
-                            </span>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={task.createdAt}
-                              onSelect={(newDate?: Date) => {
-                                if (newDate) {
-                                  updateTaskDate(task.id, newDate);
-                                }
-                              }}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+
+                  // Determine effective completion status using local state
+                  const isInWaitingPeriod = completedTaskIds.includes(task.id);
+                  const effectivelyCompleted =
+                    isInWaitingPeriod || task.completed;
+
+                  return (
+                    <motion.div
+                      key={task.id}
+                      layout="position"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{
+                        opacity: 0,
+                        transition: {
+                          duration: 0.25, // quick fade
+                          ease: "easeInOut",
+                        },
+                      }}
+                      transition={{
+                        duration: 0.4,
+                        ease: "easeOut",
+                      }}
+                      className={cn(
+                        "flex items-center px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                        idx !== tasks.length - 1 && "border-b border-gray-200",
+                        effectivelyCompleted ? "bg-muted/30" : ""
                       )}
-                    </div>
-                    
-                    {/* Category badge - bottom right */}
-                    {task.tags.length > 0 && (
-                      <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end items-end">
-                        {task.tags.map((tag) => (
-                          <Popover key={tag}>
+                    >
+                      {/* Checkbox */}
+                      <StyledCheckbox
+                        checked={effectivelyCompleted}
+                        onCheckedChange={() => toggleTaskCompletion(task.id)}
+                        className="flex-shrink-0 mr-3"
+                      />
+                      {/* Main content */}
+                      <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
+                        <span
+                          className={cn(
+                            "text-sm font-normal transition-colors duration-200",
+                            effectivelyCompleted
+                              ? "text-muted-foreground opacity-70"
+                              : "text-gray-900"
+                          )}
+                        >
+                          {formatTextWithTags(task.text)}
+                        </span>
+                        {hasDate && (
+                          <Popover>
                             <PopoverTrigger asChild>
-                              <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1.5 py-0.5 rounded transition-colors">
-                                <span className={cn(
-                                  "transition-colors font-semibold",
-                                  getTagTextColor(tag)
-                                )}>#</span>
-                                <span className="text-gray-700">{tag}</span>
+                              <span
+                                className={cn(
+                                  "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                                  isPastOrToday
+                                    ? "text-red-600"
+                                    : "text-gray-400"
+                                )}
+                              >
+                                {dateString}
+                                {timeString ? `, ${timeString}` : ""}
                               </span>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                              <div className="p-2">
-                                <div className="px-2 py-1 mb-2">
-                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                    Change Category
-                                  </div>
-                                </div>
-                                <div className="space-y-1">
-                                  {categories.map((category) => {
-                                    const colorName = getColorName(category.name);
-                                    const isSelected = category.name === tag;
-                                    return (
-                                      <button
-                                        key={category.id}
-                                        onClick={async () => {
-                                          try {
-                                            // Note: Pomodoro timer shows all tasks regardless of hidden status,
-                                            // so we don't need the temporary visibility logic here
-                                            
-                                            // Remove the old tag and add the new one
-                                            const updatedTags = task.tags.filter(t => t !== tag);
-                                            updatedTags.push(category.name);
-                                            await updateTask(task.id, { tags: updatedTags });
-                                            toast.success(`Changed category to ${category.name}`);
-                                          } catch (error) {
-                                            toast.error("Failed to update category");
-                                          }
-                                        }}
-                                        className={cn(
-                                          "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
-                                          isSelected ? `border-${colorName}-500 bg-${colorName}-50` : "border-transparent"
-                                        )}
-                                      >
-                                        <span className={cn(
-                                          "w-2 h-2 rounded-full transition-colors",
-                                          getTagTextColor(category.name).replace('text-', 'bg-')
-                                        )}></span>
-                                        <span className="flex-1">{category.name}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
+                            >
+                              <Calendar
+                                mode="single"
+                                selected={task.createdAt}
+                                onSelect={(newDate?: Date) => {
+                                  if (newDate) {
+                                    updateTaskDate(task.id, newDate);
+                                  }
+                                }}
+                                initialFocus
+                              />
                             </PopoverContent>
                           </Popover>
-                        ))}
+                        )}
                       </div>
-                    )}
-                    
-                    {/* Delete button (show on hover) - top right */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
-                      className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
-                      aria-label="Delete task"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </Card>
+
+                      {/* Category badge - bottom right */}
+                      {task.tags.length > 0 && (
+                        <div className="absolute bottom-2 right-2 flex flex-wrap gap-1 justify-end items-end">
+                          {task.tags.map((tag) => (
+                            <Popover key={tag}>
+                              <PopoverTrigger asChild>
+                                <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1.5 py-0.5 rounded transition-colors">
+                                  <span
+                                    className={cn(
+                                      "transition-colors font-semibold",
+                                      getTagTextColor(tag)
+                                    )}
+                                  >
+                                    #
+                                  </span>
+                                  <span className="text-gray-700">{tag}</span>
+                                </span>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="end"
+                              >
+                                <div className="p-2">
+                                  <div className="px-2 py-1 mb-2">
+                                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                      Change Category
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {categories.map((category) => {
+                                      const colorName = getColorName(
+                                        category.name
+                                      );
+                                      const isSelected = category.name === tag;
+                                      return (
+                                        <button
+                                          key={category.id}
+                                          onClick={async () => {
+                                            try {
+                                              // Note: Pomodoro timer shows all tasks regardless of hidden status,
+                                              // so we don't need the temporary visibility logic here
+
+                                              // Remove the old tag and add the new one
+                                              const updatedTags =
+                                                task.tags.filter(
+                                                  (t) => t !== tag
+                                                );
+                                              updatedTags.push(category.name);
+                                              await updateTask(task.id, {
+                                                tags: updatedTags,
+                                              });
+                                              toast.success(
+                                                `Changed category to ${category.name}`
+                                              );
+                                            } catch (error) {
+                                              toast.error(
+                                                "Failed to update category"
+                                              );
+                                            }
+                                          }}
+                                          className={cn(
+                                            "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
+                                            isSelected
+                                              ? `border-${colorName}-500 bg-${colorName}-50`
+                                              : "border-transparent"
+                                          )}
+                                        >
+                                          <span
+                                            className={cn(
+                                              "w-2 h-2 rounded-full transition-colors",
+                                              getTagTextColor(
+                                                category.name
+                                              ).replace("text-", "bg-")
+                                            )}
+                                          ></span>
+                                          <span className="flex-1">
+                                            {category.name}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Delete button (show on hover) - top right */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTask(task.id);
+                        }}
+                        className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                        aria-label="Delete task"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
-
