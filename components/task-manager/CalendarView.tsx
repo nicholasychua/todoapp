@@ -48,6 +48,60 @@ const colStartClasses = [
 
 const timeSlots = Array.from({ length: 24 }, (_, i) => i);
 
+// Get background color based on tag
+const getTaskBackground = (task: Task) => {
+  if (task.completed) return "bg-gray-100";
+
+  const tag = task.tags[0]?.toLowerCase();
+  const colorMap: Record<string, string> = {
+    food: "bg-orange-100",
+    school: "bg-purple-100",
+    work: "bg-blue-100",
+    personal: "bg-pink-100",
+    health: "bg-green-100",
+    meeting: "bg-indigo-100",
+    social: "bg-yellow-100",
+  };
+
+  return colorMap[tag] || "bg-gray-100";
+};
+
+// Get dot color based on tag
+const getDotColor = (task: Task) => {
+  if (task.completed) return "bg-gray-500";
+
+  const tag = task.tags[0]?.toLowerCase();
+  const colorMap: Record<string, string> = {
+    food: "bg-orange-500",
+    school: "bg-purple-500",
+    work: "bg-blue-500",
+    personal: "bg-pink-500",
+    health: "bg-green-500",
+    meeting: "bg-indigo-500",
+    social: "bg-yellow-600",
+  };
+
+  return colorMap[tag] || "bg-gray-500";
+};
+
+// Get text color based on tag
+const getTextColor = (task: Task) => {
+  if (task.completed) return "text-gray-600";
+
+  const tag = task.tags[0]?.toLowerCase();
+  const colorMap: Record<string, string> = {
+    food: "text-orange-900",
+    school: "text-purple-900",
+    work: "text-blue-900",
+    personal: "text-pink-900",
+    health: "text-green-900",
+    meeting: "text-indigo-900",
+    social: "text-yellow-900",
+  };
+
+  return colorMap[tag] || "text-gray-900";
+};
+
 // Memoized components for better performance
 const TaskCard = React.memo(
   ({
@@ -58,49 +112,59 @@ const TaskCard = React.memo(
     task: Task;
     onTaskClick?: (task: Task) => void;
     getTagTextColor: (tag: string) => string;
-  }) => (
-    <div
-      onClick={(e) => {
-        e.stopPropagation();
-        onTaskClick?.(task);
-      }}
-      className={cn(
-        "group flex items-start gap-0.5 rounded-sm border px-1 py-0.5 text-[9px] cursor-pointer transition-all hover:shadow-sm",
-        task.completed
-          ? "bg-green-50/50 border-green-200 hover:bg-green-100/50"
-          : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-      )}
-    >
+  }) => {
+    const taskDate =
+      task.createdAt instanceof Date ? task.createdAt : new Date();
+    const hasTime = taskDate.getHours() !== 0 || taskDate.getMinutes() !== 0;
+    const timeString = hasTime
+      ? taskDate.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "";
+
+    return (
       <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onTaskClick?.(task);
+        }}
         className={cn(
-          "mt-0.5 h-0.5 w-0.5 rounded-full flex-shrink-0",
-          task.completed ? "bg-green-500" : "bg-blue-500"
+          "group flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer transition-all hover:shadow-md text-[10px]",
+          getTaskBackground(task)
         )}
-      />
-      <div className="flex-1 min-w-0">
-        <p
+      >
+        <div
           className={cn(
-            "font-medium leading-tight line-clamp-1",
-            task.completed && "line-through text-gray-500"
+            "h-1.5 w-1.5 rounded-full flex-shrink-0",
+            getDotColor(task)
           )}
-        >
-          {task.text.replace(/#\w+/g, "").trim()}
-        </p>
-        {task.tags.length > 0 && (
-          <div className="flex gap-0.5 mt-0.5 flex-wrap">
-            {task.tags.slice(0, 1).map((tag, idx) => (
-              <span
-                key={idx}
-                className={cn("text-[8px] font-semibold", getTagTextColor(tag))}
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
+        />
+        <div className="flex-1 min-w-0 flex items-baseline justify-between gap-1">
+          <p
+            className={cn(
+              "font-semibold leading-tight line-clamp-1",
+              getTextColor(task),
+              task.completed && "line-through"
+            )}
+          >
+            {task.text.replace(/#\w+/g, "").trim()}
+          </p>
+          {timeString && (
+            <span
+              className={cn(
+                "text-[9px] flex-shrink-0 font-medium",
+                getTextColor(task)
+              )}
+            >
+              {timeString}
+            </span>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    );
+  }
 );
 
 TaskCard.displayName = "TaskCard";
@@ -241,7 +305,7 @@ export const CalendarView = React.memo(function CalendarView({
                 className={cn(
                   dayIdx === 0 && colStartClasses[getDay(day)],
                   !isCurrentMonth && "bg-gray-50/50 text-gray-400",
-                  "relative border-r border-b hover:bg-gray-50 transition-colors cursor-pointer p-1 flex flex-col"
+                  "relative border-r border-b hover:bg-gray-50 transition-colors cursor-pointer p-1.5 flex flex-col"
                 )}
               >
                 <button
@@ -257,8 +321,8 @@ export const CalendarView = React.memo(function CalendarView({
                 </button>
 
                 {/* Tasks for the day */}
-                <div className="mt-0.5 space-y-0.5 overflow-y-auto flex-1">
-                  {dayTasks.slice(0, 2).map((task) => (
+                <div className="mt-1 space-y-1 overflow-y-auto flex-1">
+                  {dayTasks.slice(0, 3).map((task) => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -266,9 +330,9 @@ export const CalendarView = React.memo(function CalendarView({
                       getTagTextColor={getTagTextColor}
                     />
                   ))}
-                  {dayTasks.length > 2 && (
-                    <div className="text-[9px] text-gray-500 pl-1.5 font-medium">
-                      +{dayTasks.length - 2} more
+                  {dayTasks.length > 3 && (
+                    <div className="text-[9px] text-gray-500 pl-2 font-medium mt-1">
+                      +{dayTasks.length - 3} more
                     </div>
                   )}
                 </div>
@@ -527,7 +591,7 @@ export const CalendarView = React.memo(function CalendarView({
   return (
     <div className="flex flex-col w-full h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b bg-gray-50">
+      <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-gray-700" />
@@ -537,13 +601,13 @@ export const CalendarView = React.memo(function CalendarView({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2.5 flex-shrink-0">
           {/* View Mode Selector */}
           <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
             <button
               onClick={() => setViewMode("month")}
               className={cn(
-                "px-2 py-0.5 text-xs font-medium rounded-md transition-all",
+                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
                 viewMode === "month"
                   ? "bg-gray-900 text-white shadow-sm"
                   : "text-gray-700 hover:bg-gray-50"
@@ -554,7 +618,7 @@ export const CalendarView = React.memo(function CalendarView({
             <button
               onClick={() => setViewMode("week")}
               className={cn(
-                "px-2 py-0.5 text-xs font-medium rounded-md transition-all",
+                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
                 viewMode === "week"
                   ? "bg-gray-900 text-white shadow-sm"
                   : "text-gray-700 hover:bg-gray-50"
@@ -565,7 +629,7 @@ export const CalendarView = React.memo(function CalendarView({
             <button
               onClick={() => setViewMode("day")}
               className={cn(
-                "px-2 py-0.5 text-xs font-medium rounded-md transition-all",
+                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
                 viewMode === "day"
                   ? "bg-gray-900 text-white shadow-sm"
                   : "text-gray-700 hover:bg-gray-50"
@@ -579,26 +643,26 @@ export const CalendarView = React.memo(function CalendarView({
           <div className="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
             <Button
               onClick={previousPeriod}
-              className="rounded-none rounded-l-lg shadow-none border-0 h-6 w-6 p-0"
+              className="rounded-none rounded-l-lg shadow-none border-0 h-7 w-7 p-0"
               variant="outline"
               size="icon"
             >
-              <ChevronLeftIcon size={13} strokeWidth={2} />
+              <ChevronLeftIcon size={15} strokeWidth={2} />
             </Button>
             <Button
               onClick={goToToday}
-              className="rounded-none shadow-none border-0 border-l px-2 h-6 text-xs font-medium"
+              className="rounded-none shadow-none border-0 border-l px-2.5 h-7 text-sm font-medium"
               variant="outline"
             >
               Today
             </Button>
             <Button
               onClick={nextPeriod}
-              className="rounded-none rounded-r-lg shadow-none border-0 border-l h-6 w-6 p-0"
+              className="rounded-none rounded-r-lg shadow-none border-0 border-l h-7 w-7 p-0"
               variant="outline"
               size="icon"
             >
-              <ChevronRightIcon size={13} strokeWidth={2} />
+              <ChevronRightIcon size={15} strokeWidth={2} />
             </Button>
           </div>
         </div>

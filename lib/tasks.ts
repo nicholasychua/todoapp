@@ -8,7 +8,6 @@ import {
   query,
   where,
   getDocs,
-  orderBy,
   Timestamp,
   DocumentData,
   onSnapshot
@@ -57,8 +56,7 @@ export async function deleteTaskFirestore(taskId: string) {
 export function subscribeToTasksFirestore(userId: string, callback: (tasks: Task[]) => void) {
   const tasksQuery = query(
     collection(db, 'tasks'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
   return onSnapshot(tasksQuery, (querySnapshot) => {
     const tasks = querySnapshot.docs.map((doc) => {
@@ -71,6 +69,8 @@ export function subscribeToTasksFirestore(userId: string, callback: (tasks: Task
         createdAt: createdAtDate,
       } as Task;
     });
+    // Sort in memory to avoid needing a composite index
+    tasks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     callback(tasks);
   });
 }

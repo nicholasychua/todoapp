@@ -1617,11 +1617,11 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full h-full flex flex-col pt-16 pb-8 pl-[220px] pr-8"
+              className="w-full h-full flex flex-col items-center justify-center pl-[220px] pr-8 pt-8"
             >
               <div
-                className="w-full h-full max-h-[calc(100vh-160px)] mx-auto"
-                style={{ maxWidth: "1200px" }}
+                className="w-full h-full max-h-[calc(100vh-200px)] mx-auto"
+                style={{ maxWidth: "1100px" }}
               >
                 <CalendarView tasks={tasks} getTagTextColor={getTagTextColor} />
               </div>

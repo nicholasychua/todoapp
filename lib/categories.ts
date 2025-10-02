@@ -8,7 +8,6 @@ import {
   query,
   where,
   getDocs,
-  orderBy,
   Timestamp,
   onSnapshot
 } from 'firebase/firestore';
@@ -26,8 +25,7 @@ export interface Category {
 export function subscribeToCategories(userId: string, callback: (categories: Category[]) => void) {
   const categoriesQuery = query(
     collection(db, 'categories'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
   return onSnapshot(categoriesQuery, (querySnapshot) => {
     const categories = querySnapshot.docs.map((doc) => ({
@@ -38,6 +36,8 @@ export function subscribeToCategories(userId: string, callback: (categories: Cat
       description: doc.data().description,
       keywords: doc.data().keywords || [],
     })) as Category[];
+    // Sort in memory to avoid needing a composite index
+    categories.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     callback(categories);
   });
 }
