@@ -27,22 +27,19 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', 'framer-motion'],
   },
+  // External packages for server-side
+  serverExternalPackages: ['openai'],
   // Fix OpenAI package module resolution
   webpack: (config, { isServer }) => {
-    if (isServer) {
-      // Externalize openai package for server-side
-      config.externals = config.externals || [];
-      config.externals.push({
-        'openai': 'commonjs openai',
-      });
-    } else {
-      // Don't bundle OpenAI for client-side
+    if (!isServer) {
+      // Don't bundle OpenAI for client-side - it should only be used in API routes
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         net: false,
         tls: false,
         crypto: false,
+        child_process: false,
       };
       config.resolve.alias = {
         ...config.resolve.alias,

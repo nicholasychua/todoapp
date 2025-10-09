@@ -71,13 +71,16 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                       ease: "easeOut",
                     }}
                     whileHover={{
-                      backgroundColor: "#f9fafb",
+                      backgroundColor: "rgb(243, 244, 246)",
+                      scale: 1.01,
                       transition: {
-                        duration: 0.15,
+                        duration: 0.2,
+                        ease: "easeOut",
                       },
                     }}
                     whileTap={{
-                      scale: 0.98,
+                      scale: 0.97,
+                      backgroundColor: "rgb(229, 231, 235)",
                       transition: {
                         duration: 0.1,
                       },
@@ -87,7 +90,7 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                       option.onClick();
                       setIsOpen(false);
                     }}
-                    className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2 hover:text-gray-900"
+                    className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2 transition-colors duration-200"
                   >
                     {option.Icon}
                     {option.label}

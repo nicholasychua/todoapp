@@ -1,4 +1,3 @@
-import { AzureOpenAI } from "openai";
 import { NextResponse } from "next/server";
 
 // Fallback voice processing function
@@ -132,6 +131,17 @@ export async function POST(request: Request) {
       "Using model:",
       process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4"
     );
+
+    // Dynamically import OpenAI to avoid bundling issues
+    let AzureOpenAI;
+    try {
+      const openaiModule = await import("openai");
+      AzureOpenAI = openaiModule.AzureOpenAI;
+    } catch (importError) {
+      console.error("Failed to import OpenAI:", importError);
+      const fallbackResult = fallbackProcessVoiceInput(rawInput);
+      return NextResponse.json(fallbackResult);
+    }
 
     const openai = new AzureOpenAI({
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,

@@ -3715,17 +3715,6 @@ function BacklogView({
                       }
                     }}
                   />
-
-                  {/* AI Categorization Hint */}
-                  {(cardStates[selectedCategory]?.input || "").trim() &&
-                    categories.length > 0 && (
-                      <div className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1">
-                        <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">
-                          Shift+Enter
-                        </span>
-                        <span>to extract date and generate task</span>
-                      </div>
-                    )}
                 </div>
                 <Button
                   type="submit"

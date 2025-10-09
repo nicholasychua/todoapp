@@ -27,6 +27,9 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ rawInput }),
+    }).catch((fetchError) => {
+      console.error('Network error fetching voice processing API:', fetchError);
+      throw new Error('Network error');
     });
 
     console.log('Response status:', response.status);
@@ -36,13 +39,9 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
       const errorBody = await response.text();
       console.error('Error processing voice input. Status:', response.status, 'Body:', errorBody);
       
-      // If the AI service is not configured or returns 404/500, provide a fallback
-      if (response.status === 404 || response.status === 500) {
-        console.warn('AI voice processing service not available, using fallback');
-        return getFallbackVoiceProcessing(rawInput);
-      }
-      
-      throw new Error('Failed to process voice input');
+      // If the AI service is not configured or returns error, provide a fallback
+      console.warn('AI voice processing service not available, using fallback');
+      return getFallbackVoiceProcessing(rawInput);
     }
 
     const result = await response.json();
@@ -71,19 +70,18 @@ export async function categorizeTask(
         categoryMetadata: typeof categories[0] === 'object' ? categories : undefined,
         categories: typeof categories[0] === 'string' ? categories : undefined
       }),
+    }).catch((fetchError) => {
+      console.error('Network error fetching categorization API:', fetchError);
+      throw new Error('Network error');
     });
 
     if (!response.ok) {
       const errorBody = await response.text();
       console.error('Error categorizing task. Status:', response.status, 'Body:', errorBody);
       
-      // If the AI service is not configured or fails (any 404/500 error), provide a fallback
-      if (response.status === 404 || response.status === 500) {
-        console.warn('AI categorization service not available, using fallback');
-        return getFallbackCategorization(taskText, categories);
-      }
-      
-      throw new Error('Failed to categorize task');
+      // If the AI service is not configured or fails, provide a fallback
+      console.warn('AI categorization service not available, using fallback');
+      return getFallbackCategorization(taskText, categories);
     }
 
     const result = await response.json();

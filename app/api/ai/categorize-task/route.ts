@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 
 interface CategoryMetadata {
   name: string;
@@ -252,6 +251,16 @@ export async function POST(request: Request) {
     const categoryList: CategoryMetadata[] = hasMetadata 
       ? (categories as CategoryMetadata[])
       : (categories as string[]).map(name => ({ name }));
+
+    // Dynamically import OpenAI to avoid bundling issues
+    let OpenAI;
+    try {
+      OpenAI = (await import("openai")).default;
+    } catch (importError) {
+      console.error("Failed to import OpenAI:", importError);
+      const fallbackResult = fallbackCategorize(taskText, categories);
+      return NextResponse.json(fallbackResult);
+    }
 
     const openai = new OpenAI({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
