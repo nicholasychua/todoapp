@@ -31,6 +31,7 @@ type ViewMode = "month" | "week" | "day";
 interface CalendarViewProps {
   tasks: Task[];
   onTaskClick?: (task: Task) => void;
+  onDateClick?: (date: Date) => void;
   getTagTextColor: (tag: string) => string;
 }
 
@@ -172,6 +173,7 @@ TaskCard.displayName = "TaskCard";
 export const CalendarView = React.memo(function CalendarView({
   tasks,
   onTaskClick,
+  onDateClick,
   getTagTextColor,
 }: CalendarViewProps) {
   const today = React.useMemo(() => startOfToday(), []);
@@ -291,7 +293,10 @@ export const CalendarView = React.memo(function CalendarView({
         </div>
 
         {/* Calendar Days */}
-        <div className="flex-1 grid grid-cols-7 auto-rows-fr border-l border-t">
+        <div
+          className="flex-1 grid grid-cols-7 border-l border-t"
+          style={{ gridAutoRows: "minmax(120px, 1fr)" }}
+        >
           {days.map((day, dayIdx) => {
             const dayTasks = getTasksForDay(day);
             const isCurrentMonth = isSameMonth(day, firstDayCurrentMonth);
@@ -302,10 +307,11 @@ export const CalendarView = React.memo(function CalendarView({
               <div
                 key={day.toString()}
                 onClick={() => setSelectedDay(day)}
+                onDoubleClick={() => onDateClick?.(day)}
                 className={cn(
                   dayIdx === 0 && colStartClasses[getDay(day)],
                   !isCurrentMonth && "bg-gray-50/50 text-gray-400",
-                  "relative border-r border-b hover:bg-gray-50 transition-colors cursor-pointer p-1.5 flex flex-col"
+                  "relative border-r border-b hover:bg-gray-50 transition-colors cursor-pointer p-1.5 flex flex-col group"
                 )}
               >
                 <button
@@ -336,13 +342,28 @@ export const CalendarView = React.memo(function CalendarView({
                     </div>
                   )}
                 </div>
+
+                {/* Add task hint - shows on hover */}
+                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="text-[9px] text-gray-400 font-medium bg-white px-1 py-0.5 rounded shadow-sm">
+                    Double-click to add
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
     );
-  }, [monthDays, selectedDay, getTasksForDay, onTaskClick, getTagTextColor]);
+  }, [
+    monthDays,
+    selectedDay,
+    getTasksForDay,
+    onTaskClick,
+    onDateClick,
+    getTagTextColor,
+    firstDayCurrentMonth,
+  ]);
 
   // Week View
   const renderWeekView = React.useCallback(() => {
@@ -391,14 +412,26 @@ export const CalendarView = React.memo(function CalendarView({
                   const hourTasks = getTasksForHour(day, hour);
                   const isTodayDate = isToday(day);
 
+                  const dateWithHour = new Date(day);
+                  dateWithHour.setHours(hour, 0, 0, 0);
+
                   return (
                     <div
                       key={`${day.toString()}-${hour}`}
+                      onDoubleClick={() => onDateClick?.(dateWithHour)}
                       className={cn(
-                        "border-r border-b p-1 hover:bg-gray-50 transition-colors relative",
+                        "border-r border-b p-1 hover:bg-gray-50 transition-colors relative cursor-pointer group",
                         isTodayDate && "bg-blue-50/30"
                       )}
                     >
+                      {/* Add task hint */}
+                      {hourTasks.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[9px] text-gray-400 font-medium">
+                            + Add
+                          </span>
+                        </div>
+                      )}
                       {hourTasks.map((task) => (
                         <div
                           key={task.id}
@@ -429,7 +462,7 @@ export const CalendarView = React.memo(function CalendarView({
         </div>
       </div>
     );
-  }, [weekDays, getTasksForHour, onTaskClick]);
+  }, [weekDays, getTasksForHour, onTaskClick, onDateClick]);
 
   // Day View
   const renderDayView = React.useCallback(() => {
@@ -444,61 +477,77 @@ export const CalendarView = React.memo(function CalendarView({
         {/* Time Grid - Left Side */}
         <div className="flex-1 overflow-auto border rounded-lg bg-white shadow-sm">
           <div className="min-w-[400px]">
-            {tasksByHour.map(({ hour, tasks: hourTasks }) => (
-              <div key={hour} className="flex border-b min-h-[80px]">
-                <div className="w-24 border-r p-4 text-sm text-gray-500 font-medium bg-gray-50">
-                  {format(new Date().setHours(hour, 0), "h:00 a")}
-                </div>
-                <div className="flex-1 p-3 space-y-2">
-                  {hourTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      onClick={() => onTaskClick?.(task)}
-                      className={cn(
-                        "group rounded-lg border p-3 cursor-pointer transition-all hover:shadow-md",
-                        task.completed
-                          ? "bg-green-50 border-green-200 hover:bg-green-100"
-                          : "bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={cn(
-                            "mt-1 h-2 w-2 rounded-full flex-shrink-0",
-                            task.completed ? "bg-green-500" : "bg-blue-500"
-                          )}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p
+            {tasksByHour.map(({ hour, tasks: hourTasks }) => {
+              const dateWithHour = new Date(selectedDay);
+              dateWithHour.setHours(hour, 0, 0, 0);
+
+              return (
+                <div key={hour} className="flex border-b min-h-[80px]">
+                  <div className="w-24 border-r p-4 text-sm text-gray-500 font-medium bg-gray-50">
+                    {format(new Date().setHours(hour, 0), "h:00 a")}
+                  </div>
+                  <div
+                    className="flex-1 p-3 space-y-2 relative group cursor-pointer hover:bg-gray-50/50 transition-colors"
+                    onDoubleClick={() => onDateClick?.(dateWithHour)}
+                  >
+                    {/* Add task hint */}
+                    {hourTasks.length === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-xs text-gray-400 font-medium">
+                          Double-click to add task
+                        </span>
+                      </div>
+                    )}
+                    {hourTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => onTaskClick?.(task)}
+                        className={cn(
+                          "group rounded-lg border p-3 cursor-pointer transition-all hover:shadow-md",
+                          task.completed
+                            ? "bg-green-50 border-green-200 hover:bg-green-100"
+                            : "bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
                             className={cn(
-                              "font-medium text-sm leading-snug",
-                              task.completed && "line-through text-gray-500"
+                              "mt-1 h-2 w-2 rounded-full flex-shrink-0",
+                              task.completed ? "bg-green-500" : "bg-blue-500"
                             )}
-                          >
-                            {task.text.replace(/#\w+/g, "").trim()}
-                          </p>
-                          {task.tags.length > 0 && (
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              {task.tags.map((tag, idx) => (
-                                <span
-                                  key={idx}
-                                  className={cn(
-                                    "text-xs font-semibold",
-                                    getTagTextColor(tag)
-                                  )}
-                                >
-                                  #{tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={cn(
+                                "font-medium text-sm leading-snug",
+                                task.completed && "line-through text-gray-500"
+                              )}
+                            >
+                              {task.text.replace(/#\w+/g, "").trim()}
+                            </p>
+                            {task.tags.length > 0 && (
+                              <div className="flex gap-2 mt-2 flex-wrap">
+                                {task.tags.map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={cn(
+                                      "text-xs font-semibold",
+                                      getTagTextColor(tag)
+                                    )}
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

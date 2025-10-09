@@ -81,6 +81,7 @@ import { AIVoiceInput } from "@/components/ui/ai-voice-input";
 import { FocusSessionOnboarding } from "@/components/ui/FocusSessionOnboarding";
 import { CalendarView } from "@/components/task-manager/CalendarView";
 import { FilterDropdown } from "@/components/ui/filter-dropdown";
+import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
 
 // Define a color palette for categories
 const categoryColors = [
@@ -175,9 +176,11 @@ function Sidebar({
   showBacklog,
   showPomodoro,
   showCalendar,
+  showFocusOnboarding,
   setShowBacklog,
   setShowPomodoro,
   setShowCalendar,
+  setShowFocusOnboarding,
   handleBacklogToggle,
   handleLightSwitch,
   handleCalendarToggle,
@@ -186,9 +189,11 @@ function Sidebar({
   showBacklog: boolean;
   showPomodoro: boolean;
   showCalendar: boolean;
+  showFocusOnboarding: boolean;
   setShowBacklog: (show: boolean) => void;
   setShowPomodoro: (show: boolean) => void;
   setShowCalendar: (show: boolean) => void;
+  setShowFocusOnboarding: (show: boolean) => void;
   handleBacklogToggle: () => void;
   handleLightSwitch: () => void;
   handleCalendarToggle: () => void;
@@ -208,13 +213,17 @@ function Sidebar({
         <button
           className={cn(
             "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            !showBacklog && !showPomodoro && !showCalendar
+            !showBacklog &&
+              !showPomodoro &&
+              !showCalendar &&
+              !showFocusOnboarding
               ? "text-gray-900"
               : "text-gray-500 hover:text-gray-700"
           )}
           onClick={() => {
             setShowBacklog(false);
             setShowPomodoro(false);
+            setShowFocusOnboarding(false);
             setShowCalendar(false);
           }}
         >
@@ -469,6 +478,10 @@ export default function TaskManager() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showFocusOnboarding, setShowFocusOnboarding] = useState(false);
   const [focusSessionTaskIds, setFocusSessionTaskIds] = useState<string[]>([]);
+  const [showTaskCreationDialog, setShowTaskCreationDialog] = useState(false);
+  const [taskCreationDate, setTaskCreationDate] = useState<Date | undefined>(
+    undefined
+  );
   const [tabGroups, setTabGroups] = useState<TabGroup[]>([]);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [voiceRaw, setVoiceRaw] = useState("");
@@ -1105,6 +1118,7 @@ export default function TaskManager() {
   const handleBacklogToggle = () => {
     setShowBacklog((prev) => !prev);
     setShowPomodoro(false);
+    setShowFocusOnboarding(false);
     setShowCalendar(false);
   };
 
@@ -1112,6 +1126,27 @@ export default function TaskManager() {
     setShowCalendar((prev) => !prev);
     setShowBacklog(false);
     setShowPomodoro(false);
+    setShowFocusOnboarding(false);
+  };
+
+  const handleCalendarDateClick = (date: Date) => {
+    setTaskCreationDate(date);
+    setShowTaskCreationDialog(true);
+  };
+
+  const handleTaskCreationSubmit = async (taskData: {
+    text: string;
+    date: Date;
+    category?: string;
+  }) => {
+    await createTask({
+      text: taskData.text,
+      completed: false,
+      createdAt: taskData.date,
+      tags: taskData.category ? [taskData.category] : [],
+      group: "master",
+    });
+    toast.success("Task created successfully!");
   };
 
   // Temporary visibility helpers (TaskManager scope)
@@ -1575,9 +1610,11 @@ export default function TaskManager() {
         showBacklog={showBacklog}
         showPomodoro={showPomodoro}
         showCalendar={showCalendar}
+        showFocusOnboarding={showFocusOnboarding}
         setShowBacklog={setShowBacklog}
         setShowPomodoro={setShowPomodoro}
         setShowCalendar={setShowCalendar}
+        setShowFocusOnboarding={setShowFocusOnboarding}
         handleBacklogToggle={handleBacklogToggle}
         handleLightSwitch={handleLightSwitch}
         handleCalendarToggle={handleCalendarToggle}
@@ -1682,7 +1719,11 @@ export default function TaskManager() {
                 className="w-full h-full max-h-[calc(100vh-200px)] mx-auto"
                 style={{ maxWidth: "1100px" }}
               >
-                <CalendarView tasks={tasks} getTagTextColor={getTagTextColor} />
+                <CalendarView
+                  tasks={tasks}
+                  getTagTextColor={getTagTextColor}
+                  onDateClick={handleCalendarDateClick}
+                />
               </div>
             </motion.div>
           ) : (
@@ -2671,6 +2712,16 @@ export default function TaskManager() {
           </motion.div>
         </div>
       )}
+
+      {/* Task Creation Dialog */}
+      <TaskCreationDialog
+        isOpen={showTaskCreationDialog}
+        onClose={() => setShowTaskCreationDialog(false)}
+        onSubmit={handleTaskCreationSubmit}
+        initialDate={taskCreationDate}
+        categories={categories}
+        getTagTextColor={getTagTextColor}
+      />
     </div>
   );
 }
