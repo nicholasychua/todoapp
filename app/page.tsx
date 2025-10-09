@@ -11,6 +11,13 @@ import {
   ChevronDown,
   Settings,
   Calendar as CalendarIcon,
+  Filter,
+  ListTodo,
+  CheckCircle2,
+  Circle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +79,7 @@ import {
 import { Loader } from "@/components/ui/loader";
 import { AIVoiceInput } from "@/components/ui/ai-voice-input";
 import { CalendarView } from "@/components/task-manager/CalendarView";
+import { FilterDropdown } from "@/components/ui/filter-dropdown";
 
 // Define a color palette for categories
 const categoryColors = [
@@ -454,6 +462,7 @@ export default function TaskManager() {
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showSearch, setShowSearch] = useState(false);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -978,47 +987,54 @@ export default function TaskManager() {
   };
 
   // Filter tasks based on filter, search text, and selected tags
-  const filteredTasks = tasks.filter((task) => {
-    // Check if task is in 4-second waiting period
-    const isInWaitingPeriod = completedTaskIds.includes(task.id);
-    // Determine effective completion status (local state takes priority)
-    const effectivelyCompleted = isInWaitingPeriod || task.completed;
+  const filteredTasks = tasks
+    .filter((task) => {
+      // Check if task is in 4-second waiting period
+      const isInWaitingPeriod = completedTaskIds.includes(task.id);
+      // Determine effective completion status (local state takes priority)
+      const effectivelyCompleted = isInWaitingPeriod || task.completed;
 
-    // If on Home (not backlog), hide tasks whose primary category is hidden
-    const primaryCategory = task.tags[0];
-    const hideBecauseHiddenCat =
-      !showBacklog &&
-      primaryCategory &&
-      hiddenCategoryNames.includes(primaryCategory);
-    const tagOverride =
-      selectedTags.length > 0 &&
-      primaryCategory &&
-      selectedTags.includes(primaryCategory);
-    const isTemporarilyVisible =
-      Boolean(temporaryVisibleTasks[task.id]) ||
-      transientEditingTaskIds.includes(task.id);
-    const hiddenOnHome =
-      hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
+      // If on Home (not backlog), hide tasks whose primary category is hidden
+      const primaryCategory = task.tags[0];
+      const hideBecauseHiddenCat =
+        !showBacklog &&
+        primaryCategory &&
+        hiddenCategoryNames.includes(primaryCategory);
+      const tagOverride =
+        selectedTags.length > 0 &&
+        primaryCategory &&
+        selectedTags.includes(primaryCategory);
+      const isTemporarilyVisible =
+        Boolean(temporaryVisibleTasks[task.id]) ||
+        transientEditingTaskIds.includes(task.id);
+      const hiddenOnHome =
+        hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
 
-    return (
-      (activeGroup === "master" ? true : task.group === "today") &&
-      (searchText
-        ? task.text.toLowerCase().includes(searchText.toLowerCase())
-        : true) &&
-      (filter === "completed"
-        ? effectivelyCompleted
-        : filter === "active"
-        ? !effectivelyCompleted
-        : true) &&
-      (selectedTags.length > 0
-        ? selectedTags.every((tag) => task.tags.includes(tag))
-        : true) &&
-      // Hide completed tasks that are not in waiting period (only on home page)
-      (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true) &&
-      // Hide tasks whose category is hidden on Home (unless user explicitly filtered by that tag)
-      !hiddenOnHome
-    );
-  });
+      return (
+        (activeGroup === "master" ? true : task.group === "today") &&
+        (searchText
+          ? task.text.toLowerCase().includes(searchText.toLowerCase())
+          : true) &&
+        (filter === "completed"
+          ? effectivelyCompleted
+          : filter === "active"
+          ? !effectivelyCompleted
+          : true) &&
+        (selectedTags.length > 0
+          ? selectedTags.every((tag) => task.tags.includes(tag))
+          : true) &&
+        // Hide completed tasks that are not in waiting period (only on home page)
+        (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true) &&
+        // Hide tasks whose category is hidden on Home (unless user explicitly filtered by that tag)
+        !hiddenOnHome
+      );
+    })
+    .sort((a, b) => {
+      // Sort by date
+      const aTime = a.createdAt?.getTime() || 0;
+      const bTime = b.createdAt?.getTime() || 0;
+      return sortOrder === "desc" ? bTime - aTime : aTime - bTime;
+    });
 
   // Get all unique tags with their counts
   const tagCounts = tasks.reduce((acc, task) => {
@@ -1636,7 +1652,7 @@ export default function TaskManager() {
               className="w-full h-full flex flex-col max-w-2xl"
             >
               {/* Fixed header + quick-add */}
-              <div className="flex-shrink-0 bg-gray-50 pt-32 pb-8 px-4">
+              <div className="flex-shrink-0 bg-gray-50 pt-32 pb-2 px-4">
                 {/* Date Header */}
                 <div className="text-center mb-8">
                   <h1 className="text-4xl font-bold">
@@ -1871,6 +1887,54 @@ export default function TaskManager() {
                 </div>
               </div>
 
+              {/* Filter Dropdown */}
+              <div
+                className="px-4 pb-3 flex justify-end"
+                style={{ marginTop: "3px" }}
+              >
+                <FilterDropdown
+                  options={[
+                    {
+                      label: "All Tasks",
+                      onClick: () => setFilter("all"),
+                      Icon: <ListTodo className="h-3.5 w-3.5" />,
+                    },
+                    {
+                      label: "Active",
+                      onClick: () => setFilter("active"),
+                      Icon: <Circle className="h-3.5 w-3.5" />,
+                    },
+                    {
+                      label: "Completed",
+                      onClick: () => setFilter("completed"),
+                      Icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+                    },
+                    {
+                      label: "separator",
+                      onClick: () => {},
+                      Icon: null,
+                    },
+                    {
+                      label: "Newest First",
+                      onClick: () => setSortOrder("desc"),
+                      Icon: <ArrowDown className="h-3.5 w-3.5" />,
+                    },
+                    {
+                      label: "Oldest First",
+                      onClick: () => setSortOrder("asc"),
+                      Icon: <ArrowUp className="h-3.5 w-3.5" />,
+                    },
+                  ]}
+                >
+                  <Filter className="h-3.5 w-3.5 mr-1.5" />
+                  {filter === "all"
+                    ? "All"
+                    : filter === "active"
+                    ? "Active"
+                    : "Completed"}
+                </FilterDropdown>
+              </div>
+
               {/* Scrollable Task List */}
               <div className="flex-1 overflow-y-auto px-4 pb-8">
                 <Card className="overflow-visible">
@@ -1934,10 +1998,10 @@ export default function TaskManager() {
                               ease: "easeOut",
                             }}
                             className={cn(
-                              "flex items-center px-4 py-2 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
+                              "flex items-center px-4 py-2 min-h-[40px] group hover:bg-gray-50/80 transition-all duration-150 relative bg-white",
                               idx !== tasks.length - 1 &&
                                 "border-b border-gray-200",
-                              effectivelyCompleted ? "bg-muted/30" : ""
+                              effectivelyCompleted ? "bg-gray-50/50" : ""
                             )}
                             tabIndex={0}
                             onKeyDown={(e) => {
