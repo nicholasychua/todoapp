@@ -27,6 +27,30 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', 'framer-motion'],
   },
+  // Fix OpenAI package module resolution
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Externalize openai package for server-side
+      config.externals = config.externals || [];
+      config.externals.push({
+        'openai': 'commonjs openai',
+      });
+    } else {
+      // Don't bundle OpenAI for client-side
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+      };
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'openai': false,
+      };
+    }
+    return config;
+  },
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',

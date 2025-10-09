@@ -78,6 +78,7 @@ import {
 } from "@/lib/ai-service";
 import { Loader } from "@/components/ui/loader";
 import { AIVoiceInput } from "@/components/ui/ai-voice-input";
+import { FocusSessionOnboarding } from "@/components/ui/FocusSessionOnboarding";
 import { CalendarView } from "@/components/task-manager/CalendarView";
 import { FilterDropdown } from "@/components/ui/filter-dropdown";
 
@@ -466,6 +467,8 @@ export default function TaskManager() {
   const [showSearch, setShowSearch] = useState(false);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showFocusOnboarding, setShowFocusOnboarding] = useState(false);
+  const [focusSessionTaskIds, setFocusSessionTaskIds] = useState<string[]>([]);
   const [tabGroups, setTabGroups] = useState<TabGroup[]>([]);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const [voiceRaw, setVoiceRaw] = useState("");
@@ -1073,9 +1076,30 @@ export default function TaskManager() {
   };
 
   const handleLightSwitch = () => {
-    setShowPomodoro((prev) => !prev);
+    const willShowPomodoro = !showPomodoro;
+    if (willShowPomodoro) {
+      // Show onboarding flow first
+      setShowFocusOnboarding(true);
+      setShowPomodoro(false);
+    } else {
+      // Hide everything
+      setShowPomodoro(false);
+      setShowFocusOnboarding(false);
+      setFocusSessionTaskIds([]);
+    }
     setShowBacklog(false);
     setShowCalendar(false);
+  };
+
+  const handleFocusOnboardingComplete = (selectedTaskIds: string[]) => {
+    setFocusSessionTaskIds(selectedTaskIds);
+    setShowFocusOnboarding(false);
+    setShowPomodoro(true);
+  };
+
+  const handleFocusOnboardingCancel = () => {
+    setShowFocusOnboarding(false);
+    setFocusSessionTaskIds([]);
   };
 
   const handleBacklogToggle = () => {
@@ -1568,7 +1592,25 @@ export default function TaskManager() {
       {/* Main content area with animation */}
       <div className="w-full flex flex-col justify-center items-center h-full">
         <AnimatePresence mode="wait">
-          {showPomodoro ? (
+          {showFocusOnboarding ? (
+            <motion.div
+              key="focus-onboarding"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex justify-center items-center h-full w-full"
+            >
+              <FocusSessionOnboarding
+                tasks={tasks}
+                completedTaskIds={completedTaskIds}
+                formatTextWithTags={formatTextWithTags}
+                getTagTextColor={getTagTextColor}
+                onComplete={handleFocusOnboardingComplete}
+                onCancel={handleFocusOnboardingCancel}
+              />
+            </motion.div>
+          ) : showPomodoro ? (
             <motion.div
               key="pomodoro"
               initial={{ opacity: 0 }}
@@ -1590,6 +1632,7 @@ export default function TaskManager() {
                 getColorName={getColorName}
                 categories={categories}
                 updateTask={updateTask}
+                focusSessionTaskIds={focusSessionTaskIds}
               />
             </motion.div>
           ) : showBacklog ? (
@@ -3663,6 +3706,7 @@ function PomodoroTimer({
   getColorName,
   categories,
   updateTask,
+  focusSessionTaskIds,
 }: {
   tasks: Task[];
   toggleTaskCompletion: (id: string) => void;
@@ -3676,6 +3720,7 @@ function PomodoroTimer({
   getColorName: (tag: string) => string;
   categories: Category[];
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  focusSessionTaskIds: string[];
 }) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [running, setRunning] = useState(false);
@@ -3712,11 +3757,16 @@ function PomodoroTimer({
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
 
-  // Filter tasks similar to main view - hide completed tasks that are not in waiting period
+  // Filter tasks - only show selected focus session tasks
   const filteredTasks = tasks.filter((task) => {
+    // First filter by focus session selection
+    if (!focusSessionTaskIds.includes(task.id)) {
+      return false;
+    }
+
+    // Then filter out completed tasks that are not in waiting period
     const isInWaitingPeriod = completedTaskIds.includes(task.id);
     const effectivelyCompleted = isInWaitingPeriod || task.completed;
-    // Hide completed tasks that are not in waiting period
     return !(effectivelyCompleted && !isInWaitingPeriod);
   });
 
