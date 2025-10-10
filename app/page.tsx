@@ -542,6 +542,9 @@ export default function TaskManager() {
   >([]);
   // Ticker for progress bar rendering
   const [nowTs, setNowTs] = useState<number>(Date.now());
+  // Edit task state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
@@ -798,6 +801,33 @@ export default function TaskManager() {
     } finally {
       setIsAILoading(false);
     }
+  };
+
+  // Start editing a task
+  const startEditTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  };
+
+  // Save edited task
+  const saveEditTask = async (task: Task) => {
+    if (!user || !editingTaskText.trim()) {
+      setEditingTaskId(null);
+      setEditingTaskText("");
+      return;
+    }
+
+    if (editingTaskText !== task.text) {
+      try {
+        await updateTask(task.id, { text: editingTaskText });
+        toast.success("Task updated");
+      } catch (error) {
+        toast.error("Failed to update task");
+      }
+    }
+
+    setEditingTaskId(null);
+    setEditingTaskText("");
   };
 
   // Toggle task completion with delay
@@ -1723,6 +1753,7 @@ export default function TaskManager() {
                   tasks={tasks}
                   getTagTextColor={getTagTextColor}
                   onDateClick={handleCalendarDateClick}
+                  updateTask={updateTask}
                 />
               </div>
             </motion.div>
@@ -2108,16 +2139,59 @@ export default function TaskManager() {
                             />
                             {/* Main content */}
                             <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
-                              <span
-                                className={cn(
-                                  "text-sm font-normal transition-colors duration-200",
-                                  effectivelyCompleted
-                                    ? "text-muted-foreground opacity-70"
-                                    : "text-gray-900"
+                              <AnimatePresence mode="wait">
+                                {editingTaskId === task.id ? (
+                                  <motion.input
+                                    key="edit-input"
+                                    initial={{ opacity: 0, scale: 0.98 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
+                                    transition={{
+                                      duration: 0.15,
+                                      ease: "easeOut",
+                                    }}
+                                    className="text-sm bg-gray-50/50 border border-gray-300 rounded-lg text-gray-900 px-3 py-1.5 outline-none focus:border-gray-400 focus:bg-white focus:shadow-sm transition-all duration-200"
+                                    value={editingTaskText}
+                                    onChange={(e) =>
+                                      setEditingTaskText(e.target.value)
+                                    }
+                                    onBlur={() => saveEditTask(task)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        saveEditTask(task);
+                                      }
+                                      if (e.key === "Escape") {
+                                        setEditingTaskId(null);
+                                        setEditingTaskText("");
+                                      }
+                                    }}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <motion.span
+                                    key="view-span"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{
+                                      duration: 0.15,
+                                      ease: "easeOut",
+                                    }}
+                                    className={cn(
+                                      "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
+                                      effectivelyCompleted
+                                        ? "text-muted-foreground opacity-70"
+                                        : "text-gray-900"
+                                    )}
+                                    onClick={() => startEditTask(task)}
+                                    whileHover={{ x: 2 }}
+                                    whileTap={{ scale: 0.98 }}
+                                  >
+                                    {formatTextWithTags(task.text)}
+                                  </motion.span>
                                 )}
-                              >
-                                {formatTextWithTags(task.text)}
-                              </span>
+                              </AnimatePresence>
                               {hasDate && (
                                 <Popover>
                                   <PopoverTrigger asChild>

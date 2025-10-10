@@ -19,12 +19,18 @@ import {
   subDays,
   getHours,
 } from "date-fns";
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CalendarIcon,
+  Pencil,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/lib/tasks";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 type ViewMode = "month" | "week" | "day";
 
@@ -33,6 +39,7 @@ interface CalendarViewProps {
   onTaskClick?: (task: Task) => void;
   onDateClick?: (date: Date) => void;
   getTagTextColor: (tag: string) => string;
+  updateTask?: (id: string, updates: Partial<Task>) => Promise<void>;
 }
 
 // For Monday start (getDay returns: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
@@ -109,10 +116,20 @@ const TaskCard = React.memo(
     task,
     onTaskClick,
     getTagTextColor,
+    isEditing,
+    editText,
+    onStartEdit,
+    onSaveEdit,
+    onEditTextChange,
   }: {
     task: Task;
     onTaskClick?: (task: Task) => void;
     getTagTextColor: (tag: string) => string;
+    isEditing: boolean;
+    editText: string;
+    onStartEdit: () => void;
+    onSaveEdit: () => void;
+    onEditTextChange: (text: string) => void;
   }) => {
     const taskDate =
       task.createdAt instanceof Date ? task.createdAt : new Date();
@@ -126,15 +143,18 @@ const TaskCard = React.memo(
       : "";
 
     return (
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          onTaskClick?.(task);
-        }}
+      <motion.div
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
         className={cn(
           "group flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer transition-all hover:shadow-md text-[10px]",
           getTaskBackground(task)
         )}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isEditing) return;
+          onTaskClick?.(task);
+        }}
       >
         <div
           className={cn(
@@ -143,16 +163,44 @@ const TaskCard = React.memo(
           )}
         />
         <div className="flex-1 min-w-0 flex items-baseline justify-between gap-1">
-          <p
-            className={cn(
-              "font-semibold leading-tight line-clamp-1",
-              getTextColor(task),
-              task.completed && "line-through"
-            )}
-          >
-            {task.text.replace(/#\w+/g, "").trim()}
-          </p>
-          {timeString && (
+          {isEditing ? (
+            <motion.input
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex-1 bg-white/90 border border-gray-300 rounded px-1.5 py-1 text-[10px] outline-none focus:border-gray-400 focus:shadow-sm"
+              value={editText}
+              onChange={(e) => onEditTextChange(e.target.value)}
+              onBlur={onSaveEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onSaveEdit();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onSaveEdit();
+                }
+              }}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <p
+              className={cn(
+                "font-semibold leading-tight line-clamp-1 transition-colors duration-150",
+                getTextColor(task),
+                task.completed && "line-through"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartEdit();
+              }}
+            >
+              {task.text.replace(/#\w+/g, "").trim()}
+            </p>
+          )}
+          {!isEditing && timeString && (
             <span
               className={cn(
                 "text-[9px] flex-shrink-0 font-medium",
@@ -163,7 +211,19 @@ const TaskCard = React.memo(
             </span>
           )}
         </div>
-      </div>
+        {!isEditing && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartEdit();
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-white/50 rounded"
+            aria-label="Edit task"
+          >
+            <Pencil className="w-2.5 h-2.5 text-gray-500" />
+          </button>
+        )}
+      </motion.div>
     );
   }
 );
@@ -175,6 +235,7 @@ export const CalendarView = React.memo(function CalendarView({
   onTaskClick,
   onDateClick,
   getTagTextColor,
+  updateTask,
 }: CalendarViewProps) {
   const today = React.useMemo(() => startOfToday(), []);
   const [selectedDay, setSelectedDay] = React.useState(today);
@@ -182,10 +243,40 @@ export const CalendarView = React.memo(function CalendarView({
     format(today, "MMM-yyyy")
   );
   const [viewMode, setViewMode] = React.useState<ViewMode>("month");
+  const [editingTaskId, setEditingTaskId] = React.useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = React.useState("");
+
   const firstDayCurrentMonth = React.useMemo(
     () => parse(currentMonth, "MMM-yyyy", new Date()),
     [currentMonth]
   );
+
+  // Edit handlers
+  const startEditTask = React.useCallback((task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  }, []);
+
+  const saveEditTask = React.useCallback(async () => {
+    if (!editingTaskId || !editingTaskText.trim() || !updateTask) {
+      setEditingTaskId(null);
+      setEditingTaskText("");
+      return;
+    }
+
+    const task = tasks.find((t) => t.id === editingTaskId);
+    if (task && editingTaskText !== task.text) {
+      try {
+        await updateTask(editingTaskId, { text: editingTaskText });
+        toast.success("Task updated");
+      } catch (error) {
+        toast.error("Failed to update task");
+      }
+    }
+
+    setEditingTaskId(null);
+    setEditingTaskText("");
+  }, [editingTaskId, editingTaskText, tasks, updateTask]);
 
   // Memoize task lookups for better performance
   const getTasksForDay = React.useCallback(
@@ -334,6 +425,11 @@ export const CalendarView = React.memo(function CalendarView({
                       task={task}
                       onTaskClick={onTaskClick}
                       getTagTextColor={getTagTextColor}
+                      isEditing={editingTaskId === task.id}
+                      editText={editingTaskText}
+                      onStartEdit={() => startEditTask(task)}
+                      onSaveEdit={saveEditTask}
+                      onEditTextChange={setEditingTaskText}
                     />
                   ))}
                   {dayTasks.length > 3 && (
