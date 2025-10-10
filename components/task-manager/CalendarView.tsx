@@ -19,12 +19,7 @@ import {
   subDays,
   getHours,
 } from "date-fns";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CalendarIcon,
-  Pencil,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +33,7 @@ interface CalendarViewProps {
   tasks: Task[];
   onTaskClick?: (task: Task) => void;
   onDateClick?: (date: Date) => void;
+  onTaskEdit?: (task: Task) => void;
   getTagTextColor: (tag: string) => string;
   updateTask?: (id: string, updates: Partial<Task>) => Promise<void>;
 }
@@ -155,6 +151,11 @@ const TaskCard = React.memo(
           if (isEditing) return;
           onTaskClick?.(task);
         }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          if (isEditing) return;
+          onStartEdit();
+        }}
       >
         <div
           className={cn(
@@ -196,6 +197,10 @@ const TaskCard = React.memo(
                 e.stopPropagation();
                 onStartEdit();
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onStartEdit();
+              }}
             >
               {task.text.replace(/#\w+/g, "").trim()}
             </p>
@@ -211,18 +216,6 @@ const TaskCard = React.memo(
             </span>
           )}
         </div>
-        {!isEditing && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartEdit();
-            }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-white/50 rounded"
-            aria-label="Edit task"
-          >
-            <Pencil className="w-2.5 h-2.5 text-gray-500" />
-          </button>
-        )}
       </motion.div>
     );
   }
@@ -234,6 +227,7 @@ export const CalendarView = React.memo(function CalendarView({
   tasks,
   onTaskClick,
   onDateClick,
+  onTaskEdit,
   getTagTextColor,
   updateTask,
 }: CalendarViewProps) {
@@ -252,10 +246,18 @@ export const CalendarView = React.memo(function CalendarView({
   );
 
   // Edit handlers
-  const startEditTask = React.useCallback((task: Task) => {
-    setEditingTaskId(task.id);
-    setEditingTaskText(task.text);
-  }, []);
+  const startEditTask = React.useCallback(
+    (task: Task) => {
+      if (onTaskEdit) {
+        onTaskEdit(task);
+      } else {
+        // Fallback to inline editing if no onTaskEdit prop
+        setEditingTaskId(task.id);
+        setEditingTaskText(task.text);
+      }
+    },
+    [onTaskEdit]
+  );
 
   const saveEditTask = React.useCallback(async () => {
     if (!editingTaskId || !editingTaskText.trim() || !updateTask) {
@@ -459,6 +461,12 @@ export const CalendarView = React.memo(function CalendarView({
     onDateClick,
     getTagTextColor,
     firstDayCurrentMonth,
+    editingTaskId,
+    editingTaskText,
+    startEditTask,
+    saveEditTask,
+    setEditingTaskId,
+    setEditingTaskText,
   ]);
 
   // Week View
@@ -531,7 +539,16 @@ export const CalendarView = React.memo(function CalendarView({
                       {hourTasks.map((task) => (
                         <div
                           key={task.id}
-                          onClick={() => onTaskClick?.(task)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTaskClick?.(task);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            // Start edit mode for this task
+                            setEditingTaskId(task.id);
+                            setEditingTaskText(task.text);
+                          }}
                           className={cn(
                             "mb-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-sm border",
                             task.completed
@@ -558,7 +575,14 @@ export const CalendarView = React.memo(function CalendarView({
         </div>
       </div>
     );
-  }, [weekDays, getTasksForHour, onTaskClick, onDateClick]);
+  }, [
+    weekDays,
+    getTasksForHour,
+    onTaskClick,
+    onDateClick,
+    setEditingTaskId,
+    setEditingTaskText,
+  ]);
 
   // Day View
   const renderDayView = React.useCallback(() => {
@@ -597,7 +621,16 @@ export const CalendarView = React.memo(function CalendarView({
                     {hourTasks.map((task) => (
                       <div
                         key={task.id}
-                        onClick={() => onTaskClick?.(task)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTaskClick?.(task);
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          // Start edit mode for this task
+                          setEditingTaskId(task.id);
+                          setEditingTaskText(task.text);
+                        }}
                         className={cn(
                           "group rounded-lg border p-3 cursor-pointer transition-all hover:shadow-md",
                           task.completed
@@ -680,7 +713,16 @@ export const CalendarView = React.memo(function CalendarView({
                   {dayTasks.map((task) => (
                     <div
                       key={task.id}
-                      onClick={() => onTaskClick?.(task)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTaskClick?.(task);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        // Start edit mode for this task
+                        setEditingTaskId(task.id);
+                        setEditingTaskText(task.text);
+                      }}
                       className={cn(
                         "p-2 rounded-md border cursor-pointer transition-all hover:shadow-sm",
                         task.completed
@@ -731,6 +773,8 @@ export const CalendarView = React.memo(function CalendarView({
     getTasksForHour,
     onTaskClick,
     getTagTextColor,
+    setEditingTaskId,
+    setEditingTaskText,
   ]);
 
   return (

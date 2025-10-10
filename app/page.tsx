@@ -82,6 +82,7 @@ import { FocusSessionOnboarding } from "@/components/ui/FocusSessionOnboarding";
 import { CalendarView } from "@/components/task-manager/CalendarView";
 import { FilterDropdown } from "@/components/ui/filter-dropdown";
 import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
+import { TaskEditDialog } from "@/components/ui/TaskEditDialog";
 
 // Define a color palette for categories
 const categoryColors = [
@@ -542,9 +543,10 @@ export default function TaskManager() {
   >([]);
   // Ticker for progress bar rendering
   const [nowTs, setNowTs] = useState<number>(Date.now());
-  // Edit task state
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editingTaskText, setEditingTaskText] = useState("");
+  // Removed old inline editing state - now using TaskEditDialog
+  // Task edit dialog state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
@@ -805,30 +807,31 @@ export default function TaskManager() {
 
   // Start editing a task
   const startEditTask = (task: Task) => {
-    setEditingTaskId(task.id);
-    setEditingTaskText(task.text);
+    setEditingTask(task);
+    setIsEditDialogOpen(true);
   };
 
-  // Save edited task
-  const saveEditTask = async (task: Task) => {
-    if (!user || !editingTaskText.trim()) {
-      setEditingTaskId(null);
-      setEditingTaskText("");
-      return;
+  // Handle edit dialog save
+  const handleEditDialogSave = async (
+    taskId: string,
+    updates: Partial<Task>
+  ) => {
+    try {
+      await updateTask(taskId, updates);
+      toast.success("Task updated");
+    } catch (error) {
+      toast.error("Failed to update task");
+      throw error;
     }
-
-    if (editingTaskText !== task.text) {
-      try {
-        await updateTask(task.id, { text: editingTaskText });
-        toast.success("Task updated");
-      } catch (error) {
-        toast.error("Failed to update task");
-      }
-    }
-
-    setEditingTaskId(null);
-    setEditingTaskText("");
   };
+
+  // Handle edit dialog close
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    setEditingTask(null);
+  };
+
+  // Removed old saveEditTask - now handled by TaskEditDialog
 
   // Toggle task completion with delay
   const toggleTaskCompletion = async (taskId: string) => {
@@ -1734,6 +1737,7 @@ export default function TaskManager() {
                 completedTaskIds={completedTaskIds}
                 getTagTextColor={getTagTextColor}
                 parseTagsFromText={parseTagsFromText}
+                onTaskEdit={startEditTask}
               />
             </motion.div>
           ) : showCalendar ? (
@@ -1753,6 +1757,7 @@ export default function TaskManager() {
                   tasks={tasks}
                   getTagTextColor={getTagTextColor}
                   onDateClick={handleCalendarDateClick}
+                  onTaskEdit={startEditTask}
                   updateTask={updateTask}
                 />
               </div>
@@ -2139,59 +2144,19 @@ export default function TaskManager() {
                             />
                             {/* Main content */}
                             <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
-                              <AnimatePresence mode="wait">
-                                {editingTaskId === task.id ? (
-                                  <motion.input
-                                    key="edit-input"
-                                    initial={{ opacity: 0, scale: 0.98 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.98 }}
-                                    transition={{
-                                      duration: 0.15,
-                                      ease: "easeOut",
-                                    }}
-                                    className="text-sm bg-gray-50/50 border border-gray-300 rounded-lg text-gray-900 px-3 py-1.5 outline-none focus:border-gray-400 focus:bg-white focus:shadow-sm transition-all duration-200"
-                                    value={editingTaskText}
-                                    onChange={(e) =>
-                                      setEditingTaskText(e.target.value)
-                                    }
-                                    onBlur={() => saveEditTask(task)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        saveEditTask(task);
-                                      }
-                                      if (e.key === "Escape") {
-                                        setEditingTaskId(null);
-                                        setEditingTaskText("");
-                                      }
-                                    }}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <motion.span
-                                    key="view-span"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{
-                                      duration: 0.15,
-                                      ease: "easeOut",
-                                    }}
-                                    className={cn(
-                                      "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
-                                      effectivelyCompleted
-                                        ? "text-muted-foreground opacity-70"
-                                        : "text-gray-900"
-                                    )}
-                                    onClick={() => startEditTask(task)}
-                                    whileHover={{ x: 2 }}
-                                    whileTap={{ scale: 0.98 }}
-                                  >
-                                    {formatTextWithTags(task.text)}
-                                  </motion.span>
+                              <motion.span
+                                className={cn(
+                                  "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
+                                  effectivelyCompleted
+                                    ? "text-muted-foreground opacity-70"
+                                    : "text-gray-900"
                                 )}
-                              </AnimatePresence>
+                                onClick={() => startEditTask(task)}
+                                whileHover={{ x: 2 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                {formatTextWithTags(task.text)}
+                              </motion.span>
                               {hasDate && (
                                 <Popover>
                                   <PopoverTrigger asChild>
@@ -2796,6 +2761,16 @@ export default function TaskManager() {
         categories={categories}
         getTagTextColor={getTagTextColor}
       />
+
+      {/* Task Edit Dialog */}
+      <TaskEditDialog
+        isOpen={isEditDialogOpen}
+        onClose={handleEditDialogClose}
+        onSave={handleEditDialogSave}
+        task={editingTask}
+        categories={categories}
+        getTagTextColor={getTagTextColor}
+      />
     </div>
   );
 }
@@ -2822,6 +2797,7 @@ function BacklogView({
   completedTaskIds,
   getTagTextColor,
   parseTagsFromText,
+  onTaskEdit,
 }: {
   tasks: Task[];
   toggleTaskCompletion: (id: string) => void;
@@ -2843,6 +2819,7 @@ function BacklogView({
   completedTaskIds: string[];
   getTagTextColor: (tag: string) => string;
   parseTagsFromText: (text: string) => string[];
+  onTaskEdit: (task: Task) => void;
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
@@ -3156,31 +3133,20 @@ function BacklogView({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCategoryPopup]);
 
-  // Add at the top of BacklogView, after other useState hooks:
-  const [editTaskId, setEditTaskId] = useState<string | null>(null);
-  const [editTaskText, setEditTaskText] = useState<string>("");
+  // Removed inline editing state - now using TaskEditDialog
 
   // Handler to open modal
   const openCategoryModal = (catName: string) => setSelectedCategory(catName);
   // Handler to close modal
   const closeCategoryModal = () => {
     setSelectedCategory(null);
-    setEditTaskId(null);
-    setEditTaskText("");
   };
 
   // Handler for editing a task
   const startEditTask = (task: Task) => {
-    setEditTaskId(task.id);
-    setEditTaskText(task.text);
+    onTaskEdit(task);
   };
-  const saveEditTask = async (task: Task) => {
-    if (editTaskText.trim() && editTaskText !== task.text) {
-      await updateTask(task.id, { text: editTaskText });
-    }
-    setEditTaskId(null);
-    setEditTaskText("");
-  };
+  // Removed saveEditTask - now handled by TaskEditDialog
 
   // In BacklogView, add state for card order using unique ids
   const UNCATEGORIZED_ID = "__uncategorized__";
@@ -3707,29 +3673,12 @@ function BacklogView({
                       </div>
 
                       {/* Task text */}
-                      {editTaskId === task.id ? (
-                        <input
-                          className="flex-1 bg-transparent border-b border-gray-300 text-gray-900 px-1 py-2 outline-none text-base"
-                          value={editTaskText}
-                          onChange={(e) => setEditTaskText(e.target.value)}
-                          onBlur={() => saveEditTask(task)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEditTask(task);
-                            if (e.key === "Escape") {
-                              setEditTaskId(null);
-                              setEditTaskText("");
-                            }
-                          }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span
-                          className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
-                          onClick={() => startEditTask(task)}
-                        >
-                          {task.text}
-                        </span>
-                      )}
+                      <span
+                        className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
+                        onClick={() => startEditTask(task)}
+                      >
+                        {task.text}
+                      </span>
 
                       {/* Delete button */}
                       <button
