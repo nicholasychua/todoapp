@@ -60,6 +60,10 @@ export async function categorizeTask(
   categories: string[] | CategoryMetadata[]
 ): Promise<CategorizationResult> {
   try {
+    // Create an abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
     const response = await fetch('/api/ai/categorize-task', {
       method: 'POST',
       headers: {
@@ -70,10 +74,14 @@ export async function categorizeTask(
         categoryMetadata: typeof categories[0] === 'object' ? categories : undefined,
         categories: typeof categories[0] === 'string' ? categories : undefined
       }),
+      signal: controller.signal,
     }).catch((fetchError) => {
+      clearTimeout(timeoutId);
       console.error('Network error fetching categorization API:', fetchError);
       throw new Error('Network error');
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -178,12 +186,12 @@ function getFallbackCategorization(
   
   // Base keyword map for common task types (expanded per-category below)
   const defaultKeywordMap: Record<string, string[]> = {
-    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'report', 'email', 'call', 'interview'],
+    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'report', 'email', 'call', 'interview', 'career', 'professional', 'standup', 'sync', 'onboarding', 'resume', 'application', 'position', 'role', 'employment'],
     'personal': ['birthday', 'anniversary', 'family', 'relationship', 'self', 'personal goal'],
     'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical', 'doctor', 'appointment', 'therapy', 'wellness'],
     'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries', 'order', 'amazon', 'shop'],
     'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment', 'invoice', 'tax', 'expense'],
-    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'tutorial', 'practice', 'review', 'midterm', 'final', 'textbook', 'notes', 'research', 'paper', 'essay', 'problem set', 'lab', 'school', 'college', 'university', 'student', 'grade', 'submit', 'due', 'chapter', 'complete', 'finish'],
+    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'tutorial', 'practice', 'review', 'midterm', 'final', 'textbook', 'notes', 'research', 'paper', 'essay', 'problem set', 'lab', 'school', 'college', 'university', 'student', 'grade', 'submit', 'due', 'chapter'],
     'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking', 'airport', 'passport', 'visa'],
     'social': ['social', 'friend', 'hangout', 'coffee', 'lunch', 'dinner', 'catch up'],
     'events': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'ticket', 'tickets', 'venue', 'meetup', 'conference'],
@@ -224,11 +232,11 @@ function getFallbackCategorization(
     if (/(music)/.test(lc)) {
       keywords = keywords.concat(['music', 'concert', 'show', 'gig', 'performance']);
     }
-    if (/(work|job|office|client|project|business|meeting)/.test(lc)) {
-      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation']);
+    if (/(work|job|office|client|project|business|meeting|career|professional|employment)/.test(lc)) {
+      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'interview', 'career', 'professional', 'standup', 'sync', 'onboarding', 'resume', 'application', 'position', 'role']);
     }
     if (/(school|learn|study|homework|class|course|education|academic)/.test(lc)) {
-      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'complete', 'finish', 'submit', 'due', 'chapter', 'problem', 'practice']);
+      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'submit', 'due', 'chapter', 'problem', 'practice']);
     }
     if (/(hobby|fun|entertainment|leisure)/.test(lc)) {
       keywords = keywords.concat(['hobby', 'fun', 'entertainment', 'game', 'play', 'watch', 'enjoy']);
@@ -239,20 +247,51 @@ function getFallbackCategorization(
   
   // Semantic pattern detection for better context understanding
   
+  // HIGHEST PRIORITY: Check for communication/personal interaction patterns
+  // Patterns: "text/call/email/message [person name] to/about [something]"
+  const communicationPattern = /\b(text|call|email|message|reach out|contact|ping|dm|remind)\s+([a-z]+)\s+(to|about|regarding|for|that|and)/i;
+  const hasCommunicationPattern = communicationPattern.test(lowerTaskText);
+  
+  // Simple person name detection (capitalized word that's not at start, or common names)
+  const commonNames = ['sarah', 'john', 'mike', 'emily', 'david', 'lisa', 'chris', 'alex', 'mom', 'dad', 'brother', 'sister', 'friend'];
+  const hasPersonName = commonNames.some(name => lowerTaskText.includes(name)) || /\b(text|call|email|message)\s+[A-Z][a-z]+/.test(taskText);
+  
+  // Communication verbs followed by person indicators
+  const isCommunicationTask = /\b(text|call|email|message|reach out|contact|ping|dm|tell|ask|remind|notify)\b/.test(lowerTaskText) && hasPersonName;
+  
+  // Check for work/professional patterns
+  const interviewPattern = /\b(interview|job|career|position|role|application|resume|cv)\b/i;
+  const hasInterviewContext = interviewPattern.test(lowerTaskText);
+  
+  // Common company/tech names that indicate work context
+  const companyIndicators = ['google', 'amazon', 'meta', 'microsoft', 'apple', 'netflix', 'datadog', 'stripe', 'uber', 'lyft', 'airbnb', 'facebook', 'twitter', 'linkedin', 'salesforce', 'oracle', 'ibm', 'adobe', 'cisco', 'intel', 'nvidia'];
+  const hasCompanyName = companyIndicators.some(company => lowerTaskText.includes(company));
+  
+  // Work-specific actions
+  const workActions = ['meeting', 'presentation', 'deadline', 'client', 'project', 'standup', 'sync', 'onboarding', 'training'];
+  const hasWorkAction = workActions.some(action => lowerTaskText.includes(action));
+  
+  // If task mentions interview OR company name, it's highly likely to be work
+  const isLikelyWorkTask = hasInterviewContext || (hasCompanyName && !lowerTaskText.includes('order') && !lowerTaskText.includes('buy'));
+  
   // Check for course code patterns (e.g., CS101, ENGIN26, MATH3A)
   const courseCodePattern = /\b[a-z]{2,6}\s*\d{1,4}[a-z]?\b/i;
   const hasCourseCode = courseCodePattern.test(lowerTaskText);
   
   // Check for academic action words
-  const academicActions = ['finish', 'complete', 'submit', 'study', 'review', 'read', 'practice', 'solve', 'write'];
+  const academicActions = ['homework', 'assignment', 'exam', 'test', 'quiz', 'midterm', 'final', 'lecture', 'lab', 'textbook'];
   const hasAcademicAction = academicActions.some(action => lowerTaskText.includes(action));
   
-  // Check for food-related patterns
-  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'order', 'pick up', 'pickup', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'coffee', 'groceries', 'grocery'];
-  const hasFoodContext = foodPatterns.some(pattern => lowerTaskText.includes(pattern));
+  // Academic subjects that indicate learning
+  const academicSubjects = ['math', 'science', 'history', 'english', 'biology', 'chemistry', 'physics', 'calculus', 'algebra', 'geometry'];
+  const hasAcademicSubject = academicSubjects.some(subject => lowerTaskText.includes(subject));
   
-  // Check for shopping patterns
-  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store', 'get', 'pick up', 'order'];
+  // Check for food-related patterns (but NOT if it's clearly work/interview related)
+  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'groceries', 'grocery'];
+  const hasFoodContext = !isLikelyWorkTask && foodPatterns.some(pattern => lowerTaskText.includes(pattern));
+  
+  // Check for shopping patterns (but context matters)
+  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store'];
   const hasShoppingAction = shoppingPatterns.some(pattern => lowerTaskText.includes(pattern));
   
   // Check for event/entertainment patterns
@@ -286,8 +325,40 @@ function getFallbackCategorization(
     }
     
     // Context-aware boosting based on semantic patterns
+    // HIGHEST PRIORITY: Communication/Personal tasks
+    if (isCommunicationTask && /(personal|social|communication|friends?|family|people|contact)/.test(lowerCategory)) {
+      score += 60; // Very strong boost for communication tasks
+    }
+    if (hasCommunicationPattern && /(personal|social|communication)/.test(lowerCategory)) {
+      score += 40; // Strong boost for clear communication patterns
+    }
     
-    // Food/Shopping context
+    // PRIORITY: Work context (high priority to avoid misclassification)
+    if (isLikelyWorkTask && /(work|job|career|professional|office|business|employment)/.test(lowerCategory)) {
+      score += 50; // Very strong boost for work-related tasks with interview/company context
+    }
+    if (hasInterviewContext && /(work|job|career|professional)/.test(lowerCategory)) {
+      score += 30; // Strong boost for interview mentions
+    }
+    if (hasCompanyName && /(work|job|career|professional)/.test(lowerCategory)) {
+      score += 25; // Strong boost for company names
+    }
+    if (hasWorkAction && /(work|job|career|professional|office|business)/.test(lowerCategory)) {
+      score += 20; // Boost for work-specific actions
+    }
+    
+    // Academic context (high priority)
+    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 35; // Very strong boost for course codes
+    }
+    if (hasAcademicAction && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 20; // Strong boost for academic actions
+    }
+    if (hasAcademicSubject && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 15; // Boost for academic subjects
+    }
+    
+    // Food/Shopping context (only if NOT work-related)
     if (hasFoodContext && /(food|shop|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
       score += 20; // Strong boost for food-related tasks
     }
@@ -295,17 +366,21 @@ function getFallbackCategorization(
       score += 10; // Additional boost for shopping + food
     }
     
-    // Academic context
-    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 20; // Strong boost for course codes
-    }
-    if (hasAcademicAction && hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 10; // Additional boost if both present
-    }
-    
     // Event context
     if (hasEventContext && /(event|entertainment|social|concert|show)/.test(lowerCategory)) {
       score += 15; // Boost for clear event patterns
+    }
+    
+    // PENALTIES: Prevent obvious misclassifications
+    
+    // Prevent communication tasks from being categorized incorrectly
+    if (isCommunicationTask && /(club|event|hobby|food|shop|fitness|health|sport|music|concert|game)/.test(lowerCategory)) {
+      score -= 100; // Strong penalty - communication tasks shouldn't go to these categories
+    }
+    
+    // Prevent work tasks from being categorized as food
+    if (isLikelyWorkTask && /(food|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
+      score -= 100; // Strong penalty to prevent "prep datadog interview" going to food
     }
     
     // Sentiment-based bonus scoring
@@ -316,9 +391,15 @@ function getFallbackCategorization(
       score += 3;
     }
     
-    // Penalize "personal" category unless it's a clear personal task
-    if (/personal/.test(lowerCategory) && !/(birthday|anniversary|family|relationship)/.test(lowerTaskText)) {
-      score -= 8; // Stronger penalty to avoid over-categorizing as personal
+    // Smart "personal" category handling
+    if (/personal/.test(lowerCategory)) {
+      // BOOST personal if it's communication, family, or life admin
+      if (isCommunicationTask || /(birthday|anniversary|family|relationship|mom|dad|parent|sibling|friend)/.test(lowerTaskText)) {
+        score += 15; // Boost for clear personal tasks
+      } else if (!/(birthday|anniversary|family|relationship|text|call|email|message)/.test(lowerTaskText)) {
+        // Only penalize if it's clearly NOT personal
+        score -= 5;
+      }
     }
     
     if (score > bestScore) {
@@ -327,16 +408,36 @@ function getFallbackCategorization(
     }
   }
   
-  // On zero score, prefer neutral buckets
-  if (bestScore === 0) {
-    const neutral = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
-    if (neutral) bestMatch = neutral.name;
+  // Smart uncategorized handling - don't force categorization if score is too low
+  const uncategorizedCategory = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
+  
+  // If score is too low (weak match), prefer uncategorized
+  if (bestScore < 15 && uncategorizedCategory) {
+    bestMatch = uncategorizedCategory.name;
+    console.log('Fallback categorization result (low score, using uncategorized):', { suggestedCategory: bestMatch, confidence: "low", score: bestScore });
+    return {
+      suggestedCategory: bestMatch,
+      confidence: "low"
+    };
   }
   
-  console.log('Fallback categorization result:', { suggestedCategory: bestMatch, confidence: bestScore > 0 ? "medium" : "low" });
+  // On zero score, definitely use uncategorized
+  if (bestScore === 0 && uncategorizedCategory) {
+    bestMatch = uncategorizedCategory.name;
+  }
+  
+  // Determine confidence based on score
+  let confidence = "low";
+  if (bestScore >= 50) {
+    confidence = "high";
+  } else if (bestScore >= 25) {
+    confidence = "medium";
+  }
+  
+  console.log('Fallback categorization result:', { suggestedCategory: bestMatch, confidence, score: bestScore });
   
   return {
     suggestedCategory: bestMatch,
-    confidence: bestScore > 0 ? "medium" : "low"
+    confidence
   };
 } 

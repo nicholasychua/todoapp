@@ -41,12 +41,12 @@ const fallbackCategorize = (
   
   // Base keyword map for common task types (fallback if no user-defined keywords)
   const defaultKeywordMap: Record<string, string[]> = {
-    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'report', 'email', 'call', 'interview'],
+    'work': ['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'report', 'email', 'call', 'interview', 'career', 'professional', 'standup', 'sync', 'onboarding', 'resume', 'application', 'position', 'role', 'employment'],
     'personal': ['birthday', 'anniversary', 'family', 'relationship', 'self', 'personal goal'],
     'health': ['health', 'fitness', 'exercise', 'workout', 'gym', 'diet', 'medical', 'doctor', 'appointment', 'therapy', 'wellness'],
     'shopping': ['shopping', 'buy', 'purchase', 'store', 'market', 'groceries', 'order', 'amazon', 'shop'],
     'finance': ['finance', 'money', 'budget', 'bill', 'payment', 'bank', 'investment', 'invoice', 'tax', 'expense'],
-    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'tutorial', 'practice', 'review', 'midterm', 'final', 'textbook', 'notes', 'research', 'paper', 'essay', 'problem set', 'lab', 'school', 'college', 'university', 'student', 'grade', 'submit', 'due', 'chapter', 'complete', 'finish'],
+    'learning': ['learn', 'study', 'read', 'course', 'education', 'training', 'class', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'tutorial', 'practice', 'review', 'midterm', 'final', 'textbook', 'notes', 'research', 'paper', 'essay', 'problem set', 'lab', 'school', 'college', 'university', 'student', 'grade', 'submit', 'due', 'chapter'],
     'travel': ['travel', 'trip', 'vacation', 'flight', 'hotel', 'booking', 'airport', 'passport', 'visa'],
     'social': ['social', 'friend', 'hangout', 'coffee', 'lunch', 'dinner', 'catch up'],
     'events': ['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'ticket', 'tickets', 'venue', 'meetup', 'conference'],
@@ -87,11 +87,11 @@ const fallbackCategorize = (
     if (/(music)/.test(lc)) {
       keywords = keywords.concat(['music', 'concert', 'show', 'gig', 'performance']);
     }
-    if (/(work|job|office|client|project|business|meeting)/.test(lc)) {
-      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation']);
+    if (/(work|job|office|client|project|business|meeting|career|professional|employment)/.test(lc)) {
+      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'interview', 'career', 'professional', 'standup', 'sync', 'onboarding', 'resume', 'application', 'position', 'role']);
     }
     if (/(school|learn|study|homework|class|course|education|academic)/.test(lc)) {
-      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'complete', 'finish', 'submit', 'due', 'chapter', 'problem', 'practice']);
+      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'submit', 'due', 'chapter', 'problem', 'practice']);
     }
     if (/(hobby|fun|entertainment|leisure)/.test(lc)) {
       keywords = keywords.concat(['hobby', 'fun', 'entertainment', 'game', 'play', 'watch', 'enjoy']);
@@ -102,20 +102,51 @@ const fallbackCategorize = (
   
   // Semantic pattern detection for better context understanding
   
+  // HIGHEST PRIORITY: Check for communication/personal interaction patterns
+  // Patterns: "text/call/email/message [person name] to/about [something]"
+  const communicationPattern = /\b(text|call|email|message|reach out|contact|ping|dm|remind)\s+([a-z]+)\s+(to|about|regarding|for|that|and)/i;
+  const hasCommunicationPattern = communicationPattern.test(lowerTaskText);
+  
+  // Simple person name detection (capitalized word that's not at start, or common names)
+  const commonNames = ['sarah', 'john', 'mike', 'emily', 'david', 'lisa', 'chris', 'alex', 'mom', 'dad', 'brother', 'sister', 'friend'];
+  const hasPersonName = commonNames.some(name => lowerTaskText.includes(name)) || /\b(text|call|email|message)\s+[A-Z][a-z]+/.test(taskText);
+  
+  // Communication verbs followed by person indicators
+  const isCommunicationTask = /\b(text|call|email|message|reach out|contact|ping|dm|tell|ask|remind|notify)\b/.test(lowerTaskText) && hasPersonName;
+  
+  // Check for work/professional patterns
+  const interviewPattern = /\b(interview|job|career|position|role|application|resume|cv)\b/i;
+  const hasInterviewContext = interviewPattern.test(lowerTaskText);
+  
+  // Common company/tech names that indicate work context
+  const companyIndicators = ['google', 'amazon', 'meta', 'microsoft', 'apple', 'netflix', 'datadog', 'stripe', 'uber', 'lyft', 'airbnb', 'facebook', 'twitter', 'linkedin', 'salesforce', 'oracle', 'ibm', 'adobe', 'cisco', 'intel', 'nvidia'];
+  const hasCompanyName = companyIndicators.some(company => lowerTaskText.includes(company));
+  
+  // Work-specific actions
+  const workActions = ['meeting', 'presentation', 'deadline', 'client', 'project', 'standup', 'sync', 'onboarding', 'training'];
+  const hasWorkAction = workActions.some(action => lowerTaskText.includes(action));
+  
+  // If task mentions interview OR company name, it's highly likely to be work
+  const isLikelyWorkTask = hasInterviewContext || (hasCompanyName && !lowerTaskText.includes('order') && !lowerTaskText.includes('buy'));
+  
   // Check for course code patterns (e.g., CS101, ENGIN26, MATH3A)
   const courseCodePattern = /\b[a-z]{2,6}\s*\d{1,4}[a-z]?\b/i;
   const hasCourseCode = courseCodePattern.test(lowerTaskText);
   
   // Check for academic action words
-  const academicActions = ['finish', 'complete', 'submit', 'study', 'review', 'read', 'practice', 'solve', 'write'];
+  const academicActions = ['homework', 'assignment', 'exam', 'test', 'quiz', 'midterm', 'final', 'lecture', 'lab', 'textbook'];
   const hasAcademicAction = academicActions.some(action => lowerTaskText.includes(action));
   
-  // Check for food-related patterns
-  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'order', 'pick up', 'pickup', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'coffee', 'groceries', 'grocery'];
-  const hasFoodContext = foodPatterns.some(pattern => lowerTaskText.includes(pattern));
+  // Academic subjects that indicate learning
+  const academicSubjects = ['math', 'science', 'history', 'english', 'biology', 'chemistry', 'physics', 'calculus', 'algebra', 'geometry'];
+  const hasAcademicSubject = academicSubjects.some(subject => lowerTaskText.includes(subject));
   
-  // Check for shopping patterns
-  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store', 'get', 'pick up', 'order'];
+  // Check for food-related patterns (but NOT if it's clearly work/interview related)
+  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'groceries', 'grocery'];
+  const hasFoodContext = !isLikelyWorkTask && foodPatterns.some(pattern => lowerTaskText.includes(pattern));
+  
+  // Check for shopping patterns (but context matters)
+  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store'];
   const hasShoppingAction = shoppingPatterns.some(pattern => lowerTaskText.includes(pattern));
   
   // Check for event/entertainment patterns
@@ -149,8 +180,40 @@ const fallbackCategorize = (
     }
     
     // Context-aware boosting based on semantic patterns
+    // HIGHEST PRIORITY: Communication/Personal tasks
+    if (isCommunicationTask && /(personal|social|communication|friends?|family|people|contact)/.test(lowerCategory)) {
+      score += 60; // Very strong boost for communication tasks
+    }
+    if (hasCommunicationPattern && /(personal|social|communication)/.test(lowerCategory)) {
+      score += 40; // Strong boost for clear communication patterns
+    }
     
-    // Food/Shopping context
+    // PRIORITY: Work context (high priority to avoid misclassification)
+    if (isLikelyWorkTask && /(work|job|career|professional|office|business|employment)/.test(lowerCategory)) {
+      score += 50; // Very strong boost for work-related tasks with interview/company context
+    }
+    if (hasInterviewContext && /(work|job|career|professional)/.test(lowerCategory)) {
+      score += 30; // Strong boost for interview mentions
+    }
+    if (hasCompanyName && /(work|job|career|professional)/.test(lowerCategory)) {
+      score += 25; // Strong boost for company names
+    }
+    if (hasWorkAction && /(work|job|career|professional|office|business)/.test(lowerCategory)) {
+      score += 20; // Boost for work-specific actions
+    }
+    
+    // Academic context (high priority)
+    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 35; // Very strong boost for course codes
+    }
+    if (hasAcademicAction && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 20; // Strong boost for academic actions
+    }
+    if (hasAcademicSubject && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
+      score += 15; // Boost for academic subjects
+    }
+    
+    // Food/Shopping context (only if NOT work-related)
     if (hasFoodContext && /(food|shop|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
       score += 20; // Strong boost for food-related tasks
     }
@@ -158,17 +221,21 @@ const fallbackCategorize = (
       score += 10; // Additional boost for shopping + food
     }
     
-    // Academic context
-    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 20; // Strong boost for course codes
-    }
-    if (hasAcademicAction && hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 10; // Additional boost if both present
-    }
-    
     // Event context
     if (hasEventContext && /(event|entertainment|social|concert|show)/.test(lowerCategory)) {
       score += 15; // Boost for clear event patterns
+    }
+    
+    // PENALTIES: Prevent obvious misclassifications
+    
+    // Prevent communication tasks from being categorized incorrectly
+    if (isCommunicationTask && /(club|event|hobby|food|shop|fitness|health|sport|music|concert|game)/.test(lowerCategory)) {
+      score -= 100; // Strong penalty - communication tasks shouldn't go to these categories
+    }
+    
+    // Prevent work tasks from being categorized as food
+    if (isLikelyWorkTask && /(food|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
+      score -= 100; // Strong penalty to prevent "prep datadog interview" going to food
     }
     
     // Sentiment-based bonus scoring
@@ -179,9 +246,15 @@ const fallbackCategorize = (
       score += 3;
     }
     
-    // Penalize "personal" category unless it's a clear personal task
-    if (/personal/.test(lowerCategory) && !/(birthday|anniversary|family|relationship)/.test(lowerTaskText)) {
-      score -= 8; // Stronger penalty to avoid over-categorizing as personal
+    // Smart "personal" category handling
+    if (/personal/.test(lowerCategory)) {
+      // BOOST personal if it's communication, family, or life admin
+      if (isCommunicationTask || /(birthday|anniversary|family|relationship|mom|dad|parent|sibling|friend)/.test(lowerTaskText)) {
+        score += 15; // Boost for clear personal tasks
+      } else if (!/(birthday|anniversary|family|relationship|text|call|email|message)/.test(lowerTaskText)) {
+        // Only penalize if it's clearly NOT personal
+        score -= 5;
+      }
     }
     
     if (score > bestScore) {
@@ -190,15 +263,34 @@ const fallbackCategorize = (
     }
   }
   
-  // On zero score, prefer neutral buckets
-  if (bestScore === 0) {
-    const neutral = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
-    if (neutral) bestMatch = neutral.name;
+  // Smart uncategorized handling - don't force categorization if score is too low
+  const uncategorizedCategory = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
+  
+  // If score is too low (weak match), prefer uncategorized
+  if (bestScore < 15 && uncategorizedCategory) {
+    bestMatch = uncategorizedCategory.name;
+    return {
+      suggestedCategory: bestMatch,
+      confidence: "low"
+    };
+  }
+  
+  // On zero score, definitely use uncategorized
+  if (bestScore === 0 && uncategorizedCategory) {
+    bestMatch = uncategorizedCategory.name;
+  }
+  
+  // Determine confidence based on score
+  let confidence = "low";
+  if (bestScore >= 50) {
+    confidence = "high";
+  } else if (bestScore >= 25) {
+    confidence = "medium";
   }
   
   return {
     suggestedCategory: bestMatch,
-    confidence: bestScore > 0 ? "medium" : "low"
+    confidence
   };
 };
 
@@ -279,42 +371,94 @@ export async function POST(request: Request) {
       return ctx;
     }).join('\n');
 
-    const response = await openai.chat.completions.create({
+    // Create a timeout promise (5 seconds)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('AI categorization timeout')), 5000);
+    });
+
+    // Create the OpenAI API call promise
+    const apiCallPromise = openai.chat.completions.create({
       model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
       messages: [
         {
           role: "system",
-          content: `You are an intelligent task categorization assistant. Your goal is to understand the semantic meaning, context, and intent of a task, then match it to the most appropriate category.
+          content: `You are an expert task categorization assistant specializing in semantic understanding and contextual analysis. Your role is to deeply understand the TRUE meaning and intent behind each task by analyzing context, entity types, and real-world scenarios.
 
-Core Principles:
-- Understand what the task is ACTUALLY about, not just surface-level keywords
-- Consider the real-world context and purpose of the activity
-- Think about where this task naturally belongs in someone's life
+## Core Analysis Framework
 
-Category Matching Guidelines:
-1. FOOD/SHOPPING: Picking up food, ordering meals, groceries, buying items, restaurant visits
-2. SCHOOL/LEARNING: Homework, assignments, studying, courses (detect course codes like CS101, ENGIN26), academic work, classes
-3. WORK: Professional tasks, client work, meetings, projects, business activities
-4. EVENTS: Concerts, shows, performances, festivals, ticketed events
-5. SOCIAL: Meeting friends, hangouts, social gatherings (without formal tickets/events)
-6. PERSONAL: Life admin, family matters, personal goals, birthdays, appointments
-7. HEALTH: Exercise, medical appointments, wellness, fitness
-8. CHORES: Cleaning, household maintenance, organizing
-9. HOBBY: Recreational activities, entertainment, games, crafts
+### 1. Context Understanding
+- Look at the ENTIRE phrase, not isolated words
+- Identify the primary action and its target
+- Consider what domain/life area this activity belongs to
+- Understand implied relationships between words
 
-Analysis Approach:
-- "Pick up pizza" → Food/Shopping (it's about getting food)
-- "Finish ENGIN26" → School/Learning (course code + academic action)
-- "Meeting with client" → Work (professional context)
-- "Concert tickets" → Events (entertainment event)
-- "Call mom" → Personal (family relationship)
-- "Go to gym" → Health (fitness activity)
+### 2. Entity Recognition
+- Person names (Sarah, John, etc.) especially after communication verbs → Personal/Social
+- Company names (Google, Amazon, Meta, Datadog, etc.) → Usually Work/Professional
+- Course codes (CS101, ENGIN26, MATH 3A, BIO220) → Academic/Learning
+- Restaurant names, food items, meal types → Food
+- Family members (mom, dad, brother, sister, friend) → Personal
+- Venue names, artist names → Events/Entertainment
 
-Important:
-- Focus on the PRIMARY PURPOSE of the task
-- Don't over-rely on single words; understand the full context
-- Consider what category the user would intuitively expect
-- If uncertain between two categories, choose the more specific one`,
+### 3. Action-Target Analysis
+DON'T just match keywords. Instead, analyze what action is being performed on what target:
+
+Examples of CORRECT analysis:
+- "text sarah to review app today" → PRIMARY: communication, ENTITY: Sarah (person) → PERSONAL/SOCIAL
+- "call mom about dinner plans" → PRIMARY: communication, ENTITY: mom (family) → PERSONAL
+- "email john the documents" → PRIMARY: communication, ENTITY: John (person) → PERSONAL
+- "prep datadog interview" → PRIMARY: interview (professional), ENTITY: Datadog (company) → WORK
+- "prepare dinner" → PRIMARY: meal preparation, ENTITY: dinner (food) → FOOD
+- "finish ENGIN26 homework" → PRIMARY: homework, ENTITY: ENGIN26 (course code) → LEARNING
+- "prep for gym" → PRIMARY: exercise preparation, ENTITY: gym (fitness) → HEALTH
+- "study for google interview" → PRIMARY: interview preparation, ENTITY: Google (company) → WORK
+- "order pizza" → PRIMARY: food ordering, ENTITY: pizza (food) → FOOD
+- "review CS notes" → PRIMARY: studying, ENTITY: CS (course subject) → LEARNING
+
+### 4. Context Clues
+TEXT/CALL/EMAIL + PERSON NAME = PERSONAL (highest priority for communication)
+COMMUNICATION VERB + SOMEONE + ABOUT/TO = PERSONAL/SOCIAL (not club, not hobby, not event)
+INTERVIEWS + COMPANY NAME = WORK (not food, even with "prep")
+PREPARE + FOOD ITEM = FOOD
+STUDY/REVIEW + COURSE/SUBJECT = LEARNING
+MEET/CALL + FAMILY = PERSONAL
+TICKETS + VENUE/ARTIST = EVENTS
+EXERCISE + FITNESS LOCATION = HEALTH
+
+### 5. Disambiguation Rules
+When you see communication verbs (text, call, email, message, contact, remind):
+- If followed by a person name → PERSONAL/SOCIAL
+- These are NEVER club, hobby, event, or food tasks
+
+When a word like "prep", "prepare", "review", "check", "get" appears:
+- Look at what follows it
+- If it's a company name → likely WORK
+- If it's a food item → likely FOOD
+- If it's a course/subject → likely LEARNING
+- If it's a workout/exercise → likely HEALTH
+
+### 6. Common Pitfalls to AVOID
+❌ DON'T categorize "text/call/email [person]" as club, hobby, event, or anything other than PERSONAL/SOCIAL
+❌ DON'T ignore the communication verb - if someone is texting/calling someone, it's PERSONAL
+❌ DON'T categorize "prep [company] interview" as FOOD just because "prep" can mean food prep
+❌ DON'T categorize "[company] interview" as anything other than WORK
+❌ DON'T categorize course codes (CS101, ENGIN26) as anything other than LEARNING
+❌ DON'T rely on single keyword matches - always consider full context
+
+### 7. Decision Priority
+1. Communication patterns (text/call/email person → personal/social) - HIGHEST PRIORITY
+2. Explicit entity type (company → work, course code → learning, person name → personal)
+3. Primary action purpose (what is the task fundamentally about?)
+4. Life domain (where does this naturally belong?)
+5. User expectation (where would someone intuitively look for this?)
+
+### 8. When to Use "Uncategorized"
+- If the task is too vague or random
+- If it doesn't clearly fit any specific category
+- If you're uncertain or the task is ambiguous
+- DON'T force a task into a category if it doesn't belong there
+- It's BETTER to say "Uncategorized" than to guess wrong
+- Random phrases, unclear tasks, or mixed-purpose items should be "Uncategorized"`,
         },
         {
           role: "user",
@@ -323,17 +467,24 @@ Important:
 Available categories:
 ${categoryContext}
 
-Analyze what this task is really about and choose the most appropriate category. Consider:
-- What is the main activity or purpose?
-- What domain of life does this belong to?
-- Where would someone naturally expect to find this task?
+Follow the analysis framework:
+1. Identify any entities (companies, courses, people, places)
+2. Determine the primary action and its target
+3. Consider the full context and real-world meaning
+4. Match to the most appropriate category based on TRUE intent
+5. If the task is vague, random, or doesn't fit well, choose "Uncategorized" instead of forcing it
 
-Respond with ONLY the category name, nothing else.`,
+Remember: It's better to say "Uncategorized" than to guess incorrectly.
+
+Respond with ONLY the category name that best matches. Nothing else.`,
         },
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 30,
     });
+
+    // Race between the API call and timeout
+    const response = await Promise.race([apiCallPromise, timeoutPromise]) as any;
 
     const suggestedCategory = response.choices[0].message.content?.trim();
     

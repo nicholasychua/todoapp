@@ -2118,10 +2118,12 @@ export default function TaskManager() {
                               ease: "easeOut",
                             }}
                             className={cn(
-                              "flex items-center px-4 py-2 min-h-[40px] group hover:bg-gray-50/80 transition-all duration-150 relative bg-white",
+                              "flex items-center px-4 py-1.5 min-h-[36px] group hover:bg-gray-50/80 transition-all duration-150 relative bg-white",
                               idx !== tasks.length - 1 &&
                                 "border-b border-gray-200",
-                              effectivelyCompleted ? "bg-gray-50/50" : ""
+                              effectivelyCompleted ? "bg-gray-50/50" : "",
+                              idx === 0 && "rounded-t-lg",
+                              idx === filteredTasks.length - 1 && "rounded-b-lg"
                             )}
                             tabIndex={0}
                             onKeyDown={(e) => {
@@ -2146,7 +2148,7 @@ export default function TaskManager() {
                             <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
                               <motion.span
                                 className={cn(
-                                  "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
+                                  "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded mt-0.5",
                                   effectivelyCompleted
                                     ? "text-muted-foreground opacity-70"
                                     : "text-gray-900"
@@ -2162,7 +2164,7 @@ export default function TaskManager() {
                                   <PopoverTrigger asChild>
                                     <span
                                       className={cn(
-                                        "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                                        "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded -mt-0.5 mb-1 inline-block w-fit",
                                         isPastOrToday
                                           ? "text-red-600"
                                           : "text-gray-400"
@@ -3640,7 +3642,7 @@ function BacklogView({
                   .map((task) => (
                     <div
                       key={task.id}
-                      className="flex items-center group rounded-lg px-4 py-3 transition-colors hover:bg-gray-50"
+                      className="flex items-center group rounded-lg px-4 py-1.5 transition-colors hover:bg-gray-50"
                     >
                       {/* Drag handle */}
                       <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
@@ -3979,9 +3981,12 @@ function PomodoroTimer({
                         ease: "easeOut",
                       }}
                       className={cn(
-                        "flex items-center px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                        idx !== tasks.length - 1 && "border-b border-gray-200",
-                        effectivelyCompleted ? "bg-muted/30" : ""
+                        "flex items-center px-4 py-1.5 min-h-[36px] group hover:bg-accent/50 transition-colors relative",
+                        idx !== filteredTasks.length - 1 &&
+                          "border-b border-gray-200",
+                        effectivelyCompleted ? "bg-muted/30" : "",
+                        idx === 0 && "rounded-t-2xl",
+                        idx === filteredTasks.length - 1 && "rounded-b-2xl"
                       )}
                     >
                       {/* Checkbox */}
@@ -3994,7 +3999,7 @@ function PomodoroTimer({
                       <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
                         <span
                           className={cn(
-                            "text-sm font-normal transition-colors duration-200",
+                            "text-sm font-normal transition-colors duration-200 mt-0.5",
                             effectivelyCompleted
                               ? "text-muted-foreground opacity-70"
                               : "text-gray-900"
@@ -4007,7 +4012,7 @@ function PomodoroTimer({
                             <PopoverTrigger asChild>
                               <span
                                 className={cn(
-                                  "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded mt-1 inline-block w-fit",
+                                  "text-xs font-medium transition-colors duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50 py-0.5 rounded -mt-0.5 mb-1 inline-block w-fit",
                                   isPastOrToday
                                     ? "text-red-600"
                                     : "text-gray-400"

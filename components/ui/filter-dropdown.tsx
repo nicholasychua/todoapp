@@ -63,8 +63,13 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                     initial={{
                       opacity: 0,
                       x: -5,
+                      backgroundColor: "rgb(255, 255, 255)",
                     }}
-                    animate={{ opacity: 1, x: 0 }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      backgroundColor: "rgb(255, 255, 255)",
+                    }}
                     transition={{
                       duration: 0.2,
                       delay: index * 0.05,
@@ -74,15 +79,15 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                       backgroundColor: "rgb(243, 244, 246)",
                       scale: 1.01,
                       transition: {
-                        duration: 0.2,
+                        duration: 0.08,
                         ease: "easeOut",
                       },
                     }}
                     whileTap={{
-                      scale: 0.97,
-                      backgroundColor: "rgb(229, 231, 235)",
+                      scale: 0.98,
+                      backgroundColor: "rgb(243, 244, 246)",
                       transition: {
-                        duration: 0.1,
+                        duration: 0.05,
                       },
                     }}
                     key={option.label}
@@ -90,7 +95,7 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                       option.onClick();
                       setIsOpen(false);
                     }}
-                    className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2 transition-colors duration-200"
+                    className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2"
                   >
                     {option.Icon}
                     {option.label}
