@@ -12,6 +12,7 @@ import type { Category } from "@/lib/categories";
 
 interface FocusSessionOnboardingProps {
   tasks: Task[];
+  tasksLoaded?: boolean;
   completedTaskIds: string[];
   formatTextWithTags: (text: string) => React.ReactNode;
   getTagTextColor: (tag: string) => string;
@@ -21,6 +22,7 @@ interface FocusSessionOnboardingProps {
 
 export function FocusSessionOnboarding({
   tasks,
+  tasksLoaded = true,
   completedTaskIds,
   formatTextWithTags,
   getTagTextColor,
@@ -73,7 +75,7 @@ export function FocusSessionOnboarding({
           {/* Task List - Shows 5 tasks, rest scrollable */}
           <div className="relative">
             <div className="bg-white max-h-[340px] overflow-y-auto scrollbar-thin">
-              {availableTasks.length === 0 ? (
+              {tasksLoaded && availableTasks.length === 0 ? (
                 <div className="px-8 py-12 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <CheckCircle2 className="h-12 w-12 text-gray-300" />
@@ -82,7 +84,7 @@ export function FocusSessionOnboarding({
                     </p>
                   </div>
                 </div>
-              ) : (
+              ) : availableTasks.length > 0 || !tasksLoaded ? (
                 <div className="divide-y divide-gray-200">
                   <AnimatePresence initial={false}>
                     {availableTasks.map((task, idx) => {
@@ -120,10 +122,21 @@ export function FocusSessionOnboarding({
                         <motion.div
                           key={task.id}
                           layout="position"
-                          initial={{ opacity: 0, y: -10 }}
+                          initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          exit={{
+                            opacity: 0,
+                            y: -8,
+                            transition: {
+                              duration: 0.25,
+                              ease: "easeInOut",
+                            },
+                          }}
+                          transition={{
+                            duration: 0.35,
+                            ease: [0.16, 1, 0.3, 1],
+                            delay: idx * 0.04,
+                          }}
                           onClick={(e) => {
                             // Don't trigger if clicking on the checkbox itself
                             if (
@@ -202,7 +215,7 @@ export function FocusSessionOnboarding({
                     })}
                   </AnimatePresence>
                 </div>
-              )}
+              ) : null}
             </div>
             {/* Scroll indicator - shows when there are more than 5 tasks */}
             {availableTasks.length > 5 && (

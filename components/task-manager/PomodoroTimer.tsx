@@ -229,18 +229,20 @@ export const PomodoroTimer = memo(function PomodoroTimer({
                     <motion.div
                       key={task.id}
                       layout="position"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{
                         opacity: 0,
+                        y: -8,
                         transition: {
                           duration: 0.25, // quick fade
                           ease: "easeInOut",
                         },
                       }}
                       transition={{
-                        duration: 0.4,
-                        ease: "easeOut",
+                        duration: 0.35,
+                        ease: [0.16, 1, 0.3, 1],
+                        delay: idx * 0.04,
                       }}
                       className={cn(
                         "flex items-center px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
@@ -411,4 +413,3 @@ export const PomodoroTimer = memo(function PomodoroTimer({
     </div>
   );
 });
-

@@ -466,6 +466,7 @@ export default function TaskManager() {
 
   // All useState hooks first
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDate, setNewTaskDate] = useState<Date | undefined>(undefined);
   const [newTaskTime, setNewTaskTime] = useState<string | null>(null);
@@ -1516,10 +1517,14 @@ export default function TaskManager() {
 
   // Subscribe to tasks
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setTasksLoaded(false);
+      return;
+    }
 
     const unsubscribe = subscribeToTasks((newTasks: Task[]) => {
       setTasks(newTasks);
+      setTasksLoaded(true);
     });
 
     return () => unsubscribe();
@@ -1673,6 +1678,7 @@ export default function TaskManager() {
             >
               <FocusSessionOnboarding
                 tasks={tasks}
+                tasksLoaded={tasksLoaded}
                 completedTaskIds={completedTaskIds}
                 formatTextWithTags={formatTextWithTags}
                 getTagTextColor={getTagTextColor}
@@ -1716,6 +1722,7 @@ export default function TaskManager() {
             >
               <BacklogView
                 tasks={tasks}
+                tasksLoaded={tasksLoaded}
                 toggleTaskCompletion={toggleTaskCompletion}
                 deleteTask={deleteTaskHandler}
                 formatTextWithTags={formatTextWithTags}
@@ -1772,9 +1779,9 @@ export default function TaskManager() {
               className="w-full h-full flex flex-col max-w-2xl"
             >
               {/* Fixed header + quick-add */}
-              <div className="flex-shrink-0 bg-gray-50 pt-32 pb-2 px-4">
+              <div className="flex-shrink-0 bg-gray-50 pt-24 pb-2 px-4">
                 {/* Date Header */}
-                <div className="text-center mb-8">
+                <div className="text-center mb-6">
                   <h1 className="text-4xl font-bold">
                     {(() => {
                       const date = new Date();
@@ -2056,9 +2063,9 @@ export default function TaskManager() {
               </div>
 
               {/* Scrollable Task List */}
-              <div className="flex-1 overflow-y-auto px-4 pb-8">
-                <Card className="overflow-visible">
-                  <div className="divide-y divide-border relative">
+              <div className="flex-1 px-4 pb-8">
+                <Card className="overflow-hidden shadow-sm">
+                  <div className="divide-y divide-border relative max-h-[360px] overflow-y-auto scrollbar-thin scroll-smooth">
                     <AnimatePresence initial={false}>
                       {filteredTasks.map((task, idx) => {
                         // Date logic
@@ -2104,18 +2111,20 @@ export default function TaskManager() {
                           <motion.div
                             key={task.id}
                             layout="position"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
                             exit={{
                               opacity: 0,
+                              y: -8,
                               transition: {
                                 duration: 0.25, // quick fade
                                 ease: "easeInOut",
                               },
                             }}
                             transition={{
-                              duration: 0.4,
-                              ease: "easeOut",
+                              duration: 0.35,
+                              ease: [0.16, 1, 0.3, 1],
+                              delay: idx * 0.04,
                             }}
                             className={cn(
                               "flex items-center px-4 py-1.5 min-h-[36px] group hover:bg-gray-50/80 transition-all duration-150 relative bg-white",
@@ -2373,7 +2382,7 @@ export default function TaskManager() {
                       })}
                     </AnimatePresence>
 
-                    {filteredTasks.length === 0 && (
+                    {tasksLoaded && filteredTasks.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                         <div className="rounded-full bg-muted p-3 mb-3">
                           <Check className="h-6 w-6" />
@@ -2780,6 +2789,7 @@ export default function TaskManager() {
 // Backlog View Component
 function BacklogView({
   tasks,
+  tasksLoaded,
   toggleTaskCompletion,
   deleteTask,
   formatTextWithTags,
@@ -2802,6 +2812,7 @@ function BacklogView({
   onTaskEdit,
 }: {
   tasks: Task[];
+  tasksLoaded: boolean;
   toggleTaskCompletion: (id: string) => void;
   deleteTask: (id: string) => void;
   formatTextWithTags: (text: string) => React.ReactNode;
@@ -3416,11 +3427,11 @@ function BacklogView({
                     className="flex flex-col flex-1 p-4 cursor-pointer"
                     onClick={() => openCategoryModal(catName)}
                   >
-                    {catTasks.length === 0 ? (
+                    {tasksLoaded && catTasks.length === 0 ? (
                       <div className="flex items-center justify-center h-16 text-gray-400">
                         <span className="text-sm">No tasks</span>
                       </div>
-                    ) : (
+                    ) : catTasks.length > 0 || !tasksLoaded ? (
                       <div className="space-y-2">
                         <AnimatePresence initial={false}>
                           {catTasks.slice(0, 3).map((task, idx) => (
@@ -3434,7 +3445,11 @@ function BacklogView({
                                 y: -5,
                                 transition: { duration: 0.15 },
                               }}
-                              transition={{ duration: 0.2, ease: "easeOut" }}
+                              transition={{
+                                duration: 0.25,
+                                ease: [0.16, 1, 0.3, 1],
+                                delay: idx * 0.05,
+                              }}
                               className={cn(
                                 "flex items-start gap-3 p-2 rounded transition-colors",
                                 completedTaskIds.includes(task.id) ||
@@ -3475,7 +3490,7 @@ function BacklogView({
                           </div>
                         )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Footer */}
@@ -3633,68 +3648,89 @@ function BacklogView({
             {/* Content */}
             <div className="p-6">
               <div className="flex flex-col gap-3 mb-6 max-h-96 overflow-y-auto">
-                {filteredAndSortedTasks
-                  .filter((t) =>
-                    selectedCategory === "Uncategorized"
-                      ? t.tags.length === 0
-                      : t.tags[0] === selectedCategory
-                  )
-                  .map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center group rounded-lg px-4 py-1.5 transition-colors hover:bg-gray-50"
-                    >
-                      {/* Drag handle */}
-                      <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
-                        <svg
-                          className="w-4 h-4"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle cx="5" cy="6" r="1" />
-                          <circle cx="5" cy="10" r="1" />
-                          <circle cx="5" cy="14" r="1" />
-                          <circle cx="10" cy="6" r="1" />
-                          <circle cx="10" cy="10" r="1" />
-                          <circle cx="10" cy="14" r="1" />
-                          <circle cx="15" cy="6" r="1" />
-                          <circle cx="15" cy="10" r="1" />
-                          <circle cx="15" cy="14" r="1" />
-                        </svg>
-                      </div>
-
-                      {/* Checkbox */}
-                      <div className="mr-4">
-                        <StyledCheckbox
-                          checked={
-                            completedTaskIds.includes(task.id) || task.completed
-                          }
-                          onCheckedChange={() => toggleTaskCompletion(task.id)}
-                          className="border-gray-300"
-                        />
-                      </div>
-
-                      {/* Task text */}
-                      <span
-                        className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
-                        onClick={() => startEditTask(task)}
-                      >
-                        {task.text}
-                      </span>
-
-                      {/* Delete button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteTask(task.id);
+                <AnimatePresence initial={false}>
+                  {filteredAndSortedTasks
+                    .filter((t) =>
+                      selectedCategory === "Uncategorized"
+                        ? t.tags.length === 0
+                        : t.tags[0] === selectedCategory
+                    )
+                    .map((task, idx) => (
+                      <motion.div
+                        key={task.id}
+                        layout="position"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{
+                          opacity: 0,
+                          y: -8,
+                          transition: {
+                            duration: 0.25,
+                            ease: "easeInOut",
+                          },
                         }}
-                        className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="Delete task"
+                        transition={{
+                          duration: 0.35,
+                          ease: [0.16, 1, 0.3, 1],
+                          delay: idx * 0.04,
+                        }}
+                        className="flex items-center group rounded-lg px-4 py-1.5 transition-colors hover:bg-gray-50"
                       >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        {/* Drag handle */}
+                        <div className="mr-3 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                          <svg
+                            className="w-4 h-4"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="5" cy="6" r="1" />
+                            <circle cx="5" cy="10" r="1" />
+                            <circle cx="5" cy="14" r="1" />
+                            <circle cx="10" cy="6" r="1" />
+                            <circle cx="10" cy="10" r="1" />
+                            <circle cx="10" cy="14" r="1" />
+                            <circle cx="15" cy="6" r="1" />
+                            <circle cx="15" cy="10" r="1" />
+                            <circle cx="15" cy="14" r="1" />
+                          </svg>
+                        </div>
+
+                        {/* Checkbox */}
+                        <div className="mr-4">
+                          <StyledCheckbox
+                            checked={
+                              completedTaskIds.includes(task.id) ||
+                              task.completed
+                            }
+                            onCheckedChange={() =>
+                              toggleTaskCompletion(task.id)
+                            }
+                            className="border-gray-300"
+                          />
+                        </div>
+
+                        {/* Task text */}
+                        <span
+                          className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
+                          onClick={() => startEditTask(task)}
+                        >
+                          {task.text}
+                        </span>
+
+                        {/* Delete button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTask(task.id);
+                          }}
+                          className="ml-3 text-gray-400 hover:text-red-500 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Delete task"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </motion.div>
+                    ))}
+                </AnimatePresence>
               </div>
 
               {/* Add Task Input */}
@@ -3967,18 +4003,20 @@ function PomodoroTimer({
                     <motion.div
                       key={task.id}
                       layout="position"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{
                         opacity: 0,
+                        y: -8,
                         transition: {
                           duration: 0.25, // quick fade
                           ease: "easeInOut",
                         },
                       }}
                       transition={{
-                        duration: 0.4,
-                        ease: "easeOut",
+                        duration: 0.35,
+                        ease: [0.16, 1, 0.3, 1],
+                        delay: idx * 0.04,
                       }}
                       className={cn(
                         "flex items-center px-4 py-1.5 min-h-[36px] group hover:bg-accent/50 transition-colors relative",

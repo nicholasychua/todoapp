@@ -106,12 +106,12 @@ h4 {
 
 /* Custom Scrollbar Styles */
 .scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  @apply bg-gray-100 rounded-full;
+  background: transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
@@ -126,5 +126,5 @@ h4 {
 /* Firefox scrollbar */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgb(209 213 219) rgb(243 244 246);
+  scrollbar-color: rgb(209 213 219) transparent;
 }
