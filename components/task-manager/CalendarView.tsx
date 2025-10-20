@@ -780,26 +780,48 @@ export const CalendarView = React.memo(function CalendarView({
   return (
     <div className="flex flex-col w-full h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4 text-gray-700" />
-            <h1 className="text-base font-semibold text-gray-900 whitespace-nowrap">
-              {periodTitle}
-            </h1>
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
+        <div className="flex items-center gap-3">
+          {/* Today Button */}
+          <button
+            onClick={goToToday}
+            className="px-4 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md border border-gray-300 transition-all duration-200"
+          >
+            Today
+          </button>
+
+          {/* Navigation Arrows */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={previousPeriod}
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-all duration-200"
+            >
+              <ChevronLeftIcon size={18} strokeWidth={2} />
+            </button>
+            <button
+              onClick={nextPeriod}
+              className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-all duration-200"
+            >
+              <ChevronRightIcon size={18} strokeWidth={2} />
+            </button>
           </div>
+
+          {/* Month Title - Fixed width to prevent shifting */}
+          <h1 className="text-2xl font-semibold text-gray-900 whitespace-nowrap min-w-[200px]">
+            {periodTitle}
+          </h1>
         </div>
 
         <div className="flex items-center gap-2.5 flex-shrink-0">
           {/* View Mode Selector */}
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100">
             <button
               onClick={() => setViewMode("month")}
               className={cn(
-                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
+                "px-4 py-2 text-sm font-medium transition-all duration-200",
                 viewMode === "month"
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? "bg-white text-gray-900 shadow-sm rounded-lg"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               )}
             >
               Month
@@ -807,10 +829,10 @@ export const CalendarView = React.memo(function CalendarView({
             <button
               onClick={() => setViewMode("week")}
               className={cn(
-                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
+                "px-4 py-2 text-sm font-medium transition-all duration-200",
                 viewMode === "week"
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? "bg-white text-gray-900 shadow-sm rounded-lg"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               )}
             >
               Week
@@ -818,41 +840,14 @@ export const CalendarView = React.memo(function CalendarView({
             <button
               onClick={() => setViewMode("day")}
               className={cn(
-                "px-2.5 py-1 text-sm font-medium rounded-md transition-all",
+                "px-4 py-2 text-sm font-medium transition-all duration-200",
                 viewMode === "day"
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-700 hover:bg-gray-50"
+                  ? "bg-white text-gray-900 shadow-sm rounded-lg"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               )}
             >
               Day
             </button>
-          </div>
-
-          {/* Navigation */}
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white shadow-sm">
-            <Button
-              onClick={previousPeriod}
-              className="rounded-none rounded-l-lg shadow-none border-0 h-7 w-7 p-0"
-              variant="outline"
-              size="icon"
-            >
-              <ChevronLeftIcon size={15} strokeWidth={2} />
-            </Button>
-            <Button
-              onClick={goToToday}
-              className="rounded-none shadow-none border-0 border-l px-2.5 h-7 text-sm font-medium"
-              variant="outline"
-            >
-              Today
-            </Button>
-            <Button
-              onClick={nextPeriod}
-              className="rounded-none rounded-r-lg shadow-none border-0 border-l h-7 w-7 p-0"
-              variant="outline"
-              size="icon"
-            >
-              <ChevronRightIcon size={15} strokeWidth={2} />
-            </Button>
           </div>
         </div>
       </div>

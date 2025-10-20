@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Clock, Calendar as CalendarIcon, Tag, Check } from "lucide-react";
+import {
+  X,
+  Clock,
+  Calendar as CalendarIcon,
+  Tag,
+  Check,
+  Trash2,
+} from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
@@ -20,6 +27,7 @@ interface TaskEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  onDelete?: (taskId: string) => Promise<void>;
   task: Task | null;
   categories: Category[];
   getTagTextColor: (tag: string) => string;
@@ -29,6 +37,7 @@ export function TaskEditDialog({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   task,
   categories,
   getTagTextColor,
@@ -111,6 +120,20 @@ export function TaskEditDialog({
     }
   };
 
+  const handleDelete = async () => {
+    if (!task || !onDelete || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      await onDelete(task.id);
+      onClose();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isOpen || !task) return null;
 
   return (
@@ -159,8 +182,7 @@ export function TaskEditDialog({
                     value={taskText}
                     onChange={(e) => setTaskText(e.target.value)}
                     placeholder="Add title"
-                    className="w-full text-lg font-medium border-0 border-b-2 border-gray-200 rounded-none px-0 py-2 focus:border-blue-500 focus:ring-0"
-                    autoFocus
+                    className="w-full text-lg font-medium border-0 border-b border-gray-200 rounded-none px-0 py-2 focus:ring-0 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
                   />
                 </div>
 
@@ -260,20 +282,23 @@ export function TaskEditDialog({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-6 border-t border-gray-100">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleClose}
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
+                <div className="flex justify-end gap-2 pt-6 border-t border-gray-100">
+                  {onDelete && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleDelete}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-1.5 text-sm px-3 py-1.5 h-auto min-w-[100px] text-red-600 border-red-300 hover:text-red-700 hover:bg-red-50 hover:border-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </Button>
+                  )}
                   <Button
                     type="submit"
                     disabled={!taskText.trim() || isLoading}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="px-3 py-1.5 h-auto text-sm min-w-[100px] bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {isLoading ? "Saving..." : "Save"}
                   </Button>

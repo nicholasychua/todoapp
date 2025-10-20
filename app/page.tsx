@@ -2778,6 +2778,7 @@ export default function TaskManager() {
         isOpen={isEditDialogOpen}
         onClose={handleEditDialogClose}
         onSave={handleEditDialogSave}
+        onDelete={deleteTaskHandler}
         task={editingTask}
         categories={categories}
         getTagTextColor={getTagTextColor}
