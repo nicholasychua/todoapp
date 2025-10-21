@@ -1,129 +1,197 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { motion } from "framer-motion"
-import { FeatureSection } from "@/components/FeatureSection"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
+import { Inconsolata } from "next/font/google";
+
+const inconsolata = Inconsolata({ subsets: ["latin"] });
 
 export default function LandingPage() {
-  // Subtle animation variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.1,
-      }
-    }
-  }
-  
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { 
-      opacity: 1, 
       y: 0,
-      transition: { 
-        type: "spring", 
-        stiffness: 50, 
-        mass: 0.5,
-        damping: 10
-      } 
-    }
-  }
+      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
 
   return (
-    <motion.div 
-      className="min-h-screen flex flex-col bg-background"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <motion.header 
-        className="flex items-center justify-between px-8 pt-6 md:pt-8 pb-2 md:pb-4"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
+      <motion.header
+        className="relative z-10"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
       >
-        <span className="text-3xl font-bold tracking-tight select-none">subspace</span>
-        <div className="flex gap-4">
-          <Link href="/signin" passHref legacyBehavior>
-            <Button variant="secondary" className="px-6 py-2 text-base font-semibold shadow-none bg-muted hover:bg-muted/80 text-foreground">
-              log in
-            </Button>
-          </Link>
-          <Link href="/signup" passHref legacyBehavior>
-            <Button className="px-6 py-2 text-base font-semibold bg-yellow-400 hover:bg-yellow-300 text-black shadow-none">
-              sign up
-            </Button>
-          </Link>
-        </div>
-      </motion.header>
-      
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col md:flex-row justify-center items-center px-8 pb-24 gap-8 md:gap-16 mt-2 md:mt-6">
-        {/* Left: Text */}
-        <motion.div 
-          className="w-full md:w-1/2 max-w-xl mt-16 md:mt-0 flex flex-col justify-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <motion.h1 
-            className="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight text-foreground mb-2"
-            variants={itemVariants}
-          >
-            the simplest way<br />to get things done.
-          </motion.h1>
-          
-          <motion.p 
-            className="text-lg md:text-xl text-muted-foreground mt-5 mb-8 font-medium"
-            variants={itemVariants}
-          >
-            Meet subspace — your minimal, modern to-do list app. Organize tasks, set priorities, and stay locked in.
-          </motion.p>
-          
-          <motion.div variants={itemVariants}>
-            <Link href="/signup" passHref legacyBehavior>
-              <Button className="bg-yellow-400 hover:bg-yellow-300 text-black text-base font-bold px-6 py-3 rounded-xl shadow-none transition-colors duration-300 flex items-center justify-center min-w-[200px]">
-                <span className="font-bold">start planning</span>
-                <span className="font-normal text-sm ml-2">— it's free</span>
+        <div className="max-w-[1400px] mx-auto px-8 pt-8 pb-5 flex items-center justify-between">
+          <div className="lg:ml-2">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-teal-700 to-teal-600 rounded-md flex items-center justify-center">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M4 4L20 20M4 20L20 4"
+                    stroke="white"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <span className="text-2xl font-bold text-[#134e4a]">
+                Subspace
+              </span>
+            </Link>
+          </div>
+
+          {/* Actions */}
+          <div className="hidden lg:flex items-center gap-10">
+            <a
+              href="https://x.com/nicholasychua"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-[13px] font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase tracking-wide ${inconsolata.className}`}
+            >
+              CONTACT
+            </a>
+            <Link
+              href="/signin"
+              className={`text-[13px] font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase tracking-wide ${inconsolata.className}`}
+            >
+              LOG IN
+            </Link>
+            <Link href="/signup">
+              <Button
+                className={`bg-[#2d5f5d] hover:bg-[#234948] text-white font-medium text-[13px] px-5 py-2 rounded-md transition-colors uppercase tracking-wide shadow-none h-auto ${inconsolata.className}`}
+              >
+                SIGN UP
               </Button>
             </Link>
-          </motion.div>
-          
-          <motion.div 
-            className="mt-10 text-muted-foreground text-base font-medium opacity-60 tracking-tight" 
-            style={{letterSpacing: '-0.01em'}}
-            variants={itemVariants}
-          >
-            loved by 100,000+ cool people
-          </motion.div>
-        </motion.div>
-        
-        {/* Right: Product Demo Image */}
-        <motion.div 
-          className="w-full md:w-1/2 flex justify-center items-center mt-12 md:mt-0"
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            delay: 0.7, 
-            duration: 0.8, 
-            ease: [0.165, 0.84, 0.44, 1]  // ease-out-cubic
-          }}
-        >
-          <div className="rounded-2xl shadow-lg bg-white/80 border border-gray-100 p-2 md:p-4 max-w-[350px] md:max-w-[400px]">
-            <img
-              src="/demo-product.png"
-              alt="subspace product demo"
-              className="rounded-xl w-full h-auto object-cover"
-              style={{ boxShadow: '0 4px 32px 0 rgba(0,0,0,0.07)' }}
-            />
           </div>
-        </motion.div>
+        </div>
+      </motion.header>
+
+      {/* Hero Section */}
+      <main className="flex-1 overflow-hidden">
+        <div className="relative py-24 lg:py-32 min-h-[70vh] lg:min-h-[80vh]">
+          <div className="max-w-[1400px] mx-auto px-8">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+              {/* Left Column - Content */}
+              <motion.div
+                className="flex flex-col space-y-8 max-w-xl mt-24 lg:mt-52 lg:ml-2 relative z-10"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.15, delayChildren: 0.2 },
+                  },
+                }}
+              >
+                <motion.h1
+                  className="text-[64px] leading-[1.15] font-normal text-[#134e4a] tracking-tight"
+                  variants={fadeInUp}
+                >
+                  All of your tasks,
+                  <br />
+                  tracked faster
+                </motion.h1>
+
+                <motion.p
+                  className="text-[19px] leading-relaxed text-gray-600 max-w-xl"
+                  variants={fadeInUp}
+                >
+                  Subspace is a powerful end-to-end platform to draft, plan, and
+                  schedule your tasks and content.
+                </motion.p>
+
+                <motion.div
+                  className="flex items-center gap-4 pt-2"
+                  variants={fadeInUp}
+                >
+                  <Link href="/signup">
+                    <Button
+                      className={`bg-[#2d5f5d] hover:bg-[#234948] text-white font-semibold text-[13px] px-6 py-3 rounded-md transition-colors uppercase tracking-wide shadow-none h-auto ${inconsolata.className}`}
+                    >
+                      START TRACKING
+                    </Button>
+                  </Link>
+                </motion.div>
+              </motion.div>
+
+              {/* Right Column - Product Screenshot - Extends to edge */}
+              <motion.div
+                className="relative mt-8 lg:mt-0 lg:absolute lg:left-[48%] lg:top-[10%] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:w-[52vw] lg:max-w-[900px] lg:z-0"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{
+                  duration: 0.8,
+                  delay: 0.3,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <div className="relative w-full">
+                  {/* Play button overlay */}
+                  <a
+                    href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 flex items-center justify-center z-10"
+                  >
+                    <motion.div
+                      className="w-16 h-16 rounded-full bg-[#2d5f5d] flex items-center justify-center cursor-pointer shadow-xl"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="white"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M8 5.14v14l11-7-11-7z" />
+                      </svg>
+                    </motion.div>
+                  </a>
+
+                  {/* Demo text overlay */}
+                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 text-center">
+                    <div className="text-[12px] font-medium text-gray-600 uppercase tracking-wide mb-1">
+                      WATCH A DEMO
+                    </div>
+                    <div className="text-xl font-semibold text-gray-900">
+                      04:24
+                    </div>
+                  </div>
+
+                  <div className="relative rounded-xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
+                    <img
+                      src="/demo-product.png"
+                      alt="Product demo screenshot"
+                      className="w-full h-auto opacity-90"
+                    />
+                    {/* Enhanced fade overlays */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent via-40% to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-white via-white/60 via-40% to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 bottom-0 w-32 bg-gradient-to-r from-white via-white/30 to-transparent pointer-events-none" />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
       </main>
-      <FeatureSection />
-    </motion.div>
-  )
-} 
+    </div>
+  );
+}

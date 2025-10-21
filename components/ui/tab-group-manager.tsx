@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTabGroupService } from "@/hooks/useTabGroupService";
-import { TabGroup, TabItem } from "@/lib/tabgroups";
+import type { TabGroup, TabItem } from "@/lib/tabgroups";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -27,7 +27,7 @@ export function TabGroupManager() {
     setTabGroups(prev => [...prev]); // Force a re-render
   }, []); // Remove subscribeToTabGroups dependency
 
-  // Subscribe to tab groups
+  // Subscribe to tab groups; re-run when auth/user in the service changes
   useEffect(() => {
     console.log("Setting up tab groups subscription");
     try {
@@ -46,7 +46,7 @@ export function TabGroupManager() {
     } catch (error) {
       console.error("Error subscribing to tab groups:", error);
     }
-  }, []); // Remove subscribeToTabGroups from dependencies
+  }, [subscribeToTabGroups]);
 
   // Reset form after creating/editing
   const resetForm = () => {
@@ -154,20 +154,30 @@ export function TabGroupManager() {
 
   // Add a tab to the current editing session
   const addTab = () => {
-    if (!newUrl.trim() || !newTitle.trim()) {
-      toast.error("Please enter both URL and title");
+    const rawUrl = newUrl.trim();
+    const rawTitle = newTitle.trim();
+    if (!rawUrl) {
+      toast.error("Please enter a URL");
       return;
     }
 
-    // Validate URL
+    // Normalize URLs that omit the protocol (e.g., google.com -> https://google.com)
+    let normalizedUrl = rawUrl;
+    if (!/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(normalizedUrl)) {
+      normalizedUrl = `https://${normalizedUrl}`;
+    }
+
     try {
-      new URL(newUrl);
-    } catch (e) {
+      // Will throw if invalid
+      const parsed = new URL(normalizedUrl);
+      normalizedUrl = parsed.toString();
+    } catch {
       toast.error("Please enter a valid URL");
       return;
     }
 
-    setEditTabs([...editTabs, { url: newUrl, title: newTitle }]);
+    const finalTitle = rawTitle || new URL(normalizedUrl).hostname;
+    setEditTabs([...editTabs, { url: normalizedUrl, title: finalTitle }]);
     setNewUrl("");
     setNewTitle("");
   };

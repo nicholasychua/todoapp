@@ -19,7 +19,12 @@ import {
   subDays,
   getHours,
 } from "date-fns";
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CalendarIcon,
+  Clock,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -469,118 +474,253 @@ export const CalendarView = React.memo(function CalendarView({
     setEditingTaskText,
   ]);
 
-  // Week View
+  // Week View - Kanban Style
   const renderWeekView = React.useCallback(() => {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Week Days Header */}
-        <div className="grid grid-cols-8 border-b bg-gray-50">
-          <div className="border-r p-3" /> {/* Time column */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        {/* Header Row */}
+        <div className="flex border-b bg-gray-50">
           {weekDays.map((day) => {
+            const dayTasks = getTasksForDay(day);
             const isTodayDate = isToday(day);
+            const completedCount = dayTasks.filter((t) => t.completed).length;
+
             return (
               <div
                 key={day.toString()}
                 className={cn(
-                  "border-r p-3 text-center",
+                  "flex-1 min-w-0 px-3 py-3 border-r last:border-r-0",
                   isTodayDate && "bg-blue-50"
                 )}
               >
-                <div className="text-xs font-medium text-gray-600">
-                  {format(day, "EEE")}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className={cn(
+                        "text-xs font-semibold uppercase tracking-wider",
+                        isTodayDate ? "text-blue-600" : "text-gray-600"
+                      )}
+                    >
+                      {format(day, "EEE")}
+                    </h3>
+                    <span
+                      className={cn(
+                        "flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold",
+                        isTodayDate
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700"
+                      )}
+                    >
+                      {format(day, "d")}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {dayTasks.length}
+                  </span>
                 </div>
-                <div
-                  className={cn(
-                    "text-lg font-semibold mt-1",
-                    isTodayDate ? "text-blue-600" : "text-gray-900"
-                  )}
-                >
-                  {format(day, "d")}
-                </div>
+                {dayTasks.length > 0 && (
+                  <p className="text-[10px] text-gray-500 mt-1.5">
+                    {completedCount} of {dayTasks.length} completed
+                  </p>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* Time Grid */}
-        <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-8 auto-rows-[60px] border-t">
-            {timeSlots.map((hour) => (
-              <React.Fragment key={hour}>
-                {/* Time label */}
-                <div className="border-r border-b p-2 text-xs text-gray-500 text-right pr-3">
-                  {format(new Date().setHours(hour, 0), "ha")}
-                </div>
-                {/* Day columns */}
-                {weekDays.map((day) => {
-                  const hourTasks = getTasksForHour(day, hour);
-                  const isTodayDate = isToday(day);
+        {/* Tasks Grid */}
+        <div className="flex-1 flex h-full overflow-hidden min-h-0">
+          {weekDays.map((day) => {
+            const dayTasks = getTasksForDay(day);
+            const isTodayDate = isToday(day);
 
-                  const dateWithHour = new Date(day);
-                  dateWithHour.setHours(hour, 0, 0, 0);
+            return (
+              <div
+                key={day.toString()}
+                className={cn(
+                  "flex-1 min-w-0 border-r last:border-r-0 overflow-y-auto px-2 py-3 flex flex-col",
+                  isTodayDate && "bg-blue-50/20"
+                )}
+                onDoubleClick={() => onDateClick?.(day)}
+              >
+                {dayTasks.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      +
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <AnimatePresence mode="popLayout">
+                      {dayTasks.map((task) => {
+                        const taskDate =
+                          task.createdAt instanceof Date
+                            ? task.createdAt
+                            : new Date();
+                        const hasTime =
+                          taskDate.getHours() !== 0 ||
+                          taskDate.getMinutes() !== 0;
+                        const timeString = hasTime
+                          ? taskDate.toLocaleTimeString("en-US", {
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : "";
 
-                  return (
-                    <div
-                      key={`${day.toString()}-${hour}`}
-                      onDoubleClick={() => onDateClick?.(dateWithHour)}
-                      className={cn(
-                        "border-r border-b p-1 hover:bg-gray-50 transition-colors relative cursor-pointer group",
-                        isTodayDate && "bg-blue-50/30"
-                      )}
-                    >
-                      {/* Add task hint */}
-                      {hourTasks.length === 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[9px] text-gray-400 font-medium">
-                            + Add
-                          </span>
-                        </div>
-                      )}
-                      {hourTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTaskClick?.(task);
-                          }}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            // Start edit mode for this task
-                            setEditingTaskId(task.id);
-                            setEditingTaskText(task.text);
-                          }}
-                          className={cn(
-                            "mb-1 rounded px-2 py-1 text-xs cursor-pointer transition-all hover:shadow-sm border",
-                            task.completed
-                              ? "bg-green-50 border-green-200 hover:bg-green-100"
-                              : "bg-white border-blue-200 hover:border-blue-300"
-                          )}
-                        >
-                          <p
+                        return (
+                          <motion.div
+                            key={task.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                            transition={{
+                              duration: 0.2,
+                              ease: [0.22, 1, 0.36, 1],
+                            }}
                             className={cn(
-                              "font-medium line-clamp-1",
-                              task.completed && "line-through text-gray-500"
+                              "group relative rounded-lg border-2 p-3 cursor-pointer transition-all hover:shadow-lg",
+                              getTaskBackground(task),
+                              task.completed
+                                ? "border-gray-200 opacity-75 hover:opacity-100"
+                                : "border-transparent hover:border-gray-200"
                             )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (editingTaskId === task.id) return;
+                              onTaskClick?.(task);
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              startEditTask(task);
+                            }}
                           >
-                            {task.text.replace(/#\w+/g, "").trim()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
+                            {/* Task Content */}
+                            <div className="flex items-start gap-2">
+                              <div
+                                className={cn(
+                                  "mt-0.5 h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                  getDotColor(task)
+                                )}
+                              />
+                              <div className="flex-1 min-w-0">
+                                {editingTaskId === task.id ? (
+                                  <motion.input
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{
+                                      duration: 0.15,
+                                      ease: "easeOut",
+                                    }}
+                                    className="w-full bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                    value={editingTaskText}
+                                    onChange={(e) =>
+                                      setEditingTaskText(e.target.value)
+                                    }
+                                    onBlur={saveEditTask}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        saveEditTask();
+                                      }
+                                      if (e.key === "Escape") {
+                                        e.preventDefault();
+                                        saveEditTask();
+                                      }
+                                    }}
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  <>
+                                    <p
+                                      className={cn(
+                                        "font-semibold text-xs leading-snug mb-1.5",
+                                        getTextColor(task),
+                                        task.completed && "line-through"
+                                      )}
+                                    >
+                                      {task.text.replace(/#\w+/g, "").trim()}
+                                    </p>
+                                    <div className="flex items-center justify-between mt-2">
+                                      {task.tags.length > 0 && (
+                                        <div className="flex gap-1 flex-wrap">
+                                          {task.tags.map((tag, idx) => (
+                                            <span
+                                              key={idx}
+                                              className={cn(
+                                                "text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full",
+                                                getTextColor(task),
+                                                "bg-white/50"
+                                              )}
+                                            >
+                                              {tag}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {timeString && (
+                                        <span
+                                          className={cn(
+                                            "text-[9px] font-semibold flex-shrink-0 flex items-center gap-0.5",
+                                            getTextColor(task)
+                                          )}
+                                        >
+                                          <Clock className="h-2.5 w-2.5" />
+                                          {timeString}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Completed badge */}
+                            {task.completed && (
+                              <div className="absolute top-1.5 right-1.5">
+                                <div className="bg-green-500 rounded-full p-0.5">
+                                  <motion.svg
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="h-2.5 w-2.5 text-white"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={3}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </motion.svg>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   }, [
     weekDays,
-    getTasksForHour,
+    getTasksForDay,
     onTaskClick,
     onDateClick,
-    setEditingTaskId,
+    getTagTextColor,
+    editingTaskId,
+    editingTaskText,
+    startEditTask,
+    saveEditTask,
     setEditingTaskText,
   ]);
 

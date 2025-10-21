@@ -174,7 +174,7 @@ export function TaskEditDialog({
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-8">
                 {/* Task Name */}
                 <div>
                   <Input
@@ -182,12 +182,12 @@ export function TaskEditDialog({
                     value={taskText}
                     onChange={(e) => setTaskText(e.target.value)}
                     placeholder="Add title"
-                    className="w-full text-lg font-medium border-0 border-b border-gray-200 rounded-none px-0 py-2 focus:ring-0 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+                    className="w-full text-lg font-medium border-0 border-b border-gray-200 rounded-none px-0 py-3 focus:ring-0 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
                   />
                 </div>
 
                 {/* Date and Time Section */}
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {/* Date Picker */}
                   <div className="flex items-center gap-3">
                     <CalendarIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
