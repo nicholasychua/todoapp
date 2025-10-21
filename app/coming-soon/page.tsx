@@ -91,7 +91,7 @@ export default function ComingSoonPage() {
       <SideShadedFrame>
         {/* Hero Section */}
         <motion.section
-          className="relative z-10 border-b border-gray-200 py-20 sm:py-32"
+          className="relative z-10 border-b border-gray-200 pt-12 sm:pt-20 pb-16 sm:pb-24"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -104,7 +104,10 @@ export default function ComingSoonPage() {
                   AI-Powered Task Management
                 </span>
               </motion.div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-black leading-tight tracking-tight mb-6">
+              <h1
+                className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-normal text-black leading-tight tracking-tight mb-8 sm:mb-10"
+                style={{ fontFamily: "EB Garamond, serif" }}
+              >
                 All your tasks.
                 <br />
                 Tracked faster.
@@ -133,7 +136,7 @@ export default function ComingSoonPage() {
 
         {/* Features Grid */}
         <motion.section
-          className="relative z-10 border-b border-gray-200"
+          className="relative z-10 border-t border-gray-200 border-b border-gray-200"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
@@ -221,7 +224,8 @@ export default function ComingSoonPage() {
           <div className="px-4 sm:px-6 lg:px-12 py-20 sm:py-32">
             <div className="max-w-4xl mx-auto text-center">
               <motion.h2
-                className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 text-gray-900"
+                className="text-4xl sm:text-5xl md:text-6xl font-normal mb-6 text-gray-900"
+                style={{ fontFamily: "EB Garamond, serif" }}
                 variants={fadeInUp}
                 initial="hidden"
                 whileInView="visible"
@@ -261,7 +265,7 @@ export default function ComingSoonPage() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 md:gap-0">
+          <div className="relative flex flex-col md:flex-row justify-between items-center gap-6 md:gap-0">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
                 <div className="w-4 h-4 bg-white rounded-sm"></div>
@@ -270,7 +274,7 @@ export default function ComingSoonPage() {
                 subspace
               </span>
             </div>
-            <div className="flex gap-6">
+            <div className="flex gap-6 justify-center w-full md:w-auto md:absolute md:left-1/2 md:-translate-x-1/2">
               <a
                 href="https://x.com/nicholasychua"
                 target="_blank"
@@ -291,6 +295,29 @@ export default function ComingSoonPage() {
                 >
                   <path d="M17.5 6.5L6.5 17.5" />
                   <path d="m6.5 6.5 11 11" />
+                </svg>
+              </a>
+              <a
+                href="https://instagram.com/nicholaschuas"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-black transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                >
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                  <path d="m16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
                 </svg>
               </a>
               <a
