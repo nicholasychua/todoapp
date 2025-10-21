@@ -4,9 +4,48 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
-  title: "subspace",
-  description: "Created with v0",
-  generator: "v0.dev",
+  title: {
+    default: "Subspace",
+    template: "%s • Subspace",
+  },
+  description:
+    "AI-powered task manager for focused work. Plan, track, and ship faster.",
+  keywords: [
+    "task manager",
+    "productivity",
+    "AI",
+    "focus",
+    "pomodoro",
+    "calendar",
+  ],
+  openGraph: {
+    title: "Subspace",
+    description:
+      "AI-powered task manager for focused work. Plan, track, and ship faster.",
+    url: "/",
+    siteName: "Subspace",
+    images: [
+      {
+        url: "/demo-product.png",
+        width: 1200,
+        height: 630,
+        alt: "Subspace task manager",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Subspace",
+    description:
+      "AI-powered task manager for focused work. Plan, track, and ship faster.",
+    images: ["/demo-product.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: "/circle1.png",
   },
