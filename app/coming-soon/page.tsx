@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Button as HoverButton } from "@/components/ui/hover-button";
 import { motion } from "framer-motion";
 import { ArrowRight, Check, Zap, Brain, Clock } from "lucide-react";
 import {
@@ -76,15 +77,26 @@ export default function ComingSoonPage() {
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <Button
-            variant="ghost"
-            className="text-xs sm:text-sm font-medium text-gray-600 hover:text-gray-900 px-2 sm:px-3"
-          >
-            Coming Soon
-          </Button>
-          <Button className="bg-black text-white hover:bg-gray-800 text-xs sm:text-sm font-medium px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-black">
-            Get Notified
-          </Button>
+          <Link href="/signin">
+            <HoverButton
+              variant="outline"
+              size="default"
+              className="text-sm border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 py-2.5"
+              neon={false}
+            >
+              Log In
+            </HoverButton>
+          </Link>
+          <Link href="/signup">
+            <HoverButton
+              variant="default"
+              size="default"
+              className="text-sm bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300 px-5 py-2.5 flex items-center gap-2"
+            >
+              Get Started
+              <ArrowRight className="w-4 h-4" />
+            </HoverButton>
+          </Link>
         </div>
       </motion.header>
 
@@ -402,19 +414,21 @@ function WaitlistInlineForm() {
             required
             autoFocus
           />
-          <Button
+          <HoverButton
             type="submit"
-            className="h-12 px-8 rounded-lg bg-black text-white hover:bg-gray-900 text-base font-medium shadow-none border border-black flex items-center gap-2 transition-all duration-200 w-full sm:w-auto"
+            variant="solid"
+            size="lg"
+            className="h-12 px-8 text-base font-medium flex items-center gap-2 w-full sm:w-auto"
             disabled={status === "loading"}
           >
             {status === "loading" ? (
-              "Joining..."
+              "Loading..."
             ) : (
               <>
-                Join waitlist <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </>
             )}
-          </Button>
+          </HoverButton>
         </form>
       )}
       {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
@@ -482,19 +496,21 @@ function WaitlistCTA() {
         autoFocus
         disabled={status === "loading"}
       />
-      <button
+      <HoverButton
         type="submit"
-        className="h-11 px-6 rounded-lg bg-black text-white text-base font-medium shadow-none border border-black hover:bg-gray-900 flex items-center gap-2 transition-all duration-200 w-full sm:w-auto"
+        variant="solid"
+        size="default"
+        className="h-11 px-6 text-base font-medium flex items-center gap-2 w-full sm:w-auto"
         disabled={status === "loading"}
       >
         {status === "loading" ? (
-          "Joining..."
+          "Loading..."
         ) : (
           <>
-            Join <ArrowRight className="w-4 h-4" />
+            Get Started <ArrowRight className="w-4 h-4" />
           </>
         )}
-      </button>
+      </HoverButton>
       {error && (
         <div className="text-red-500 text-sm mt-2 w-full text-center">
           {error}

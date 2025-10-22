@@ -40,8 +40,8 @@ export function FeatureSection() {
         {/* Outer frame with corner brackets */}
         <CornerBrackets />
 
-        {/* Center divider line with T-bracket highlights */}
-        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 -translate-x-1/2">
+        {/* Center divider line with T-bracket highlights (only when two columns) */}
+        <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 -translate-x-1/2">
           {/* Vertical grey line */}
           <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"></div>
 
@@ -62,14 +62,14 @@ export function FeatureSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-16 md:gap-20 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 lg:gap-20 items-start">
           {/* Left Panel */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
             viewport={{ once: true }}
-            className="flex flex-col md:pr-10"
+            className="flex flex-col lg:pr-10"
           >
             <div className="text-xs sm:text-sm font-medium text-blue-600 mb-3 sm:mb-4">
               AI Task Capture
@@ -154,50 +154,58 @@ export function FeatureSection() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1], delay: 0.1 }}
             viewport={{ once: true }}
-            className="flex flex-col md:pl-10"
+            className="flex flex-col lg:pl-10"
           >
             <div className="text-xs sm:text-sm font-medium text-purple-600 mb-3 sm:mb-4">
               Smart Scheduling & Collaboration
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-bold leading-tight mb-3 sm:mb-6 text-balance">
               AI-Scheduled Day
             </h2>
             <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
               Let AI find the best time for your work—see your day fill up
               automatically.
             </p>
-            <Card className="bg-white border border-gray-200 p-3 sm:p-4 shadow-sm flex flex-col gap-2 sm:gap-3 h-44 sm:h-52 w-full overflow-hidden">
+            <Card className="bg-white border border-gray-200 p-3 sm:p-4 shadow-sm flex flex-col gap-2 sm:gap-3 h-64 sm:h-56 w-full overflow-hidden">
               {/* Minimal Google Calendar-like day view */}
-              <div className="relative w-full h-full bg-gray-50 rounded-xl border border-gray-100 overflow-hidden flex flex-col justify-between">
+              <div className="relative w-full h-full bg-gray-50 rounded-xl border border-gray-100 overflow-hidden grid grid-rows-[repeat(10,minmax(0,1fr))]">
                 {/* Time slots */}
                 {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((hour) => (
                   <div
                     key={hour}
-                    className="flex items-center h-1/10 border-b border-gray-100 last:border-b-0 px-2 sm:px-3 text-xs text-gray-400"
+                    className="flex items-center border-b border-gray-100 last:border-b-0 px-2 sm:px-3 text-[10px] sm:text-xs text-gray-400 tabular-nums"
                   >
-                    {hour}:00
+                    <span
+                      className={`${
+                        hour % 2 === 0 ? "inline" : "hidden"
+                      } sm:inline`}
+                    >
+                      {hour}:00
+                    </span>
                   </div>
                 ))}
                 {/* AI-slotted events */}
-                <div className="absolute left-16 sm:left-24 top-[15%] w-3/4 sm:w-4/5 px-2 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm">
+                <div className="absolute left-[52px] sm:left-24 top-[12%] sm:top-[15%] w-[72%] sm:w-4/5 px-2 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm overflow-hidden whitespace-nowrap text-ellipsis">
                   Gym
                 </div>
-                <div className="absolute left-16 sm:left-24 top-[30%] w-2/3 px-2 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm font-medium text-purple-900 bg-purple-100 border-l-4 border-purple-500 rounded-r-xl shadow-sm flex items-center gap-1 sm:gap-2">
-                  <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500" />
-                  AI suggested: Finish project report
+                <div className="absolute left-[52px] sm:left-24 top-[27%] sm:top-[30%] w-[65%] sm:w-2/3 px-2 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-sm font-medium text-purple-900 bg-purple-100 border-l-4 border-purple-500 rounded-r-xl shadow-sm flex items-center gap-1 sm:gap-2 overflow-hidden">
+                  <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500 flex-shrink-0" />
+                  <span className="hidden sm:inline">AI suggested: </span>
+                  <span className="truncate">Finish project report</span>
                 </div>
-                <div className="absolute left-16 sm:left-24 top-[45%] w-1/2 px-2 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm">
+                <div className="absolute left-[52px] sm:left-24 top-[42%] sm:top-[45%] w-1/2 px-2 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm overflow-hidden whitespace-nowrap text-ellipsis">
                   Sales Call
                 </div>
-                <div className="absolute left-16 sm:left-24 top-[60%] w-2/3 px-2 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm font-medium text-purple-900 bg-purple-100 border-l-4 border-purple-500 rounded-r-xl shadow-sm flex items-center gap-1 sm:gap-2">
-                  <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500" />
-                  AI suggested: Start folding laundry
+                <div className="absolute left-[52px] sm:left-24 top-[57%] sm:top-[60%] w-[65%] sm:w-2/3 px-2 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-sm font-medium text-purple-900 bg-purple-100 border-l-4 border-purple-500 rounded-r-xl shadow-sm flex items-center gap-1 sm:gap-2 overflow-hidden">
+                  <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500 flex-shrink-0" />
+                  <span className="hidden sm:inline">AI suggested: </span>
+                  <span className="truncate">Start folding laundry</span>
                 </div>
-                <div className="absolute left-16 sm:left-24 top-[75%] w-3/4 px-2 sm:px-4 py-0.5 sm:py-1 text-xs sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm">
+                <div className="absolute left-[52px] sm:left-24 top-[72%] sm:top-[75%] w-3/4 px-2 sm:px-4 py-0.5 sm:py-1 text-[11px] sm:text-sm font-medium text-blue-900 bg-blue-100 border-l-4 border-blue-500 rounded-r-xl shadow-sm overflow-hidden whitespace-nowrap text-ellipsis">
                   Family Dinner
                 </div>
                 {/* AI label */}
-                <div className="absolute right-2 sm:right-4 top-2 sm:top-4 bg-blue-500 text-white text-xs px-1.5 sm:px-2 py-0.5 rounded-full shadow">
+                <div className="absolute right-2 sm:right-4 top-1.5 sm:top-3 bg-blue-500 text-white text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 rounded-full shadow">
                   AI scheduled
                 </div>
               </div>
