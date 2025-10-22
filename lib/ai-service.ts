@@ -19,21 +19,30 @@ export interface CategoryMetadata {
 
 export async function processVoiceInput(rawInput: string): Promise<ProcessedTask> {
   try {
-    console.log('Attempting to call AI service with input:', rawInput);
+    console.log('Starting voice processing for:', rawInput);
+    
+    // Create an abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn('Voice processing request timeout, aborting...');
+      controller.abort();
+    }, 5000); // 5 second timeout
+    
+    const requestBody = { rawInput };
+    console.log('Making voice processing request with body:', requestBody);
     
     const response = await fetch('/api/ai/process-voice', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ rawInput }),
-    }).catch((fetchError) => {
-      console.error('Network error fetching voice processing API:', fetchError);
-      throw new Error('Network error');
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response ok:', response.ok);
+    clearTimeout(timeoutId);
+
+    console.log('Voice processing response received:', response.status, response.ok);
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -45,9 +54,19 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
     }
 
     const result = await response.json();
+    console.log('Voice processing result:', result);
     return result as ProcessedTask;
   } catch (error) {
     console.error('Error in processVoiceInput:', error);
+    
+    // Check if it's an abort error (timeout)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('Voice processing request timed out, using fallback');
+    } else if (error instanceof Error && error.message === 'Failed to fetch') {
+      console.warn('Network error during voice processing, using fallback');
+    } else if (error instanceof Error && error.message.includes('NetworkError')) {
+      console.warn('Network error during voice processing, using fallback');
+    }
     
     // If there's a network error or other issue, use fallback
     console.warn('Using fallback voice processing due to error');
@@ -60,28 +79,34 @@ export async function categorizeTask(
   categories: string[] | CategoryMetadata[]
 ): Promise<CategorizationResult> {
   try {
+    console.log('Starting categorization for:', taskText);
+    
     // Create an abort controller for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    const timeoutId = setTimeout(() => {
+      console.warn('Categorization request timeout, aborting...');
+      controller.abort();
+    }, 5000); // 5 second timeout
+
+    const requestBody = { 
+      taskText, 
+      categoryMetadata: typeof categories[0] === 'object' ? categories : undefined,
+      categories: typeof categories[0] === 'string' ? categories : undefined
+    };
+    
+    console.log('Making categorization request with body:', requestBody);
 
     const response = await fetch('/api/ai/categorize-task', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        taskText, 
-        categoryMetadata: typeof categories[0] === 'object' ? categories : undefined,
-        categories: typeof categories[0] === 'string' ? categories : undefined
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
-    }).catch((fetchError) => {
-      clearTimeout(timeoutId);
-      console.error('Network error fetching categorization API:', fetchError);
-      throw new Error('Network error');
     });
 
     clearTimeout(timeoutId);
+    console.log('Categorization response received:', response.status, response.ok);
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -93,9 +118,19 @@ export async function categorizeTask(
     }
 
     const result = await response.json();
+    console.log('Categorization result:', result);
     return result as CategorizationResult;
   } catch (error) {
     console.error('Error in categorizeTask:', error);
+    
+    // Check if it's an abort error (timeout)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('Categorization request timed out, using fallback');
+    } else if (error instanceof Error && error.message === 'Failed to fetch') {
+      console.warn('Network error during categorization, using fallback');
+    } else if (error instanceof Error && error.message.includes('NetworkError')) {
+      console.warn('Network error during categorization, using fallback');
+    }
     
     // If there's a network error or other issue, use fallback
     console.warn('Using fallback categorization due to error');

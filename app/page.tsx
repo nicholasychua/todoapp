@@ -38,6 +38,7 @@ import {
   Reorder,
   useDragControls,
 } from "framer-motion";
+import { analytics } from "@/lib/analytics";
 import { Calendar } from "@/components/ui/calendar";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -666,13 +667,26 @@ export default function TaskManager() {
       }));
       const result = await categorizeTask(cleanText, categoryMetadata);
       const suggested = result?.suggestedCategory;
+
+      // Track AI categorization analytics
+      if (suggested) {
+        analytics.aiCategorizationUsed(
+          cleanText,
+          suggested,
+          result?.confidence || "unknown"
+        );
+      } else {
+        analytics.aiCategorizationFallback(cleanText, "no_suggestion");
+      }
+
       if (!suggested) return existingTags; // fall back to Uncategorized (no category tag)
       if (existingTags.includes(suggested)) {
         // Ensure suggested category is first for consistent grouping
         return [suggested, ...existingTags.filter((t) => t !== suggested)];
       }
       return [suggested, ...existingTags];
-    } catch {
+    } catch (error) {
+      analytics.aiCategorizationFallback(baseText, "error");
       return existingTags;
     }
   };
@@ -785,6 +799,10 @@ export default function TaskManager() {
         createdAt: finalDate,
         group: "master",
       });
+
+      // Track task creation analytics
+      analytics.taskCreated(value, finalTags.length > 0, !!finalDate);
+
       setNewTaskText("");
       setSpeechDraft("");
       setNewTaskDate(undefined);
@@ -841,6 +859,9 @@ export default function TaskManager() {
           result.taskName,
           result.tags || []
         );
+
+        // Track voice input analytics
+        analytics.voiceInputProcessed(true, finalTags.length, !!result.date);
 
         // Add the task
         const created = await createTask({
@@ -930,6 +951,12 @@ export default function TaskManager() {
         try {
           await updateTask(taskId, { completed: true });
 
+          // Track task completion analytics
+          analytics.taskCompleted(
+            task.text,
+            (Date.now() - task.createdAt.getTime()) / 1000
+          );
+
           setTimeout(() => {
             setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
             setPendingCompletions((prev) => {
@@ -937,9 +964,13 @@ export default function TaskManager() {
               delete updated[taskId];
               return updated;
             });
-          }, 100);
+          }, 200);
         } catch (error) {
           toast.error("Failed to complete task.");
+          analytics.errorOccurred(
+            "task_complete_error",
+            error instanceof Error ? error.message : "Unknown error"
+          );
           // Revert pending state on error
           setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
           setPendingCompletions((prev) => {
@@ -970,11 +1001,20 @@ export default function TaskManager() {
   const deleteTaskHandler = async (taskId: string) => {
     if (!user) return;
 
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      analytics.taskDeleted(task.text);
+    }
+
     try {
       await deleteTask(taskId);
       toast.success("Task deleted successfully!");
     } catch (error) {
       toast.error("Failed to delete task");
+      analytics.errorOccurred(
+        "task_delete_error",
+        error instanceof Error ? error.message : "Unknown error"
+      );
     }
   };
 
@@ -1216,6 +1256,7 @@ export default function TaskManager() {
       // Show onboarding flow first
       setShowFocusOnboarding(true);
       setShowPomodoro(false);
+      analytics.viewChanged("pomodoro");
     } else {
       // Hide everything
       setShowPomodoro(false);
@@ -1238,14 +1279,26 @@ export default function TaskManager() {
   };
 
   const handleBacklogToggle = () => {
-    setShowBacklog((prev) => !prev);
+    setShowBacklog((prev) => {
+      const newValue = !prev;
+      if (newValue) {
+        analytics.viewChanged("backlog");
+      }
+      return newValue;
+    });
     setShowPomodoro(false);
     setShowFocusOnboarding(false);
     setShowCalendar(false);
   };
 
   const handleCalendarToggle = () => {
-    setShowCalendar((prev) => !prev);
+    setShowCalendar((prev) => {
+      const newValue = !prev;
+      if (newValue) {
+        analytics.viewChanged("calendar");
+      }
+      return newValue;
+    });
     setShowBacklog(false);
     setShowPomodoro(false);
     setShowFocusOnboarding(false);
@@ -1707,6 +1760,13 @@ export default function TaskManager() {
     };
   }, [processedTask, categories]);
 
+  // Track session start analytics
+  useEffect(() => {
+    if (user && !loading) {
+      analytics.sessionStarted("returning");
+    }
+  }, [user, loading]);
+
   // Ticking effect for progress bars when there are active timers
   useEffect(() => {
     const hasActive = Object.values(temporaryVisibleTasks).some(
@@ -2156,7 +2216,7 @@ export default function TaskManager() {
               {/* Task List */}
               <div className="flex-1 px-4 pb-8">
                 <div className="relative">
-                  <AnimatePresence initial={false}>
+                  <AnimatePresence initial={false} mode="popLayout">
                     {filteredTasks.map((task, idx) => {
                       // Date logic
                       const hasDate = task.createdAt instanceof Date;
@@ -2200,26 +2260,38 @@ export default function TaskManager() {
                       return (
                         <motion.div
                           key={task.id}
-                          layout="position"
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          layout
+                          initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{
                             opacity: 0,
-                            y: -8,
+                            y: -12,
+                            scale: 0.95,
+                            height: 0,
+                            marginBottom: 0,
                             transition: {
-                              duration: 0.25, // quick fade
-                              ease: "easeInOut",
+                              duration: 0.4,
+                              ease: [0.16, 1, 0.3, 1],
+                              height: {
+                                duration: 0.3,
+                                ease: [0.16, 1, 0.3, 1],
+                              },
+                              marginBottom: {
+                                duration: 0.3,
+                                ease: [0.16, 1, 0.3, 1],
+                              },
                             },
                           }}
                           transition={{
-                            duration: 0.35,
+                            duration: 0.4,
                             ease: [0.16, 1, 0.3, 1],
-                            delay: idx * 0.04,
+                            delay: idx * 0.02,
+                            layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                           }}
                           className={cn(
-                            "flex items-start px-4 py-2.5 min-h-[32px] group transition-all duration-200 relative rounded-lg border border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:shadow-md mb-2",
+                            "flex items-start px-4 py-2.5 min-h-[32px] group transition-all duration-300 relative rounded-lg border border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:shadow-md mb-2",
                             effectivelyCompleted
-                              ? "bg-gray-50/50 border-gray-200/60"
+                              ? "bg-gray-50/50 border-gray-200/60 opacity-75"
                               : ""
                           )}
                           tabIndex={0}
@@ -3521,22 +3593,35 @@ function BacklogView({
                       </div>
                     ) : catTasks.length > 0 || !tasksLoaded ? (
                       <div className="space-y-2">
-                        <AnimatePresence initial={false}>
+                        <AnimatePresence initial={false} mode="popLayout">
                           {catTasks.slice(0, 3).map((task, idx) => (
                             <motion.div
                               key={task.id}
-                              layout="position"
-                              initial={{ opacity: 0, y: 5 }}
-                              animate={{ opacity: 1, y: 0 }}
+                              layout
+                              initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{
                                 opacity: 0,
-                                y: -5,
-                                transition: { duration: 0.15 },
+                                y: -8,
+                                scale: 0.95,
+                                height: 0,
+                                transition: {
+                                  duration: 0.3,
+                                  ease: [0.16, 1, 0.3, 1],
+                                  height: {
+                                    duration: 0.25,
+                                    ease: [0.16, 1, 0.3, 1],
+                                  },
+                                },
                               }}
                               transition={{
-                                duration: 0.25,
+                                duration: 0.3,
                                 ease: [0.16, 1, 0.3, 1],
-                                delay: idx * 0.05,
+                                delay: idx * 0.03,
+                                layout: {
+                                  duration: 0.25,
+                                  ease: [0.16, 1, 0.3, 1],
+                                },
                               }}
                               className={cn(
                                 "flex items-start gap-3 p-2 rounded transition-colors",
@@ -3736,7 +3821,7 @@ function BacklogView({
             {/* Content */}
             <div className="p-6">
               <div className="flex flex-col gap-3 mb-6 max-h-96 overflow-y-auto">
-                <AnimatePresence initial={false}>
+                <AnimatePresence initial={false} mode="popLayout">
                   {filteredAndSortedTasks
                     .filter((t) =>
                       selectedCategory === "Uncategorized"
@@ -3746,21 +3831,25 @@ function BacklogView({
                     .map((task, idx) => (
                       <motion.div
                         key={task.id}
-                        layout="position"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        layout
+                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{
                           opacity: 0,
-                          y: -8,
+                          y: -12,
+                          scale: 0.95,
+                          height: 0,
                           transition: {
-                            duration: 0.25,
-                            ease: "easeInOut",
+                            duration: 0.35,
+                            ease: [0.16, 1, 0.3, 1],
+                            height: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                           },
                         }}
                         transition={{
-                          duration: 0.35,
+                          duration: 0.4,
                           ease: [0.16, 1, 0.3, 1],
-                          delay: idx * 0.04,
+                          delay: idx * 0.02,
+                          layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                         }}
                         className="flex items-center group rounded-lg px-4 py-1.5 transition-colors hover:bg-gray-50"
                       >
@@ -4049,7 +4138,7 @@ function PomodoroTimer({
         <div className="flex flex-1 items-center justify-start pl-32">
           <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
             <div className="py-0 flex flex-col gap-0">
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} mode="popLayout">
                 {filteredTasks.map((task, idx) => {
                   // Date logic
                   const hasDate = task.createdAt instanceof Date;
@@ -4090,26 +4179,35 @@ function PomodoroTimer({
                   return (
                     <motion.div
                       key={task.id}
-                      layout="position"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      layout
+                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{
                         opacity: 0,
-                        y: -8,
+                        y: -12,
+                        scale: 0.95,
+                        height: 0,
+                        marginBottom: 0,
                         transition: {
-                          duration: 0.25, // quick fade
-                          ease: "easeInOut",
+                          duration: 0.4,
+                          ease: [0.16, 1, 0.3, 1],
+                          height: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+                          marginBottom: {
+                            duration: 0.3,
+                            ease: [0.16, 1, 0.3, 1],
+                          },
                         },
                       }}
                       transition={{
-                        duration: 0.35,
+                        duration: 0.4,
                         ease: [0.16, 1, 0.3, 1],
-                        delay: idx * 0.04,
+                        delay: idx * 0.02,
+                        layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                       }}
                       className={cn(
-                        "flex items-center px-4 py-1.5 min-h-[32px] group transition-all duration-200 relative rounded-lg border border-gray-200/60 bg-white hover:border-gray-300 hover:shadow-sm mb-2",
+                        "flex items-center px-4 py-1.5 min-h-[32px] group transition-all duration-300 relative rounded-lg border border-gray-200/60 bg-white hover:border-gray-300 hover:shadow-sm mb-2",
                         effectivelyCompleted
-                          ? "bg-gray-50/50 border-gray-200/40"
+                          ? "bg-gray-50/50 border-gray-200/40 opacity-75"
                           : ""
                       )}
                     >
