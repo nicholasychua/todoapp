@@ -15,6 +15,7 @@
     "incremental": true,
     "baseUrl": ".",
     "verbatimModuleSyntax": true,
+    "types": [],
     "plugins": [
       {
         "name": "next"
