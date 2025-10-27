@@ -5,17 +5,21 @@ import { ChevronDown } from "lucide-react";
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+export type FilterOption = {
+  label: string;
+  onClick: () => void;
+  Icon?: React.ReactNode;
+  children?: FilterOption[];
+};
+
 type FilterDropdownProps = {
-  options: {
-    label: string;
-    onClick: () => void;
-    Icon?: React.ReactNode;
-  }[];
+  options: FilterOption[];
   children: React.ReactNode;
 };
 
 const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
@@ -46,6 +50,7 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: -5, scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
+            onMouseLeave={() => setHoveredItem(null)}
             className="absolute right-0 z-10 w-40 mt-2 p-1 bg-white rounded-lg border border-gray-200 shadow-lg flex flex-col gap-1"
           >
             {options && options.length > 0 ? (
@@ -59,47 +64,90 @@ const FilterDropdown = ({ options, children }: FilterDropdownProps) => {
                   );
                 }
                 return (
-                  <motion.button
-                    initial={{
-                      opacity: 0,
-                      x: -5,
-                      backgroundColor: "rgb(255, 255, 255)",
-                    }}
-                    animate={{
-                      opacity: 1,
-                      x: 0,
-                      backgroundColor: "rgb(255, 255, 255)",
-                    }}
-                    transition={{
-                      duration: 0.2,
-                      delay: index * 0.05,
-                      ease: "easeOut",
-                    }}
-                    whileHover={{
-                      backgroundColor: "rgb(243, 244, 246)",
-                      scale: 1.01,
-                      transition: {
-                        duration: 0.08,
-                        ease: "easeOut",
-                      },
-                    }}
-                    whileTap={{
-                      scale: 0.98,
-                      backgroundColor: "rgb(243, 244, 246)",
-                      transition: {
-                        duration: 0.05,
-                      },
-                    }}
+                  <div
                     key={option.label}
-                    onClick={() => {
-                      option.onClick();
-                      setIsOpen(false);
-                    }}
-                    className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2"
+                    className="relative"
+                    onMouseEnter={() =>
+                      option.children && setHoveredItem(option.label)
+                    }
+                    onMouseLeave={() =>
+                      !hoveredItem?.startsWith(option.label) &&
+                      setHoveredItem(null)
+                    }
                   >
-                    {option.Icon}
-                    {option.label}
-                  </motion.button>
+                    <motion.button
+                      initial={{
+                        opacity: 0,
+                        x: -5,
+                        backgroundColor: "rgb(255, 255, 255)",
+                      }}
+                      animate={{
+                        opacity: 1,
+                        x: 0,
+                        backgroundColor: "rgb(255, 255, 255)",
+                      }}
+                      transition={{
+                        duration: 0.2,
+                        delay: index * 0.05,
+                        ease: "easeOut",
+                      }}
+                      whileHover={{
+                        backgroundColor: "rgb(243, 244, 246)",
+                        scale: 1.01,
+                        transition: {
+                          duration: 0.08,
+                          ease: "easeOut",
+                        },
+                      }}
+                      whileTap={{
+                        scale: 0.98,
+                        backgroundColor: "rgb(243, 244, 246)",
+                        transition: {
+                          duration: 0.05,
+                        },
+                      }}
+                      onClick={() => {
+                        // Always call onClick and close dropdown
+                        option.onClick();
+                        setIsOpen(false);
+                      }}
+                      className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center justify-between gap-x-2"
+                    >
+                      <div className="flex items-center gap-x-2">
+                        {option.Icon}
+                        {option.label}
+                      </div>
+                      {option.children && <ChevronDown className="h-3 w-3" />}
+                    </motion.button>
+
+                    {/* Nested submenu */}
+                    {option.children && hoveredItem === option.label && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute left-full top-0 ml-1 w-48 p-1 bg-white rounded-lg border border-gray-200 shadow-lg z-20"
+                      >
+                        {option.children.map((childOption) => (
+                          <motion.button
+                            key={childOption.label}
+                            whileHover={{
+                              backgroundColor: "rgb(243, 244, 246)",
+                            }}
+                            onClick={() => {
+                              childOption.onClick();
+                              setIsOpen(false);
+                            }}
+                            className="px-3 py-2 cursor-pointer text-gray-700 text-xs rounded-md w-full text-left flex items-center gap-x-2"
+                          >
+                            {childOption.Icon}
+                            {childOption.label}
+                          </motion.button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </div>
                 );
               })
             ) : (

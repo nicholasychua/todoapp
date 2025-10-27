@@ -22,6 +22,7 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -691,6 +692,11 @@ export default function TaskManager() {
   const [isRecordingComplete, setIsRecordingComplete] = useState(false);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [showCategoryGrouping, setShowCategoryGrouping] = useState(false);
+  const [filterMode, setFilterMode] = useState<
+    "sort" | "all-tasks" | "all-categories" | null
+  >("all-tasks");
   const [showSearch, setShowSearch] = useState(false);
   const [showPomodoro, setShowPomodoro] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -1389,6 +1395,11 @@ export default function TaskManager() {
       const hiddenOnHome =
         hideBecauseHiddenCat && !tagOverride && !isTemporarilyVisible;
 
+      // Category filter logic
+      const categoryMatches = categoryFilter
+        ? task.tags.includes(categoryFilter)
+        : true;
+
       return (
         (activeGroup === "master" ? true : task.group === "today") &&
         (searchText
@@ -1402,6 +1413,7 @@ export default function TaskManager() {
         (selectedTags.length > 0
           ? selectedTags.every((tag) => task.tags.includes(tag))
           : true) &&
+        categoryMatches &&
         // Hide completed tasks that are not in waiting period (only on home page)
         (!showBacklog ? !(effectivelyCompleted && !isInWaitingPeriod) : true) &&
         // Hide tasks whose category is hidden on Home (unless user explicitly filtered by that tag)
@@ -1429,6 +1441,73 @@ export default function TaskManager() {
   )
     .filter((tag) => tag !== "tag" && tag !== "shopping")
     .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
+
+  // Group tasks by category when "All Categories" is selected
+  type GroupedTaskItem =
+    | { task: Task; idx: number; category: string; isHeader: true }
+    | { task: Task; idx: number; category: string; isHeader: false };
+
+  const groupedTasks = useMemo(() => {
+    // If a specific category is selected, return as a flat array without headers
+    if (categoryFilter) {
+      return filteredTasks.map(
+        (task, idx): GroupedTaskItem => ({
+          task,
+          idx,
+          category: categoryFilter,
+          isHeader: false,
+        })
+      );
+    }
+
+    // Only show category headers when showCategoryGrouping is true
+    if (showCategoryGrouping) {
+      // When "All Categories" is selected with grouping, group by category
+      const groups: Record<string, Task[]> = {};
+      filteredTasks.forEach((task) => {
+        const category = task.tags[0] || "Uncategorized";
+        if (!groups[category]) {
+          groups[category] = [];
+        }
+        groups[category].push(task);
+      });
+
+      // Sort categories alphabetically and flatten with category info
+      const categoryNames = Object.keys(groups).sort();
+      const result: GroupedTaskItem[] = [];
+      let idx = 0;
+
+      categoryNames.forEach((cat) => {
+        result.push({
+          task: { id: cat, text: cat } as Task,
+          idx,
+          category: cat,
+          isHeader: true,
+        } as GroupedTaskItem);
+        groups[cat].forEach((task) => {
+          result.push({
+            task,
+            idx,
+            category: cat,
+            isHeader: false,
+          } as GroupedTaskItem);
+          idx++;
+        });
+      });
+
+      return result;
+    }
+
+    // Flat list without headers (for Newest/Oldest First)
+    return filteredTasks.map(
+      (task, idx): GroupedTaskItem => ({
+        task,
+        idx,
+        category: task.tags[0] || "Uncategorized",
+        isHeader: false,
+      })
+    );
+  }, [filteredTasks, categoryFilter, showCategoryGrouping]);
 
   // Helper function to get color for a tag
   const getTagColor = (tag: string) => {
@@ -2442,19 +2521,22 @@ export default function TaskManager() {
                 <FilterDropdown
                   options={[
                     {
-                      label: "All Tasks",
-                      onClick: () => setFilter("all"),
-                      Icon: <ListTodo className="h-3.5 w-3.5" />,
+                      label: "Newest First",
+                      onClick: () => {
+                        setSortOrder("asc");
+                        setShowCategoryGrouping(false);
+                        setFilterMode("sort");
+                      },
+                      Icon: <ArrowUp className="h-3.5 w-3.5" />,
                     },
                     {
-                      label: "Active",
-                      onClick: () => setFilter("active"),
-                      Icon: <Circle className="h-3.5 w-3.5" />,
-                    },
-                    {
-                      label: "Completed",
-                      onClick: () => setFilter("completed"),
-                      Icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+                      label: "Oldest First",
+                      onClick: () => {
+                        setSortOrder("desc");
+                        setShowCategoryGrouping(false);
+                        setFilterMode("sort");
+                      },
+                      Icon: <ArrowDown className="h-3.5 w-3.5" />,
                     },
                     {
                       label: "separator",
@@ -2462,23 +2544,45 @@ export default function TaskManager() {
                       Icon: null,
                     },
                     {
-                      label: "Newest First",
-                      onClick: () => setSortOrder("desc"),
-                      Icon: <ArrowDown className="h-3.5 w-3.5" />,
+                      label: "All Tasks",
+                      onClick: () => {
+                        setCategoryFilter(null);
+                        setShowCategoryGrouping(false);
+                        setFilterMode("all-tasks");
+                      },
+                      Icon: <ListTodo className="h-3.5 w-3.5" />,
                     },
                     {
-                      label: "Oldest First",
-                      onClick: () => setSortOrder("asc"),
-                      Icon: <ArrowUp className="h-3.5 w-3.5" />,
+                      label: "All Categories",
+                      onClick: () => {
+                        setCategoryFilter(null);
+                        setShowCategoryGrouping(true);
+                        setFilterMode("all-categories");
+                      },
+                      Icon: <Tag className="h-3.5 w-3.5" />,
+                      children: allTags.map((tag) => ({
+                        label: tag,
+                        onClick: () => {
+                          setCategoryFilter(tag);
+                          setShowCategoryGrouping(false);
+                          setFilterMode(null);
+                        },
+                        Icon: <Tag className="h-3.5 w-3.5" />,
+                      })),
                     },
                   ]}
                 >
                   <Filter className="h-3.5 w-3.5 mr-1.5" />
-                  {filter === "all"
-                    ? "All"
-                    : filter === "active"
-                    ? "Active"
-                    : "Completed"}
+                  {(() => {
+                    if (categoryFilter) return categoryFilter;
+                    if (filterMode === "all-categories")
+                      return "All Categories";
+                    if (filterMode === "all-tasks") return "All Tasks";
+                    // Show sort order as default
+                    return sortOrder === "asc"
+                      ? "Newest First"
+                      : "Oldest First";
+                  })()}
                 </FilterDropdown>
               </div>
 
@@ -2486,7 +2590,26 @@ export default function TaskManager() {
               <div className="flex-1 pb-8">
                 <div className="relative">
                   <AnimatePresence initial={false} mode="popLayout">
-                    {filteredTasks.map((task, idx) => {
+                    {groupedTasks.map((item) => {
+                      const { task, idx, isHeader, category } = item;
+
+                      // Render category header
+                      if (isHeader) {
+                        return (
+                          <motion.div
+                            key={`header-${category}`}
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="px-4 py-2 mb-3"
+                          >
+                            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                              {category}
+                            </h3>
+                          </motion.div>
+                        );
+                      }
                       // Date logic
                       const hasDate = task.createdAt instanceof Date;
                       const today = new Date();
