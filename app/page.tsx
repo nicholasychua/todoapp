@@ -21,6 +21,7 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -253,6 +254,8 @@ function Sidebar({
   handleLightSwitch,
   handleCalendarToggle,
   handleLogout,
+  isMobileMenuOpen,
+  setIsMobileMenuOpen,
 }: {
   showBacklog: boolean;
   showPomodoro: boolean;
@@ -266,72 +269,218 @@ function Sidebar({
   handleLightSwitch: () => void;
   handleCalendarToggle: () => void;
   handleLogout: () => void;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
 }) {
-  return (
-    <div className="fixed left-0 top-0 h-full w-48 bg-white p-4 flex flex-col z-10">
-      {/* Logo and Title */}
-      <div className="flex items-center gap-2 mb-6 px-4 pt-6">
-        <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
-          <div className="w-3 h-3 bg-white rounded-sm"></div>
-        </div>
-        <span className="text-lg font-semibold text-gray-900">subspace</span>
-      </div>
+  // Menu item click handler that closes mobile menu
+  const handleMenuClick = (fn: () => void) => {
+    fn();
+    setIsMobileMenuOpen(false);
+  };
 
-      <div className="flex-1 flex flex-col justify-center gap-1 -translate-y-6">
-        <button
-          className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            !showBacklog &&
-              !showPomodoro &&
-              !showCalendar &&
-              !showFocusOnboarding
-              ? "text-gray-900"
-              : "text-gray-500 hover:text-gray-700"
-          )}
-          onClick={() => {
-            setShowBacklog(false);
-            setShowPomodoro(false);
-            setShowFocusOnboarding(false);
-            setShowCalendar(false);
-          }}
+  return (
+    <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2"
+        aria-label="Toggle menu"
+      >
+        <svg
+          className="w-6 h-6 text-gray-900"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          Home
-        </button>
-        <button
-          className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            showCalendar ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
-          )}
-          onClick={handleCalendarToggle}
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/20 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Fullscreen Menu */}
+      {isMobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="md:hidden fixed inset-0 z-50 bg-white flex flex-col"
         >
-          Calendar
-        </button>
-        <button
-          className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            showBacklog ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
-          )}
-          onClick={handleBacklogToggle}
-        >
-          Subspaces
-        </button>
-        <button
-          className={cn(
-            "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-            showPomodoro ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
-          )}
-          onClick={handleLightSwitch}
-        >
-          Focus Session
-        </button>
-        <button
-          className="text-left px-4 py-1.5 text-[13px] text-gray-500 hover:text-gray-700 transition-colors font-normal"
-          onClick={handleLogout}
-        >
-          Log out
-        </button>
+          <div className="flex items-center justify-start p-4">
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2"
+              aria-label="Close menu"
+            >
+              <svg
+                className="w-6 h-6 text-gray-900"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col p-6 space-y-2">
+            <button
+              className={cn(
+                "w-full text-left px-3 py-3 text-xl font-medium",
+                !showBacklog &&
+                  !showPomodoro &&
+                  !showCalendar &&
+                  !showFocusOnboarding
+                  ? "text-gray-900"
+                  : "text-gray-500"
+              )}
+              onClick={() =>
+                handleMenuClick(() => {
+                  setShowBacklog(false);
+                  setShowPomodoro(false);
+                  setShowFocusOnboarding(false);
+                  setShowCalendar(false);
+                })
+              }
+            >
+              Home
+            </button>
+
+            <button
+              className={cn(
+                "w-full text-left px-3 py-3 text-xl font-medium",
+                showCalendar ? "text-gray-900" : "text-gray-500"
+              )}
+              onClick={() => handleMenuClick(handleCalendarToggle)}
+            >
+              Calendar
+            </button>
+
+            <button
+              className={cn(
+                "w-full text-left px-3 py-3 text-xl font-medium",
+                showBacklog ? "text-gray-900" : "text-gray-500"
+              )}
+              onClick={() => handleMenuClick(handleBacklogToggle)}
+            >
+              Subspaces
+            </button>
+
+            <button
+              className={cn(
+                "w-full text-left px-3 py-3 text-xl font-medium",
+                showPomodoro ? "text-gray-900" : "text-gray-500"
+              )}
+              onClick={() => handleMenuClick(handleLightSwitch)}
+            >
+              Focus Session
+            </button>
+
+            <button
+              className="w-full text-left px-3 py-3 text-xl font-medium text-gray-500"
+              onClick={() => handleMenuClick(handleLogout)}
+            >
+              Log out
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={cn(
+          "fixed left-0 top-0 h-full w-48 bg-white p-4 flex flex-col z-10 transition-transform duration-300 ease-in-out",
+          "hidden md:flex",
+          isMobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        {/* Logo and Title */}
+        <div className="flex items-center gap-2 mb-6 px-4 pt-6">
+          <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
+            <div className="w-3 h-3 bg-white rounded-sm"></div>
+          </div>
+          <span className="text-lg font-semibold text-gray-900">subspace</span>
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center gap-1 -translate-y-6">
+          <button
+            className={cn(
+              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+              !showBacklog &&
+                !showPomodoro &&
+                !showCalendar &&
+                !showFocusOnboarding
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+            onClick={() =>
+              handleMenuClick(() => {
+                setShowBacklog(false);
+                setShowPomodoro(false);
+                setShowFocusOnboarding(false);
+                setShowCalendar(false);
+              })
+            }
+          >
+            Home
+          </button>
+          <button
+            className={cn(
+              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+              showCalendar
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+            onClick={() => handleMenuClick(handleCalendarToggle)}
+          >
+            Calendar
+          </button>
+          <button
+            className={cn(
+              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+              showBacklog
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+            onClick={() => handleMenuClick(handleBacklogToggle)}
+          >
+            Subspaces
+          </button>
+          <button
+            className={cn(
+              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+              showPomodoro
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+            onClick={() => handleMenuClick(handleLightSwitch)}
+          >
+            Focus Session
+          </button>
+          <button
+            className="text-left px-4 py-1.5 text-[13px] text-gray-500 hover:text-gray-700 transition-colors font-normal"
+            onClick={() => handleMenuClick(handleLogout)}
+          >
+            Log out
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -615,6 +764,29 @@ export default function TaskManager() {
   // Task edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Placeholder text based on screen size
+  const [placeholderText, setPlaceholderText] = useState(
+    "Add new task (type # for categories)"
+  );
+
+  // Update placeholder text based on screen size
+  useEffect(() => {
+    const updatePlaceholder = () => {
+      setPlaceholderText(
+        window.innerWidth < 768
+          ? "Add new task"
+          : "Add new task (type # for categories)"
+      );
+    };
+
+    updatePlaceholder(); // Set initial value
+    window.addEventListener("resize", updatePlaceholder);
+
+    return () => window.removeEventListener("resize", updatePlaceholder);
+  }, []);
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
@@ -1808,12 +1980,16 @@ export default function TaskManager() {
         handleLightSwitch={handleLightSwitch}
         handleCalendarToggle={handleCalendarToggle}
         handleLogout={handleLogout}
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      {/* Sliding Menu */}
-      <SlidingMenu>
-        <TabGroupManager />
-      </SlidingMenu>
+      {/* Sliding Menu - Hidden on mobile */}
+      <div className="hidden md:block">
+        <SlidingMenu>
+          <TabGroupManager />
+        </SlidingMenu>
+      </div>
 
       {/* Main content area with animation */}
       <div className="w-full flex flex-col justify-center items-center h-full">
@@ -1869,7 +2045,7 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full max-w-3xl space-y-6 pt-24 pb-8"
+              className="w-full max-w-3xl space-y-6 pt-6 pb-8 mx-auto px-4 md:pt-24"
             >
               <BacklogView
                 tasks={tasks}
@@ -1905,7 +2081,7 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full h-full flex flex-col items-center justify-center pl-[220px] pr-8 pt-8"
+              className="w-full h-full flex flex-col items-center justify-center px-4 pt-6 md:px-8 md:pt-8"
             >
               <div
                 className="w-full h-full max-h-[calc(100vh-200px)] mx-auto"
@@ -1930,13 +2106,13 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full min-h-screen flex flex-col max-w-2xl"
+              className="w-full min-h-screen flex flex-col max-w-2xl mx-auto px-4"
             >
               {/* Sticky header + quick-add */}
-              <div className="sticky top-0 z-10 flex-shrink-0 bg-white pt-24 pb-2 px-4">
+              <div className="sticky top-0 z-10 flex-shrink-0 bg-white pt-20 pb-2 md:pt-24">
                 {/* Date Header */}
-                <div className="text-center mb-6">
-                  <h1 className="text-4xl font-bold">
+                <div className="text-center mb-4 md:mb-6">
+                  <h1 className="text-2xl md:text-4xl font-bold">
                     {(() => {
                       const date = new Date();
                       const weekday = date.toLocaleDateString("en-US", {
@@ -1998,9 +2174,9 @@ export default function TaskManager() {
                             setShowCategoryPopup(false);
                           }
                         }}
-                        placeholder="Add new task (type # for categories)"
+                        placeholder={placeholderText}
                         rows={1}
-                        className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-4 py-3 pr-20 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px]"
+                        className="w-full resize-none overflow-hidden bg-white outline-none border border-gray-200 rounded-xl px-3 md:px-4 py-3 pr-16 md:pr-20 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-300 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] focus:shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center h-12 pt-[14px] overflow-hidden text-ellipsis whitespace-nowrap"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         {/* Date and Time Display */}
@@ -2059,7 +2235,7 @@ export default function TaskManager() {
                       </div>
                     </div>
 
-                    {/* AI Categorization Hint */}
+                    {/* AI Categorization Hint - Desktop */}
                     <AnimatePresence>
                       {(isRecording ? speechDraft : newTaskText).trim() &&
                         categories.length > 0 && (
@@ -2068,13 +2244,52 @@ export default function TaskManager() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -5 }}
                             transition={{ duration: 0.2 }}
-                            className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1"
+                            className="absolute -bottom-6 left-0 text-xs text-gray-400 flex items-center gap-1 hidden md:flex"
                           >
                             <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px] font-medium">
                               Shift+Enter
                             </span>
                             <span>for AI categorization</span>
                           </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* AI Categorization Button - Mobile only, slides from left under input */}
+                    <AnimatePresence>
+                      {(isRecording ? speechDraft : newTaskText).trim() &&
+                        categories.length > 0 && (
+                          <motion.button
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={() => {
+                              const currentText = isRecording
+                                ? speechDraft
+                                : newTaskText;
+                              if (currentText.trim()) {
+                                handleAICategorization(currentText);
+                              }
+                            }}
+                            disabled={isAILoading}
+                            className="absolute -bottom-8 left-0 z-40 md:hidden bg-white border border-gray-200 rounded-md shadow-sm hover:shadow-md transition-all duration-200 px-3 py-1 flex items-center gap-1 text-xs"
+                          >
+                            {isAILoading ? (
+                              <>
+                                <Loader className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="font-medium text-blue-600">
+                                  Categorizing...
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="font-medium text-blue-600">
+                                  Auto-categorize
+                                </span>
+                              </>
+                            )}
+                          </motion.button>
                         )}
                     </AnimatePresence>
 
@@ -2217,7 +2432,7 @@ export default function TaskManager() {
               </div>
 
               {/* Task List */}
-              <div className="flex-1 px-4 pb-8">
+              <div className="flex-1 pb-8">
                 <div className="relative">
                   <AnimatePresence initial={false} mode="popLayout">
                     {filteredTasks.map((task, idx) => {
@@ -2624,16 +2839,16 @@ export default function TaskManager() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed bottom-6 right-6 z-40"
+          className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-40"
         >
           <button
             onClick={startRecording}
-            className="group relative flex items-center gap-3 px-4 py-3 bg-white/90 backdrop-blur-md border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
+            className="group relative flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 bg-white/90 backdrop-blur-md border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
           >
             <div className="relative">
-              <Mic className="h-5 w-5 text-gray-700 group-hover:text-gray-900 transition-colors duration-200" />
+              <Mic className="h-4 w-4 md:h-5 md:w-5 text-gray-700 group-hover:text-gray-900 transition-colors duration-200" />
             </div>
-            <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
+            <span className="text-xs md:text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200 hidden sm:inline">
               Hold Ctrl
             </span>
           </button>
