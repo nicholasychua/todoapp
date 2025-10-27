@@ -88,7 +88,7 @@ function FocusSession({
   });
 
   return (
-    <div className="flex-1 h-screen flex items-center justify-end bg-gray-50 overflow-hidden">
+    <div className="flex-1 h-screen flex items-center justify-end bg-white overflow-hidden">
       <div className="flex items-center justify-center gap-4 max-w-7xl mr-0 px-8">
         {/* Left: Timer */}
         <div className="flex items-center justify-center">

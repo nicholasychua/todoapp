@@ -764,6 +764,10 @@ export default function TaskManager() {
   // Task edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  // Inline editing state for main view
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -1092,6 +1096,53 @@ export default function TaskManager() {
   };
 
   // Removed old saveEditTask - now handled by TaskEditDialog
+
+  // Inline editing handlers for main view
+  useEffect(() => {
+    if (editingTaskId && editInputRef.current) {
+      const input = editInputRef.current;
+      input.focus();
+      // Move cursor to end without selecting text
+      const length = input.value.length;
+      input.setSelectionRange(length, length);
+    }
+  }, [editingTaskId]);
+
+  const startInlineEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  };
+
+  const saveInlineEdit = async () => {
+    if (!editingTaskId || !editingTaskText.trim()) {
+      setEditingTaskId(null);
+      setEditingTaskText("");
+      return;
+    }
+
+    try {
+      await updateTask(editingTaskId, { text: editingTaskText.trim() });
+      setEditingTaskId(null);
+      setEditingTaskText("");
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
+  };
+
+  const cancelInlineEdit = () => {
+    setEditingTaskId(null);
+    setEditingTaskText("");
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveInlineEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelInlineEdit();
+    }
+  };
 
   // Toggle task completion with delay
   const toggleTaskCompletion = async (taskId: string) => {
@@ -2045,7 +2096,7 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full max-w-3xl space-y-6 pt-6 pb-8 mx-auto px-4 md:pt-24"
+              className="w-full max-w-3xl space-y-6 pt-6 pb-8 mx-auto px-4 md:pt-24 bg-white"
             >
               <BacklogView
                 tasks={tasks}
@@ -2385,7 +2436,7 @@ export default function TaskManager() {
 
               {/* Filter Dropdown */}
               <div
-                className="px-4 pb-3 flex justify-end"
+                className="pl-4 pb-3 flex justify-end"
                 style={{ marginTop: "3px" }}
               >
                 <FilterDropdown
@@ -2533,19 +2584,34 @@ export default function TaskManager() {
                           />
                           {/* Main content */}
                           <div className="flex flex-1 flex-col min-w-0 ml-3 pr-8">
-                            <motion.span
-                              className={cn(
-                                "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
-                                effectivelyCompleted
-                                  ? "text-muted-foreground opacity-70"
-                                  : "text-gray-900"
-                              )}
-                              onClick={() => startEditTask(task)}
-                              whileHover={{ x: 2 }}
-                              whileTap={{ scale: 0.98 }}
-                            >
-                              {formatTextWithTags(task.text)}
-                            </motion.span>
+                            {editingTaskId === task.id ? (
+                              <input
+                                ref={editInputRef}
+                                type="text"
+                                value={editingTaskText}
+                                onChange={(e) =>
+                                  setEditingTaskText(e.target.value)
+                                }
+                                onBlur={saveInlineEdit}
+                                onKeyDown={handleEditKeyDown}
+                                className="text-sm font-normal text-gray-900 bg-white border border-blue-300 rounded px-1.5 py-0.5 -mx-1.5 focus:outline-none focus:border-blue-400 focus:ring-0 transition-all duration-150 ease-out"
+                                style={{ animation: "fadeIn 0.15s ease-out" }}
+                              />
+                            ) : (
+                              <motion.span
+                                className={cn(
+                                  "text-sm font-normal transition-all duration-200 cursor-pointer hover:text-gray-600 hover:bg-gray-50/50 px-1.5 py-0.5 -mx-1.5 rounded",
+                                  effectivelyCompleted
+                                    ? "text-muted-foreground opacity-70"
+                                    : "text-gray-900"
+                                )}
+                                onClick={() => startInlineEdit(task)}
+                                whileHover={{ x: 2 }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                {formatTextWithTags(task.text)}
+                              </motion.span>
+                            )}
                             {hasDate && (
                               <Popover>
                                 <PopoverTrigger asChild>
@@ -3297,6 +3363,11 @@ function BacklogView({
     Record<string, { showAdd: boolean; input: string; date?: Date }>
   >({});
 
+  // Inline editing state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   // Helper to get state for a card
   const getCardState = (catName: string) =>
     cardStates[catName] || { showAdd: false, input: "", date: undefined };
@@ -3310,6 +3381,56 @@ function BacklogView({
       ...prev,
       [catName]: { ...getCardState(catName), ...newState },
     }));
+  };
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingTaskId && editInputRef.current) {
+      const input = editInputRef.current;
+      input.focus();
+      // Move cursor to end without selecting text
+      const length = input.value.length;
+      input.setSelectionRange(length, length);
+    }
+  }, [editingTaskId]);
+
+  // Start inline editing
+  const startInlineEdit = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  };
+
+  // Save inline edit
+  const saveInlineEdit = async () => {
+    if (!editingTaskId || !editingTaskText.trim()) {
+      cancelInlineEdit();
+      return;
+    }
+
+    try {
+      await updateTask(editingTaskId, { text: editingTaskText.trim() });
+      setEditingTaskId(null);
+      setEditingTaskText("");
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
+  };
+
+  // Cancel inline edit
+  const cancelInlineEdit = () => {
+    setEditingTaskId(null);
+    setEditingTaskText("");
+  };
+
+  // Handle key down during inline edit
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveInlineEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelInlineEdit();
+    }
   };
 
   // Helper to reorder categories (moved from TaskManager)
@@ -3711,7 +3832,7 @@ function BacklogView({
                 <Reorder.Item
                   key={`${catId}-${columnIndex}-${localIdx}`}
                   value={catId}
-                  dragListener={true}
+                  dragListener={false}
                   dragControls={dragControls}
                   whileDrag={{
                     scale: 1.01,
@@ -3829,33 +3950,6 @@ function BacklogView({
                           <X className="w-4 h-4" />
                         </button>
                       )}
-                      <button
-                        className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors p-1 rounded"
-                        title="Drag to reorder"
-                        onPointerDown={(e) => {
-                          dragControls.start(e);
-                        }}
-                        tabIndex={0}
-                        aria-label="Drag card"
-                        type="button"
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          fill="none"
-                          viewBox="0 0 20 20"
-                        >
-                          <circle cx="5" cy="6" r="1" fill="currentColor" />
-                          <circle cx="5" cy="10" r="1" fill="currentColor" />
-                          <circle cx="5" cy="14" r="1" fill="currentColor" />
-                          <circle cx="10" cy="6" r="1" fill="currentColor" />
-                          <circle cx="10" cy="10" r="1" fill="currentColor" />
-                          <circle cx="10" cy="14" r="1" fill="currentColor" />
-                          <circle cx="15" cy="6" r="1" fill="currentColor" />
-                          <circle cx="15" cy="10" r="1" fill="currentColor" />
-                          <circle cx="15" cy="14" r="1" fill="currentColor" />
-                        </svg>
-                      </button>
                     </div>
                   </div>
 
@@ -3961,36 +4055,6 @@ function BacklogView({
           </Reorder.Group>
         ))}
       </div>
-
-      {/* Statistics (unchanged) */}
-      <Card className="p-4 mt-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold text-gray-900">
-              {tasks.length}
-            </div>
-            <div className="text-sm text-gray-500">Total Tasks</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-green-600">
-              {tasks.filter((t) => t.completed).length}
-            </div>
-            <div className="text-sm text-gray-500">Completed</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-blue-600">
-              {tasks.filter((t) => !t.completed).length}
-            </div>
-            <div className="text-sm text-gray-500">Active</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-purple-600">
-              {allTags.length}
-            </div>
-            <div className="text-sm text-gray-500">Categories</div>
-          </div>
-        </div>
-      </Card>
 
       {selectedCategory && (
         <motion.div
@@ -4164,12 +4228,25 @@ function BacklogView({
                         </div>
 
                         {/* Task text */}
-                        <span
-                          className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed"
-                          onClick={() => startEditTask(task)}
-                        >
-                          {task.text}
-                        </span>
+                        {editingTaskId === task.id ? (
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editingTaskText}
+                            onChange={(e) => setEditingTaskText(e.target.value)}
+                            onBlur={saveInlineEdit}
+                            onKeyDown={handleEditKeyDown}
+                            className="flex-1 text-base text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:border-blue-400 focus:ring-0 transition-all duration-150 ease-out"
+                            style={{ animation: "fadeIn 0.15s ease-out" }}
+                          />
+                        ) : (
+                          <span
+                            className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed hover:text-gray-600 transition-colors"
+                            onClick={() => startInlineEdit(task)}
+                          >
+                            {task.text}
+                          </span>
+                        )}
 
                         {/* Delete button */}
                         <button

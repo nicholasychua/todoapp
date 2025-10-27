@@ -262,7 +262,9 @@ export const CalendarView = React.memo(function CalendarView({
   // Memoize task lookups for better performance
   const getTasksForDay = React.useCallback(
     (day: Date): Task[] => {
-      return tasks.filter((task) => isSameDay(task.createdAt, day));
+      return tasks.filter(
+        (task) => isSameDay(task.createdAt, day) && !task.completed
+      );
     },
     [tasks]
   );

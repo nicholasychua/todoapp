@@ -53,7 +53,7 @@ export function FocusSessionOnboarding({
   };
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center bg-gray-50 overflow-hidden">
+    <div className="w-screen h-screen flex items-center justify-center bg-white overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
