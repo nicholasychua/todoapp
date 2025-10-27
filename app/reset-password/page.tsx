@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,8 +148,18 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col bg-background px-6">
       {/* Logo at top left */}
       <div className="absolute top-10 left-8">
-        <Link href="/landing" className="focus:outline-none">
-          <span className="text-3xl font-bold tracking-tight hover:underline transition-colors">
+        <Link
+          href="/landing"
+          className="flex items-center gap-1.5 focus:outline-none"
+        >
+          <Image
+            src="/subspacelogo.png"
+            alt="Subspace"
+            width={28}
+            height={28}
+            className="h-5 w-5 sm:h-7 sm:w-7"
+          />
+          <span className="text-lg sm:text-2xl font-semibold tracking-tight hover:underline transition-colors relative -top-[2px]">
             subspace
           </span>
         </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -31,11 +32,17 @@ export const Sidebar = memo(function Sidebar({
   return (
     <div className="fixed left-0 top-0 h-full w-48 bg-white p-4 flex flex-col z-10">
       {/* Logo and Title */}
-      <div className="flex items-center gap-2 mb-6 px-4 pt-6">
-        <div className="w-6 h-6 bg-gray-900 rounded-sm flex items-center justify-center">
-          <div className="w-3 h-3 bg-white rounded-sm"></div>
-        </div>
-        <span className="text-lg font-semibold text-gray-900">subspace</span>
+      <div className="flex items-center gap-1.5 mb-6 px-4 pt-6">
+        <Image
+          src="/subspacelogo.png"
+          alt="Subspace"
+          width={28}
+          height={28}
+          className="h-5 w-5 sm:h-7 sm:w-7"
+        />
+        <span className="text-lg sm:text-2xl font-semibold text-gray-900 relative -top-[2px]">
+          subspace
+        </span>
       </div>
 
       <div className="flex-1 flex flex-col justify-center gap-1 -translate-y-6">

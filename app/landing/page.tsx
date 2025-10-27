@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
@@ -30,24 +31,15 @@ export default function LandingPage() {
         <div className="max-w-[1400px] mx-auto px-8 pt-8 pb-5 flex items-center justify-between">
           <div className="lg:ml-2">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-teal-700 to-teal-600 rounded-md flex items-center justify-center">
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M4 4L20 20M4 20L20 4"
-                    stroke="white"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <span className="text-2xl font-bold text-[#134e4a]">
+            <Link href="/" className="flex items-center gap-1.5">
+              <Image
+                src="/subspacelogo.png"
+                alt="Subspace"
+                width={28}
+                height={28}
+                className="h-5 w-5 sm:h-7 sm:w-7"
+              />
+              <span className="text-lg sm:text-2xl font-semibold text-[#134e4a] relative -top-[2px]">
                 Subspace
               </span>
             </Link>
@@ -99,7 +91,7 @@ export default function LandingPage() {
                 }}
               >
                 <motion.h1
-                  className="text-[64px] leading-[1.15] font-normal text-[#134e4a] tracking-tight"
+                  className="text-[48px] sm:text-[64px] leading-[1.15] font-normal text-[#134e4a] tracking-tight"
                   variants={fadeInUp}
                 >
                   All of your tasks,

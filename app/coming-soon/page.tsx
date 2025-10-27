@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Button as HoverButton } from "@/components/ui/hover-button";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
@@ -69,11 +70,15 @@ export default function ComingSoonPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          <div className="w-5 h-5 sm:w-8 sm:h-8 bg-black rounded-lg flex items-center justify-center">
-            <div className="w-2.5 h-2.5 sm:w-4 sm:h-4 bg-white rounded-sm"></div>
-          </div>
-          <span className="text-base sm:text-xl font-semibold text-gray-900">
+        <div className="flex items-center gap-1.5">
+          <Image
+            src="/subspacelogo.png"
+            alt="Subspace"
+            width={28}
+            height={28}
+            className="h-5 w-5 sm:h-7 sm:w-7"
+          />
+          <span className="text-lg sm:text-2xl font-semibold text-gray-900 relative -top-[2px]">
             subspace
           </span>
         </div>
@@ -120,7 +125,7 @@ export default function ComingSoonPage() {
                 </span>
               </motion.div>
               <h1
-                className="text-6xl sm:text-7xl md:text-6xl lg:text-7xl xl:text-8xl font-normal text-black leading-tight tracking-tight mb-6 sm:mb-8 md:mb-10"
+                className="text-5xl sm:text-7xl md:text-6xl lg:text-7xl xl:text-8xl font-normal text-black leading-tight tracking-tight mb-6 sm:mb-8 md:mb-10"
                 style={{ fontFamily: "EB Garamond, serif" }}
               >
                 All your tasks.
@@ -281,11 +286,15 @@ export default function ComingSoonPage() {
           transition={{ duration: 0.6 }}
         >
           <div className="relative flex flex-col md:flex-row justify-between items-center gap-6 md:gap-0">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-5 h-5 sm:w-8 sm:h-8 bg-black rounded-lg flex items-center justify-center">
-                <div className="w-2.5 h-2.5 sm:w-4 sm:h-4 bg-white rounded-sm"></div>
-              </div>
-              <span className="text-base sm:text-lg font-semibold text-gray-900">
+            <div className="flex items-center gap-1.5">
+              <Image
+                src="/subspacelogo.png"
+                alt="Subspace"
+                width={28}
+                height={28}
+                className="h-5 w-5 sm:h-7 sm:w-7"
+              />
+              <span className="text-lg sm:text-2xl font-semibold text-gray-900 relative -top-[2px]">
                 subspace
               </span>
             </div>
@@ -371,12 +380,12 @@ function WaitlistInlineForm() {
     <div className="w-full max-w-2xl flex flex-col items-center">
       <Link href="/signup">
         <ShimmerButton
-          className="h-10 sm:h-12 px-4 sm:px-8 text-sm sm:text-base font-medium flex items-center gap-1 sm:gap-2 w-full sm:w-auto"
+          className="h-12 sm:h-14 px-6 sm:px-10 text-base sm:text-lg font-medium flex items-center gap-1 sm:gap-2 w-full sm:w-auto"
           background="rgba(0, 0, 0, 1)"
           shimmerColor="#ffffff"
           shimmerDuration="3s"
         >
-          Get Started <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+          Get Started <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
         </ShimmerButton>
       </Link>
       <div className="flex items-center gap-2 mt-4 sm:mt-6 px-3 sm:px-4 py-2 border border-gray-200 rounded-full">
@@ -394,12 +403,12 @@ function WaitlistCTA() {
     <div className="flex justify-center items-center w-full max-w-md mx-auto">
       <Link href="/signup">
         <ShimmerButton
-          className="h-10 sm:h-11 px-4 sm:px-6 text-sm sm:text-base font-medium flex items-center gap-1 sm:gap-2 w-full sm:w-auto"
+          className="h-12 sm:h-14 px-6 sm:px-10 text-base sm:text-lg font-medium flex items-center gap-1 sm:gap-2 w-full sm:w-auto"
           background="rgba(0, 0, 0, 1)"
           shimmerColor="#ffffff"
           shimmerDuration="3s"
         >
-          Get Started <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
+          Get Started <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
         </ShimmerButton>
       </Link>
     </div>

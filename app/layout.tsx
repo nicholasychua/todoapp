@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: "/circle1.png",
+    icon: "/subspacelogo.png",
   },
 };
 
