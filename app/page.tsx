@@ -2132,7 +2132,7 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full h-full flex flex-col items-center justify-center px-4 pt-6 md:px-8 md:pt-8"
+              className="w-full h-full flex flex-col items-center justify-center pl-[220px] pr-8 pt-8"
             >
               <div
                 className="w-full h-full max-h-[calc(100vh-200px)] mx-auto"
@@ -3573,6 +3573,37 @@ function BacklogView({
       }
     });
 
+  // Board view tasks: same filters/sorts as backlog, but DO NOT narrow by selectedCategory
+  const boardTasks = tasks
+    .filter((task) => {
+      // Filter by completion status
+      if (backlogFilter === "completed" && !task.completed) return false;
+      if (backlogFilter === "active" && task.completed) return false;
+
+      // Filter by search text
+      if (
+        searchText &&
+        !task.text.toLowerCase().includes(searchText.toLowerCase())
+      )
+        return false;
+
+      // Intentionally ignore selectedCategory here to keep other columns populated
+      return true;
+    })
+    .sort((a, b) => {
+      switch (backlogSortBy) {
+        case "alphabetical":
+          return a.text.localeCompare(b.text);
+        case "category":
+          const aCategory = a.tags[0] || "zzz";
+          const bCategory = b.tags[0] || "zzz";
+          return aCategory.localeCompare(bCategory);
+        case "date":
+        default:
+          return b.createdAt.getTime() - a.createdAt.getTime();
+      }
+    });
+
   // Select all visible tasks
   const selectAllTasks = () => {
     const allVisibleIds = filteredAndSortedTasks.map((task) => task.id);
@@ -3727,6 +3758,23 @@ function BacklogView({
     setCategoryOrder([...categories.map((c) => c.id), UNCATEGORIZED_ID]);
   }, [categories]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (selectedCategory) {
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = "hidden";
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    };
+  }, [selectedCategory]);
+
   // Create a single drag control for all cards
   const dragControls = useDragControls();
 
@@ -3824,8 +3872,8 @@ function BacklogView({
                 ? "Uncategorized"
                 : categories.find((c) => c.id === catId)?.name || "Unnamed";
               const catTasks = isUncategorized
-                ? filteredAndSortedTasks.filter((t) => t.tags.length === 0)
-                : filteredAndSortedTasks.filter((t) => t.tags[0] === catName);
+                ? boardTasks.filter((t) => t.tags.length === 0)
+                : boardTasks.filter((t) => t.tags[0] === catName);
               const cardState = getCardState(catName);
 
               return (
@@ -3964,70 +4012,42 @@ function BacklogView({
                       </div>
                     ) : catTasks.length > 0 || !tasksLoaded ? (
                       <div className="space-y-2">
-                        <AnimatePresence initial={false} mode="popLayout">
-                          {catTasks.slice(0, 3).map((task, idx) => (
-                            <motion.div
-                              key={task.id}
-                              layout
-                              initial={{ opacity: 0, y: 5, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{
-                                opacity: 0,
-                                y: -8,
-                                scale: 0.95,
-                                height: 0,
-                                transition: {
-                                  duration: 0.3,
-                                  ease: [0.16, 1, 0.3, 1],
-                                  height: {
-                                    duration: 0.25,
-                                    ease: [0.16, 1, 0.3, 1],
-                                  },
-                                },
-                              }}
-                              transition={{
-                                duration: 0.3,
-                                ease: [0.16, 1, 0.3, 1],
-                                delay: idx * 0.03,
-                                layout: {
-                                  duration: 0.25,
-                                  ease: [0.16, 1, 0.3, 1],
-                                },
-                              }}
-                              className={cn(
-                                "flex items-start gap-3 p-2 rounded transition-colors",
+                        {catTasks.slice(0, 3).map((task, idx) => (
+                          <div
+                            key={task.id}
+                            className={cn(
+                              "flex items-start gap-3 p-2 rounded transition-colors",
+                              completedTaskIds.includes(task.id) ||
+                                task.completed
+                                ? "opacity-50"
+                                : "hover:bg-gray-50"
+                            )}
+                          >
+                            <StyledCheckbox
+                              checked={
                                 completedTaskIds.includes(task.id) ||
-                                  task.completed
-                                  ? "opacity-50"
-                                  : "hover:bg-gray-50"
-                              )}
-                            >
-                              <StyledCheckbox
-                                checked={
+                                task.completed
+                              }
+                              onCheckedChange={() =>
+                                toggleTaskCompletion(task.id)
+                              }
+                              className="flex-shrink-0 mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <span
+                                className={cn(
+                                  "text-sm leading-relaxed block",
                                   completedTaskIds.includes(task.id) ||
-                                  task.completed
-                                }
-                                onCheckedChange={() =>
-                                  toggleTaskCompletion(task.id)
-                                }
-                                className="flex-shrink-0 mt-0.5"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <span
-                                  className={cn(
-                                    "text-sm leading-relaxed block",
-                                    completedTaskIds.includes(task.id) ||
-                                      task.completed
-                                      ? "text-gray-500 line-through"
-                                      : "text-gray-900"
-                                  )}
-                                >
-                                  {formatTextWithTags(task.text)}
-                                </span>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
+                                    task.completed
+                                    ? "text-gray-500 line-through"
+                                    : "text-gray-900"
+                                )}
+                              >
+                                {formatTextWithTags(task.text)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                         {catTasks.length > 3 && (
                           <div className="text-xs text-gray-400 text-center pt-2">
                             +{catTasks.length - 3} more
