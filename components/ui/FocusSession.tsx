@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip";
-import { Settings } from "lucide-react";
+import { Settings, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "./checkbox";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { toast } from "sonner";
 import type { Category } from "@/lib/categories";
+import { setCategoryHiddenOnHome } from "@/lib/categories";
 
 function FocusSession({
   tasks,
@@ -298,37 +299,98 @@ function FocusSession({
                                       </div>
                                     </div>
                                     <div className="space-y-1">
-                                      {categories.map((category) => (
-                                        <button
-                                          key={category.id}
-                                          onClick={async () => {
-                                            try {
-                                              // Remove the old tag and add the new one
-                                              const updatedTags =
-                                                task.tags.filter(
-                                                  (t) => t !== tag
-                                                );
-                                              updatedTags.push(category.name);
-                                              await updateTask(task.id, {
-                                                tags: updatedTags,
-                                              });
-                                              toast.success(
-                                                `Changed category to ${category.name}`
-                                              );
-                                            } catch (error) {
-                                              toast.error(
-                                                "Failed to update category"
-                                              );
-                                            }
-                                          }}
-                                          className="w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
-                                        >
-                                          <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                                          <span className="flex-1">
-                                            {category.name}
-                                          </span>
-                                        </button>
-                                      ))}
+                                      {categories.map((category) => {
+                                        const hidden =
+                                          category.hiddenOnHome ?? false;
+                                        return (
+                                          <div
+                                            key={category.id}
+                                            className="w-full px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border border-transparent"
+                                          >
+                                            <button
+                                              onClick={async () => {
+                                                try {
+                                                  // Remove the old tag and add the new one
+                                                  const updatedTags =
+                                                    task.tags.filter(
+                                                      (t) => t !== tag
+                                                    );
+                                                  updatedTags.push(
+                                                    category.name
+                                                  );
+                                                  await updateTask(task.id, {
+                                                    tags: updatedTags,
+                                                  });
+                                                  toast.success(
+                                                    `Changed category to ${category.name}`
+                                                  );
+                                                } catch (error) {
+                                                  toast.error(
+                                                    "Failed to update category"
+                                                  );
+                                                }
+                                              }}
+                                              className="flex items-center gap-3 flex-1 text-left"
+                                            >
+                                              <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                              <span className="flex-1">
+                                                {category.name}
+                                              </span>
+                                            </button>
+
+                                            {/* Eye Icon Toggle */}
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <button
+                                                    onClick={async (e) => {
+                                                      e.stopPropagation();
+                                                      try {
+                                                        await setCategoryHiddenOnHome(
+                                                          category.id,
+                                                          !hidden
+                                                        );
+                                                        toast.success(
+                                                          hidden
+                                                            ? `${category.name} is now visible on Home`
+                                                            : `${category.name} is now hidden from Home`
+                                                        );
+                                                      } catch (error) {
+                                                        toast.error(
+                                                          "Failed to update category visibility"
+                                                        );
+                                                      }
+                                                    }}
+                                                    className={cn(
+                                                      "p-1 rounded-md transition-colors hover:bg-gray-50",
+                                                      hidden
+                                                        ? "text-gray-400 hover:text-gray-500"
+                                                        : "text-gray-600 hover:text-gray-700"
+                                                    )}
+                                                    title={
+                                                      hidden
+                                                        ? "Show on Home"
+                                                        : "Hide on Home"
+                                                    }
+                                                    type="button"
+                                                  >
+                                                    {hidden ? (
+                                                      <EyeOff className="w-3.5 h-3.5" />
+                                                    ) : (
+                                                      <Eye className="w-3.5 h-3.5" />
+                                                    )}
+                                                  </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <span className="text-xs">
+                                                    Toggle visibility on Home
+                                                  </span>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          </div>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </PopoverContent>

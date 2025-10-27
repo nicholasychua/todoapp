@@ -19,6 +19,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2404,64 +2406,121 @@ export default function TaskManager() {
                                           );
                                           const isSelected =
                                             category.name === tag;
+                                          const hidden =
+                                            category.hiddenOnHome ?? false;
                                           return (
-                                            <button
+                                            <div
                                               key={category.id}
-                                              onClick={async () => {
-                                                try {
-                                                  // If category is hidden, start temporary visibility BEFORE update
-                                                  if (category.hiddenOnHome) {
-                                                    startTemporaryVisibility(
-                                                      task.id
-                                                    );
-                                                  }
-
-                                                  // Remove the old tag and add the new one
-                                                  const updatedTags =
-                                                    task.tags.filter(
-                                                      (t) => t !== tag
-                                                    );
-                                                  if (
-                                                    !updatedTags.includes(
-                                                      category.name
-                                                    )
-                                                  ) {
-                                                    updatedTags.unshift(
-                                                      category.name
-                                                    );
-                                                  }
-                                                  await updateTask(task.id, {
-                                                    tags: updatedTags,
-                                                  });
-
-                                                  toast.success(
-                                                    `Changed category to ${category.name}`
-                                                  );
-                                                } catch (error) {
-                                                  toast.error(
-                                                    "Failed to update category"
-                                                  );
-                                                }
-                                              }}
                                               className={cn(
-                                                "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
+                                                "w-full px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
                                                 isSelected
                                                   ? `border-${colorName}-500 bg-${colorName}-50`
                                                   : "border-transparent"
                                               )}
                                             >
-                                              <span
-                                                className={cn(
-                                                  "w-2 h-2 rounded-full transition-colors",
-                                                  getTagTextColor(
-                                                    category.name
-                                                  ).replace("text-", "bg-")
-                                                )}
-                                              ></span>
-                                              <span className="flex-1">
-                                                {category.name}
-                                              </span>
-                                            </button>
+                                              <button
+                                                onClick={async () => {
+                                                  try {
+                                                    // If category is hidden, start temporary visibility BEFORE update
+                                                    if (category.hiddenOnHome) {
+                                                      startTemporaryVisibility(
+                                                        task.id
+                                                      );
+                                                    }
+
+                                                    // Remove the old tag and add the new one
+                                                    const updatedTags =
+                                                      task.tags.filter(
+                                                        (t) => t !== tag
+                                                      );
+                                                    if (
+                                                      !updatedTags.includes(
+                                                        category.name
+                                                      )
+                                                    ) {
+                                                      updatedTags.unshift(
+                                                        category.name
+                                                      );
+                                                    }
+                                                    await updateTask(task.id, {
+                                                      tags: updatedTags,
+                                                    });
+
+                                                    toast.success(
+                                                      `Changed category to ${category.name}`
+                                                    );
+                                                  } catch (error) {
+                                                    toast.error(
+                                                      "Failed to update category"
+                                                    );
+                                                  }
+                                                }}
+                                                className="flex items-center gap-3 flex-1 text-left"
+                                              >
+                                                <span
+                                                  className={cn(
+                                                    "w-2 h-2 rounded-full transition-colors",
+                                                    getTagTextColor(
+                                                      category.name
+                                                    ).replace("text-", "bg-")
+                                                  )}
+                                                ></span>
+                                                <span className="flex-1">
+                                                  {category.name}
+                                                </span>
+                                              </button>
+
+                                              {/* Eye Icon Toggle */}
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <button
+                                                      onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                          await setCategoryHiddenOnHome(
+                                                            category.id,
+                                                            !hidden
+                                                          );
+                                                          toast.success(
+                                                            hidden
+                                                              ? `${category.name} is now visible on Home`
+                                                              : `${category.name} is now hidden from Home`
+                                                          );
+                                                        } catch (error) {
+                                                          toast.error(
+                                                            "Failed to update category visibility"
+                                                          );
+                                                        }
+                                                      }}
+                                                      className={cn(
+                                                        "p-1 rounded-md transition-colors hover:bg-gray-50",
+                                                        hidden
+                                                          ? "text-gray-400 hover:text-gray-500"
+                                                          : "text-gray-600 hover:text-gray-700"
+                                                      )}
+                                                      title={
+                                                        hidden
+                                                          ? "Show on Home"
+                                                          : "Hide on Home"
+                                                      }
+                                                      type="button"
+                                                    >
+                                                      {hidden ? (
+                                                        <EyeOff className="w-3.5 h-3.5" />
+                                                      ) : (
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                      )}
+                                                    </button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <span className="text-xs">
+                                                      Toggle visibility on Home
+                                                    </span>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            </div>
                                           );
                                         })}
                                       </div>
@@ -3481,19 +3540,21 @@ function BacklogView({
                                         );
                                     }}
                                     className={cn(
-                                      "px-2 py-1 text-xs rounded border transition-colors",
+                                      "p-1.5 rounded-md border transition-colors hover:bg-gray-50",
                                       hidden
-                                        ? "text-gray-500 border-gray-200 bg-gray-50"
-                                        : "text-gray-700 border-gray-200 hover:border-gray-300"
+                                        ? "text-gray-400 border-gray-200 hover:text-gray-500"
+                                        : "text-gray-600 border-gray-200 hover:text-gray-700"
                                     )}
                                     title={
-                                      hidden
-                                        ? "Hidden on Home"
-                                        : "Visible on Home"
+                                      hidden ? "Show on Home" : "Hide on Home"
                                     }
                                     type="button"
                                   >
-                                    {hidden ? "Hidden" : "Shown"}
+                                    {hidden ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -4298,51 +4359,108 @@ function PomodoroTimer({
                                         category.name
                                       );
                                       const isSelected = category.name === tag;
+                                      const hidden =
+                                        category.hiddenOnHome ?? false;
                                       return (
-                                        <button
+                                        <div
                                           key={category.id}
-                                          onClick={async () => {
-                                            try {
-                                              // Note: Pomodoro timer shows all tasks regardless of hidden status,
-                                              // so we don't need the temporary visibility logic here
-
-                                              // Remove the old tag and add the new one
-                                              const updatedTags =
-                                                task.tags.filter(
-                                                  (t) => t !== tag
-                                                );
-                                              updatedTags.push(category.name);
-                                              await updateTask(task.id, {
-                                                tags: updatedTags,
-                                              });
-                                              toast.success(
-                                                `Changed category to ${category.name}`
-                                              );
-                                            } catch (error) {
-                                              toast.error(
-                                                "Failed to update category"
-                                              );
-                                            }
-                                          }}
                                           className={cn(
-                                            "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
+                                            "w-full px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group hover:bg-gray-50 border-2 text-gray-900",
                                             isSelected
                                               ? `border-${colorName}-500 bg-${colorName}-50`
                                               : "border-transparent"
                                           )}
                                         >
-                                          <span
-                                            className={cn(
-                                              "w-2 h-2 rounded-full transition-colors",
-                                              getTagTextColor(
-                                                category.name
-                                              ).replace("text-", "bg-")
-                                            )}
-                                          ></span>
-                                          <span className="flex-1">
-                                            {category.name}
-                                          </span>
-                                        </button>
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                // Note: Pomodoro timer shows all tasks regardless of hidden status,
+                                                // so we don't need the temporary visibility logic here
+
+                                                // Remove the old tag and add the new one
+                                                const updatedTags =
+                                                  task.tags.filter(
+                                                    (t) => t !== tag
+                                                  );
+                                                updatedTags.push(category.name);
+                                                await updateTask(task.id, {
+                                                  tags: updatedTags,
+                                                });
+                                                toast.success(
+                                                  `Changed category to ${category.name}`
+                                                );
+                                              } catch (error) {
+                                                toast.error(
+                                                  "Failed to update category"
+                                                );
+                                              }
+                                            }}
+                                            className="flex items-center gap-3 flex-1 text-left"
+                                          >
+                                            <span
+                                              className={cn(
+                                                "w-2 h-2 rounded-full transition-colors",
+                                                getTagTextColor(
+                                                  category.name
+                                                ).replace("text-", "bg-")
+                                              )}
+                                            ></span>
+                                            <span className="flex-1">
+                                              {category.name}
+                                            </span>
+                                          </button>
+
+                                          {/* Eye Icon Toggle */}
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await setCategoryHiddenOnHome(
+                                                        category.id,
+                                                        !hidden
+                                                      );
+                                                      toast.success(
+                                                        hidden
+                                                          ? `${category.name} is now visible on Home`
+                                                          : `${category.name} is now hidden from Home`
+                                                      );
+                                                    } catch (error) {
+                                                      toast.error(
+                                                        "Failed to update category visibility"
+                                                      );
+                                                    }
+                                                  }}
+                                                  className={cn(
+                                                    "p-1 rounded-md transition-colors hover:bg-gray-50",
+                                                    hidden
+                                                      ? "text-gray-400 hover:text-gray-500"
+                                                      : "text-gray-600 hover:text-gray-700"
+                                                  )}
+                                                  title={
+                                                    hidden
+                                                      ? "Show on Home"
+                                                      : "Hide on Home"
+                                                  }
+                                                  type="button"
+                                                >
+                                                  {hidden ? (
+                                                    <EyeOff className="w-3.5 h-3.5" />
+                                                  ) : (
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                  )}
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <span className="text-xs">
+                                                  Toggle visibility on Home
+                                                </span>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        </div>
                                       );
                                     })}
                                   </div>

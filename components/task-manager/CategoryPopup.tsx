@@ -4,8 +4,19 @@ import { memo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { addCategory, type Category } from "@/lib/categories";
+import {
+  addCategory,
+  setCategoryHiddenOnHome,
+  type Category,
+} from "@/lib/categories";
 import { toast } from "sonner";
+import { Eye, EyeOff } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CategoryPopupProps {
   isOpen: boolean;
@@ -119,37 +130,84 @@ export const CategoryPopup = memo(function CategoryPopup({
 
         {/* Predefined Categories */}
         <div className="space-y-1 mb-2">
-          {filteredCategories.map((category, index) => (
-            <motion.button
-              key={category.id}
-              onClick={() => handleSelect(category.name)}
-              className={cn(
-                "w-full text-left px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group",
-                index === selectedIndex
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
-                  : "text-gray-700 hover:bg-gray-50 border border-transparent"
-              )}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              <span
+          {filteredCategories.map((category, index) => {
+            const hidden = category.hiddenOnHome ?? false;
+            return (
+              <div
+                key={category.id}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-colors",
-                  index === selectedIndex ? "bg-blue-500" : "bg-gray-400"
+                  "w-full px-3 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium flex items-center gap-3 group",
+                  index === selectedIndex
+                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                    : "text-gray-700 hover:bg-gray-50 border border-transparent"
                 )}
-              ></span>
-              <span className="flex-1">{category.name}</span>
-              {index === selectedIndex && (
-                <motion.div
-                  initial={{ opacity: 0, x: -5 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="text-xs text-blue-600 font-medium"
+              >
+                <motion.button
+                  onClick={() => handleSelect(category.name)}
+                  className="flex items-center gap-3 flex-1 text-left"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
                 >
-                  ↵
-                </motion.div>
-              )}
-            </motion.button>
-          ))}
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full transition-colors",
+                      index === selectedIndex ? "bg-blue-500" : "bg-gray-400"
+                    )}
+                  ></span>
+                  <span className="flex-1">{category.name}</span>
+                  {index === selectedIndex && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="text-xs text-blue-600 font-medium"
+                    >
+                      ↵
+                    </motion.div>
+                  )}
+                </motion.button>
+
+                {/* Eye Icon Toggle */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await setCategoryHiddenOnHome(category.id, !hidden);
+                            toast.success(
+                              hidden
+                                ? `${category.name} is now visible on Home`
+                                : `${category.name} is now hidden from Home`
+                            );
+                          } catch (error) {
+                            toast.error("Failed to update category visibility");
+                          }
+                        }}
+                        className={cn(
+                          "p-1 rounded-md transition-colors hover:bg-gray-50",
+                          hidden
+                            ? "text-gray-400 hover:text-gray-500"
+                            : "text-gray-600 hover:text-gray-700"
+                        )}
+                        title={hidden ? "Show on Home" : "Hide on Home"}
+                        type="button"
+                      >
+                        {hidden ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <span className="text-xs">Toggle visibility on Home</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            );
+          })}
         </div>
 
         {filteredCategories.length === 0 && (
@@ -195,4 +253,3 @@ export const CategoryPopup = memo(function CategoryPopup({
     </motion.div>
   );
 });
-
