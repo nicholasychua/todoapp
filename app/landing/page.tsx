@@ -4,184 +4,193 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
-import { Inconsolata } from "next/font/google";
-
-const inconsolata = Inconsolata({ subsets: ["latin"] });
+import { ArrowRight, Calendar, Zap, Target, CheckCircle2 } from "lucide-react";
 
 export default function LandingPage() {
   const fadeInUp = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+      transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
     },
   };
 
+  const features = [
+    {
+      icon: <Target className="w-6 h-6" />,
+      title: "Smart Organization",
+      description: "Categorize tasks with AI-powered suggestions",
+    },
+    {
+      icon: <Calendar className="w-6 h-6" />,
+      title: "Calendar Integration",
+      description: "Seamlessly plan and schedule your workflow",
+    },
+    {
+      icon: <Zap className="w-6 h-6" />,
+      title: "Quick Capture",
+      description: "Voice input for instant task creation",
+    },
+    {
+      icon: <CheckCircle2 className="w-6 h-6" />,
+      title: "Progress Tracking",
+      description: "Visualize your productivity journey",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-white">
+      {/* Animated gradient background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/30 via-white to-blue-50/20" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-teal-100/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-100/20 rounded-full blur-3xl" />
+      </div>
+
       {/* Header */}
       <motion.header
-        className="relative z-10"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        className="relative z-50"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <div className="max-w-[1400px] mx-auto px-8 pt-8 pb-5 flex items-center justify-between">
-          <div className="lg:ml-2">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-1.5">
-              <Image
-                src="/subspacelogo.png"
-                alt="Subspace"
-                width={28}
-                height={28}
-                className="h-5 w-5 sm:h-7 sm:w-7"
-              />
-              <span className="text-lg sm:text-2xl font-semibold text-[#134e4a] relative -top-[2px]">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-8 pb-6">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="relative">
+                <Image
+                  src="/subspacelogo.png"
+                  alt="Subspace"
+                  width={32}
+                  height={32}
+                  className="transition-transform group-hover:scale-105"
+                />
+              </div>
+              <span className="text-xl font-semibold text-gray-900 tracking-tight">
                 Subspace
               </span>
             </Link>
-          </div>
 
-          {/* Actions */}
-          <div className="hidden lg:flex items-center gap-10">
-            <a
-              href="https://x.com/nicholasychua"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`text-[13px] font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase tracking-wide ${inconsolata.className}`}
-            >
-              CONTACT
-            </a>
-            <Link
-              href="/signin"
-              className={`text-[13px] font-medium text-gray-700 hover:text-gray-900 transition-colors uppercase tracking-wide ${inconsolata.className}`}
-            >
-              LOG IN
-            </Link>
-            <Link href="/signup">
-              <Button
-                className={`bg-[#2d5f5d] hover:bg-[#234948] text-white font-medium text-[13px] px-5 py-2 rounded-md transition-colors uppercase tracking-wide shadow-none h-auto ${inconsolata.className}`}
+            <div className="hidden lg:flex items-center gap-6">
+              <a
+                href="https://x.com/nicholasychua"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
-                SIGN UP
-              </Button>
-            </Link>
+                Contact
+              </a>
+              <Link
+                href="/signin"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Log In
+              </Link>
+              <Link href="/signup">
+                <Button
+                  variant="default"
+                  className="bg-gray-900 hover:bg-gray-800 text-white rounded-full px-6"
+                >
+                  Get Started
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </motion.header>
 
       {/* Hero Section */}
-      <main className="flex-1 overflow-hidden">
-        <div className="relative py-24 lg:py-32 min-h-[70vh] lg:min-h-[80vh]">
-          <div className="max-w-[1400px] mx-auto px-8">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-              {/* Left Column - Content */}
-              <motion.div
-                className="flex flex-col space-y-8 max-w-xl mt-24 lg:mt-52 lg:ml-2 relative z-10"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: { opacity: 0 },
-                  visible: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.15, delayChildren: 0.2 },
-                  },
-                }}
+      <main className="relative z-10">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+          <motion.div
+            className="flex flex-col items-center text-center pt-20 pb-32"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: { staggerChildren: 0.1 },
+              },
+            }}
+          >
+            <motion.div variants={fadeInUp} className="inline-flex mb-6">
+              <span className="px-4 py-1.5 rounded-full border border-gray-200 bg-white/80 backdrop-blur-sm text-sm text-gray-700">
+                Organize your life, effortlessly
+              </span>
+            </motion.div>
+
+            <motion.h1
+              className="text-5xl sm:text-6xl lg:text-7xl font-light text-gray-900 tracking-tight mb-8 max-w-4xl leading-tight"
+              variants={fadeInUp}
+            >
+              Task management that
+              <br />
+              <span className="font-medium">actually works</span>
+            </motion.h1>
+
+            <motion.p
+              className="text-xl sm:text-2xl text-gray-600 max-w-2xl mb-12 leading-relaxed font-light"
+              variants={fadeInUp}
+            >
+              A minimalist platform to organize, track, and complete
+              <br className="hidden sm:block" />
+              your tasks with elegant simplicity.
+            </motion.p>
+
+            <motion.div
+              className="flex flex-col sm:flex-row items-center gap-4"
+              variants={fadeInUp}
+            >
+              <Link href="/signup">
+                <Button
+                  size="lg"
+                  className="bg-gray-900 hover:bg-gray-800 text-white rounded-full px-8 py-6 text-base h-auto group"
+                >
+                  Start Free Trial
+                  <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-gray-300 rounded-full px-8 py-6 text-base h-auto hover:bg-gray-50"
               >
-                <motion.h1
-                  className="text-[48px] sm:text-[64px] leading-[1.15] font-normal text-[#134e4a] tracking-tight"
-                  variants={fadeInUp}
-                >
-                  All of your tasks,
-                  <br />
-                  tracked faster
-                </motion.h1>
+                Watch Demo
+              </Button>
+            </motion.div>
 
-                <motion.p
-                  className="text-[19px] leading-relaxed text-gray-600 max-w-xl"
-                  variants={fadeInUp}
-                >
-                  Subspace is a powerful end-to-end platform to draft, plan, and
-                  schedule your tasks and content.
-                </motion.p>
-
+            {/* Features Grid */}
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-24 max-w-6xl w-full"
+              variants={fadeInUp}
+            >
+              {features.map((feature, index) => (
                 <motion.div
-                  className="flex items-center gap-4 pt-2"
-                  variants={fadeInUp}
+                  key={feature.title}
+                  className="p-6 rounded-2xl border border-gray-200 bg-white/60 backdrop-blur-sm hover:border-gray-300 transition-all group"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                  whileHover={{ y: -4 }}
                 >
-                  <Link href="/signup">
-                    <Button
-                      className={`bg-[#2d5f5d] hover:bg-[#234948] text-white font-semibold text-[13px] px-6 py-3 rounded-md transition-colors uppercase tracking-wide shadow-none h-auto ${inconsolata.className}`}
-                    >
-                      START TRACKING
-                    </Button>
-                  </Link>
+                  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gray-100 group-hover:bg-gray-900 mb-4 transition-colors">
+                    <div className="text-gray-700 group-hover:text-white transition-colors">
+                      {feature.icon}
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    {feature.description}
+                  </p>
                 </motion.div>
-              </motion.div>
-
-              {/* Right Column - Product Screenshot - Extends to edge */}
-              <motion.div
-                className="relative mt-8 lg:mt-0 lg:absolute lg:left-[48%] lg:top-[10%] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:w-[52vw] lg:max-w-[900px] lg:z-0"
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: 0.8,
-                  delay: 0.3,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                <div className="relative w-full">
-                  {/* Play button overlay */}
-                  <a
-                    href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute inset-0 flex items-center justify-center z-10"
-                  >
-                    <motion.div
-                      className="w-16 h-16 rounded-full bg-[#2d5f5d] flex items-center justify-center cursor-pointer shadow-xl"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="white"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path d="M8 5.14v14l11-7-11-7z" />
-                      </svg>
-                    </motion.div>
-                  </a>
-
-                  {/* Demo text overlay */}
-                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 text-center">
-                    <div className="text-[12px] font-medium text-gray-600 uppercase tracking-wide mb-1">
-                      WATCH A DEMO
-                    </div>
-                    <div className="text-xl font-semibold text-gray-900">
-                      04:24
-                    </div>
-                  </div>
-
-                  <div className="relative rounded-xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
-                    <img
-                      src="/demo-product.png"
-                      alt="Product demo screenshot"
-                      className="w-full h-auto opacity-90"
-                    />
-                    {/* Enhanced fade overlays */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent via-40% to-transparent pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-white via-white/60 via-40% to-transparent pointer-events-none" />
-                    <div className="absolute top-0 left-0 bottom-0 w-32 bg-gradient-to-r from-white via-white/30 to-transparent pointer-events-none" />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
+              ))}
+            </motion.div>
+          </motion.div>
         </div>
       </main>
     </div>

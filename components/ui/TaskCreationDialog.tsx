@@ -17,11 +17,7 @@ import type { Category } from "@/lib/categories";
 interface TaskCreationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (taskData: {
-    text: string;
-    date: Date;
-    category?: string;
-  }) => void;
+  onSubmit: (taskData: { text: string; date: Date; category?: string }) => void;
   initialDate?: Date;
   categories: Category[];
   getTagTextColor: (tag: string) => string;
@@ -100,37 +96,37 @@ export function TaskCreationDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/40 backdrop-blur-md z-50"
           />
 
           {/* Dialog */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", duration: 0.3 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
+              <div className="px-8 pt-8 pb-6 flex items-center justify-between">
+                <h2 className="text-2xl font-light text-gray-900 tracking-tight">
                   Create New Task
                 </h2>
                 <button
                   onClick={onClose}
                   className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                  <X className="h-5 w-5 text-gray-500" />
+                  <X className="h-5 w-5 text-gray-400" />
                 </button>
               </div>
 
               {/* Form */}
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-6">
                 {/* Task Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-600 mb-2.5">
                     Task Name
                   </label>
                   <Input
@@ -138,23 +134,23 @@ export function TaskCreationDialog({
                     value={taskText}
                     onChange={(e) => setTaskText(e.target.value)}
                     placeholder="What do you need to do?"
-                    className="w-full text-base"
+                    className="w-full text-base border-gray-200 focus:border-gray-400 focus:ring-0"
                     autoFocus
                   />
                 </div>
 
                 {/* Date Picker */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-600 mb-2.5">
                     Date
                   </label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal"
+                        className="w-full justify-start text-left font-normal border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
                         {selectedDate.toLocaleDateString("en-US", {
                           weekday: "long",
                           year: "numeric",
@@ -176,7 +172,7 @@ export function TaskCreationDialog({
 
                 {/* Time Picker */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-600 mb-2.5">
                     Time (Optional)
                   </label>
                   <div className="relative">
@@ -185,17 +181,17 @@ export function TaskCreationDialog({
                       type="time"
                       value={selectedTime}
                       onChange={(e) => setSelectedTime(e.target.value)}
-                      className="w-full pl-10"
+                      className="w-full pl-10 border-gray-200 focus:border-gray-400 focus:ring-0"
                     />
                   </div>
                 </div>
 
                 {/* Category Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-600 mb-3">
                     Category (Optional)
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {categories.map((category) => {
                       const isSelected = selectedCategory === category.name;
                       return (
@@ -203,15 +199,13 @@ export function TaskCreationDialog({
                           key={category.id}
                           type="button"
                           onClick={() =>
-                            setSelectedCategory(
-                              isSelected ? "" : category.name
-                            )
+                            setSelectedCategory(isSelected ? "" : category.name)
                           }
                           className={cn(
-                            "px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium flex items-center gap-2 border-2",
+                            "px-4 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium flex items-center gap-2 border",
                             isSelected
-                              ? "bg-gray-900 text-white border-gray-900 shadow-md"
-                              : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                              : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
                           )}
                         >
                           <span
@@ -231,19 +225,19 @@ export function TaskCreationDialog({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={onClose}
-                    className="flex-1"
+                    className="flex-1 border-gray-300 hover:bg-gray-50 rounded-full"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={!taskText.trim()}
-                    className="flex-1"
+                    className="flex-1 bg-gray-900 hover:bg-gray-800 text-white rounded-full"
                   >
                     Create Task
                   </Button>
@@ -256,4 +250,3 @@ export function TaskCreationDialog({
     </AnimatePresence>
   );
 }
-

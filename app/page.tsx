@@ -1428,7 +1428,16 @@ export default function TaskManager() {
       );
     })
     .sort((a, b) => {
-      // Sort by date
+      // First, prioritize incomplete tasks over completed tasks
+      const aCompleted = a.completed;
+      const bCompleted = b.completed;
+
+      // If one is completed and the other isn't, sort by completion status
+      if (aCompleted !== bCompleted) {
+        return aCompleted ? 1 : -1; // Incomplete tasks first (return -1)
+      }
+
+      // If both have same completion status, sort by date
       const aTime = a.createdAt?.getTime() || 0;
       const bTime = b.createdAt?.getTime() || 0;
       return sortOrder === "desc" ? bTime - aTime : aTime - bTime;
@@ -1479,6 +1488,18 @@ export default function TaskManager() {
         groups[category].push(task);
       });
 
+      // Sort tasks within each category: incomplete first, then by date
+      Object.keys(groups).forEach((cat) => {
+        groups[cat].sort((a, b) => {
+          if (a.completed !== b.completed) {
+            return a.completed ? 1 : -1; // Incomplete tasks first
+          }
+          const aTime = a.createdAt?.getTime() || 0;
+          const bTime = b.createdAt?.getTime() || 0;
+          return sortOrder === "desc" ? bTime - aTime : aTime - bTime;
+        });
+      });
+
       // Sort categories alphabetically and flatten with category info
       const categoryNames = Object.keys(groups).sort();
       const result: GroupedTaskItem[] = [];
@@ -1514,7 +1535,7 @@ export default function TaskManager() {
         isHeader: false,
       })
     );
-  }, [filteredTasks, categoryFilter, showCategoryGrouping]);
+  }, [filteredTasks, categoryFilter, showCategoryGrouping, sortOrder]);
 
   // Helper function to get color for a tag
   const getTagColor = (tag: string) => {
@@ -3014,11 +3035,54 @@ export default function TaskManager() {
                   </AnimatePresence>
 
                   {tasksLoaded && filteredTasks.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                      <div className="rounded-full bg-muted p-3 mb-3">
-                        <Check className="h-6 w-6" />
+                    <div className="relative flex flex-col items-center justify-center py-24 text-center">
+                      {/* Skeleton Cards Background */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 opacity-20 pointer-events-none">
+                        {[1, 2, 3].map((i) => (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: i * 0.1 }}
+                            className="w-full max-w-2xl bg-gray-100 rounded-2xl p-4 flex items-center gap-4"
+                          >
+                            <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center">
+                              <Circle className="h-6 w-6 text-gray-300" />
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                            </div>
+                          </motion.div>
+                        ))}
                       </div>
-                      <p>No tasks found</p>
+
+                      {/* Main Content */}
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{
+                          duration: 0.5,
+                          delay: 0.2,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="relative z-10"
+                      >
+                        <h3 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
+                          {filter === "completed"
+                            ? "No completed tasks"
+                            : filter === "active"
+                            ? "No active tasks"
+                            : "No tasks"}
+                        </h3>
+                        <p className="text-base text-gray-500 max-w-md leading-relaxed">
+                          {filter === "completed"
+                            ? "Complete your tasks to see them here."
+                            : filter === "active"
+                            ? "Create your first task by clicking the button below."
+                            : "Start typing or hold control to start dictation."}
+                        </p>
+                      </motion.div>
                     </div>
                   )}
                 </div>
@@ -3690,6 +3754,11 @@ function BacklogView({
       return true;
     })
     .sort((a, b) => {
+      // First, prioritize incomplete tasks over completed tasks
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1; // Incomplete tasks first
+      }
+
       switch (backlogSortBy) {
         case "alphabetical":
           return a.text.localeCompare(b.text);
@@ -3721,6 +3790,11 @@ function BacklogView({
       return true;
     })
     .sort((a, b) => {
+      // First, prioritize incomplete tasks over completed tasks
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1; // Incomplete tasks first
+      }
+
       switch (backlogSortBy) {
         case "alphabetical":
           return a.text.localeCompare(b.text);
@@ -4137,8 +4211,13 @@ function BacklogView({
                     onClick={() => openCategoryModal(catName)}
                   >
                     {tasksLoaded && catTasks.length === 0 ? (
-                      <div className="flex items-center justify-center h-16 text-gray-400">
-                        <span className="text-sm">No tasks</span>
+                      <div className="flex flex-col items-center justify-center h-24 py-4">
+                        <div className="rounded-lg bg-gray-50 p-2 mb-2">
+                          <CheckCircle2 className="h-4 w-4 text-gray-300" />
+                        </div>
+                        <span className="text-xs text-gray-400 font-light">
+                          No tasks yet
+                        </span>
                       </div>
                     ) : catTasks.length > 0 || !tasksLoaded ? (
                       <div className="space-y-2">
