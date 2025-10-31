@@ -92,76 +92,77 @@ import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
 import { TaskEditDialog } from "@/components/ui/TaskEditDialog";
 
 // Define a comprehensive color palette for categories
+// Using softer, muted tones inspired by https://coolors.co/palette/555b6e-89b0ae-bee3db-faf9f9-ffd6ba
 const categoryColorPalette = [
   {
+    text: "text-slate-600",
+    bg: "bg-slate-100",
+    dot: "bg-slate-600",
+    textDark: "text-slate-700",
+    name: "slate",
+  },
+  {
+    text: "text-teal-600",
+    bg: "bg-teal-50",
+    dot: "bg-teal-600",
+    textDark: "text-teal-700",
+    name: "teal",
+  },
+  {
+    text: "text-emerald-600",
+    bg: "bg-emerald-50",
+    dot: "bg-emerald-600",
+    textDark: "text-emerald-700",
+    name: "emerald",
+  },
+  {
     text: "text-orange-500",
-    bg: "bg-orange-100",
+    bg: "bg-orange-50",
     dot: "bg-orange-500",
-    textDark: "text-orange-900",
+    textDark: "text-orange-700",
     name: "orange",
   },
   {
-    text: "text-blue-500",
-    bg: "bg-blue-100",
-    dot: "bg-blue-500",
-    textDark: "text-blue-900",
-    name: "blue",
+    text: "text-rose-500",
+    bg: "bg-rose-50",
+    dot: "bg-rose-500",
+    textDark: "text-rose-700",
+    name: "rose",
   },
   {
-    text: "text-green-500",
-    bg: "bg-green-100",
-    dot: "bg-green-500",
-    textDark: "text-green-900",
-    name: "green",
+    text: "text-amber-600",
+    bg: "bg-amber-50",
+    dot: "bg-amber-600",
+    textDark: "text-amber-700",
+    name: "amber",
   },
   {
-    text: "text-red-500",
-    bg: "bg-red-100",
-    dot: "bg-red-500",
-    textDark: "text-red-900",
-    name: "red",
+    text: "text-sky-600",
+    bg: "bg-sky-50",
+    dot: "bg-sky-600",
+    textDark: "text-sky-700",
+    name: "sky",
   },
   {
-    text: "text-purple-500",
-    bg: "bg-purple-100",
-    dot: "bg-purple-500",
-    textDark: "text-purple-900",
-    name: "purple",
+    text: "text-violet-600",
+    bg: "bg-violet-50",
+    dot: "bg-violet-600",
+    textDark: "text-violet-700",
+    name: "violet",
   },
   {
-    text: "text-yellow-500",
-    bg: "bg-yellow-100",
-    dot: "bg-yellow-600",
-    textDark: "text-yellow-900",
-    name: "yellow",
-  },
-  {
-    text: "text-pink-500",
-    bg: "bg-pink-100",
-    dot: "bg-pink-500",
-    textDark: "text-pink-900",
+    text: "text-pink-600",
+    bg: "bg-pink-50",
+    dot: "bg-pink-600",
+    textDark: "text-pink-700",
     name: "pink",
   },
   {
-    text: "text-cyan-500",
-    bg: "bg-cyan-100",
-    dot: "bg-cyan-500",
-    textDark: "text-cyan-900",
-    name: "cyan",
-  },
-  {
-    text: "text-indigo-500",
-    bg: "bg-indigo-100",
-    dot: "bg-indigo-500",
-    textDark: "text-indigo-900",
-    name: "indigo",
-  },
-  {
-    text: "text-amber-500",
-    bg: "bg-amber-100",
-    dot: "bg-amber-500",
-    textDark: "text-amber-900",
-    name: "amber",
+    text: "text-lime-600",
+    bg: "bg-lime-50",
+    dot: "bg-lime-600",
+    textDark: "text-lime-700",
+    name: "lime",
   },
 ];
 
@@ -1022,6 +1023,38 @@ export default function TaskManager() {
     }
   };
 
+  // Add a new task without any AI or auto-categorization (used for Enter)
+  const addTaskSimple = async () => {
+    if (!user) return;
+
+    const value = isRecording ? speechDraft : newTaskText;
+    if (!value.trim()) return;
+
+    try {
+      // Always today at midnight when no explicit time
+      let finalDate = new Date();
+      finalDate.setHours(0, 0, 0, 0);
+
+      await createTask({
+        text: value,
+        completed: false,
+        tags: [],
+        createdAt: finalDate,
+        group: "master",
+      });
+
+      // Basic success toast without AI context
+      toast.success("Task added successfully!");
+
+      setNewTaskText("");
+      setSpeechDraft("");
+      setNewTaskDate(undefined);
+      setNewTaskTime(null);
+    } catch (error) {
+      toast.error("Failed to add task");
+    }
+  };
+
   // Handle AI categorization
   const handleAICategorization = async (taskText: string) => {
     if (!user || !taskText.trim()) return;
@@ -1660,7 +1693,7 @@ export default function TaskManager() {
   // Temporary visibility helpers (TaskManager scope)
   const startTemporaryVisibility = (
     taskId: string,
-    durationMs: number = 3000
+    durationMs: number = 5000
   ) => {
     // If already tracked, reset timer fresh
     setTemporaryVisibleTasks(
@@ -2317,7 +2350,7 @@ export default function TaskManager() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
-                            addTask();
+                            addTaskSimple();
                           }
                           if (e.key === "Enter" && e.shiftKey) {
                             e.preventDefault();
@@ -3421,7 +3454,21 @@ export default function TaskManager() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" && !e.shiftKey) {
                                     e.preventDefault();
-                                    handleManualGenerate();
+                                    const text = manualTaskText.trim();
+                                    if (!text) return;
+                                    const todayNoTime = new Date();
+                                    todayNoTime.setHours(0, 0, 0, 0);
+                                    // Create simple, uncategorized task
+                                    createTask({
+                                      text,
+                                      completed: false,
+                                      tags: [],
+                                      createdAt: todayNoTime,
+                                      group: "master",
+                                    }).then(() => {
+                                      setManualTaskText("");
+                                      setShowVoiceMenu(false);
+                                    });
                                   }
                                 }}
                                 placeholder="Describe your task here..."
@@ -4500,15 +4547,18 @@ function BacklogView({
                   e.preventDefault();
                   if (!user || !cardStates[selectedCategory]?.input?.trim())
                     return;
-                  const tags =
-                    selectedCategory === "Uncategorized"
-                      ? []
-                      : [selectedCategory];
+
+                  // Create today's date with no time (set to midnight)
+                  const todayNoTime = new Date();
+                  todayNoTime.setHours(0, 0, 0, 0);
+
+                  // Force Enter/Add submissions into Uncategorized
+                  const tags: string[] = [];
                   await createTask({
                     text: cardStates[selectedCategory]?.input,
                     completed: false,
                     tags,
-                    createdAt: cardStates[selectedCategory]?.date || new Date(),
+                    createdAt: todayNoTime,
                     group: "master",
                   });
                   setCardState(selectedCategory, {

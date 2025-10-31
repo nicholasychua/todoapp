@@ -24,6 +24,7 @@ import {
   ChevronRightIcon,
   CalendarIcon,
   Clock,
+  Pencil,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -465,7 +466,6 @@ export const CalendarView = React.memo(function CalendarView({
           {weekDays.map((day) => {
             const dayTasks = getTasksForDay(day);
             const isTodayDate = isToday(day);
-            const completedCount = dayTasks.filter((t) => t.completed).length;
 
             return (
               <div
@@ -500,11 +500,7 @@ export const CalendarView = React.memo(function CalendarView({
                     {dayTasks.length}
                   </span>
                 </div>
-                {dayTasks.length > 0 && (
-                  <p className="text-[10px] text-gray-500 mt-1.5">
-                    {completedCount} of {dayTasks.length} completed
-                  </p>
-                )}
+                {/* Removed per spec: hide completed summary in week view */}
               </div>
             );
           })}
@@ -579,10 +575,8 @@ export const CalendarView = React.memo(function CalendarView({
                               ease: [0.22, 1, 0.36, 1],
                             }}
                             className={cn(
-                              "group relative rounded-lg border bg-white p-3 cursor-pointer transition-all hover:shadow-md hover:border-gray-300",
-                              task.completed
-                                ? "border-gray-200 opacity-75 hover:opacity-100"
-                                : "border-gray-200"
+                              "group relative rounded-2xl border border-gray-200 bg-white p-3 cursor-pointer transition-all hover:shadow-sm hover:border-gray-300",
+                              task.completed && "opacity-70"
                             )}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -594,77 +588,87 @@ export const CalendarView = React.memo(function CalendarView({
                               startEditTask(task);
                             }}
                           >
-                            {/* Task Content */}
-                            <div className="flex items-start gap-2.5">
-                              <div
-                                className={cn(
-                                  "mt-1 h-2 w-2 rounded-full flex-shrink-0",
-                                  taskDot
-                                )}
+                            {editingTaskId === task.id ? (
+                              <motion.input
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{
+                                  duration: 0.15,
+                                  ease: "easeOut",
+                                }}
+                                className="w-full bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                value={editingTaskText}
+                                onChange={(e) =>
+                                  setEditingTaskText(e.target.value)
+                                }
+                                onBlur={saveEditTask}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    saveEditTask();
+                                  }
+                                  if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    saveEditTask();
+                                  }
+                                }}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
                               />
-                              <div className="flex-1 min-w-0">
-                                {editingTaskId === task.id ? (
-                                  <motion.input
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{
-                                      duration: 0.15,
-                                      ease: "easeOut",
+                            ) : (
+                              <>
+                                {/* Top row: Category badge and edit button */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    {task.tags.length > 0 && (
+                                      <span
+                                        className={cn(
+                                          "text-[10px] font-medium px-2 py-0.5 rounded",
+                                          getTagBackgroundColor
+                                            ? getTagBackgroundColor(
+                                                task.tags[0]
+                                              )
+                                            : "bg-gray-100",
+                                          getTagTextDarkColor
+                                            ? getTagTextDarkColor(task.tags[0])
+                                            : "text-gray-700"
+                                        )}
+                                      >
+                                        {task.tags[0]}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEditTask(task);
                                     }}
-                                    className="w-full bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                                    value={editingTaskText}
-                                    onChange={(e) =>
-                                      setEditingTaskText(e.target.value)
-                                    }
-                                    onBlur={saveEditTask}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        saveEditTask();
-                                      }
-                                      if (e.key === "Escape") {
-                                        e.preventDefault();
-                                        saveEditTask();
-                                      }
-                                    }}
-                                    autoFocus
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                ) : (
-                                  <>
-                                    <p
-                                      className={cn(
-                                        "font-medium text-sm leading-snug text-gray-900",
-                                        task.completed &&
-                                          "line-through text-gray-500"
-                                      )}
-                                    >
-                                      {task.text.replace(/#\w+/g, "").trim()}
-                                    </p>
-                                    <div className="flex items-center justify-between mt-2">
-                                      {task.tags.length > 0 && (
-                                        <div className="flex gap-1.5 flex-wrap">
-                                          {task.tags.map((tag, idx) => (
-                                            <span
-                                              key={idx}
-                                              className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-gray-100 text-gray-600"
-                                            >
-                                              {tag}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                      {timeString && (
-                                        <span className="text-[10px] font-medium text-gray-500 flex-shrink-0 flex items-center gap-1">
-                                          <Clock className="h-3 w-3" />
-                                          {timeString}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </>
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded ml-auto"
+                                  >
+                                    <Pencil className="h-4 w-4 text-gray-400" />
+                                  </button>
+                                </div>
+
+                                {/* Task text */}
+                                <p
+                                  className={cn(
+                                    "font-medium text-[13px] leading-snug text-gray-900 mb-3 break-words overflow-hidden",
+                                    task.completed &&
+                                      "line-through text-gray-500"
+                                  )}
+                                >
+                                  {task.text.replace(/#\w+/g, "").trim()}
+                                </p>
+
+                                {/* Time at bottom */}
+                                {timeString && (
+                                  <div className="flex items-center gap-1.5 text-[11px] font-normal text-gray-500">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    {timeString}
+                                  </div>
                                 )}
-                              </div>
-                            </div>
+                              </>
+                            )}
 
                             {/* Completed badge */}
                             {task.completed && (
@@ -771,7 +775,7 @@ export const CalendarView = React.memo(function CalendarView({
               </p>
             </div>
           ) : (
-            <div className="space-y-3 max-w-3xl">
+            <div className="space-y-2.5 max-w-3xl">
               <AnimatePresence mode="popLayout">
                 {sortedTasks.map((task) => {
                   const taskDate =
@@ -814,10 +818,8 @@ export const CalendarView = React.memo(function CalendarView({
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.2 }}
                       className={cn(
-                        "group relative rounded-lg border bg-white p-4 cursor-pointer transition-all hover:shadow-md hover:border-gray-300",
-                        task.completed
-                          ? "border-gray-200 opacity-75 hover:opacity-100"
-                          : "border-gray-200"
+                        "group relative rounded-2xl border border-gray-200 bg-white p-4 cursor-pointer transition-all hover:shadow-sm hover:border-gray-300",
+                        task.completed && "opacity-70"
                       )}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -829,73 +831,77 @@ export const CalendarView = React.memo(function CalendarView({
                         startEditTask(task);
                       }}
                     >
-                      <div className="flex items-start gap-3">
-                        {/* Dot indicator */}
-                        <div
-                          className={cn(
-                            "mt-1.5 h-2.5 w-2.5 rounded-full flex-shrink-0",
-                            taskDot
-                          )}
+                      {editingTaskId === task.id ? (
+                        <motion.input
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.15, ease: "easeOut" }}
+                          className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                          value={editingTaskText}
+                          onChange={(e) => setEditingTaskText(e.target.value)}
+                          onBlur={saveEditTask}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              saveEditTask();
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              saveEditTask();
+                            }
+                          }}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
                         />
+                      ) : (
+                        <>
+                          {/* Edit button in top-right */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditTask(task);
+                            }}
+                            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-100 rounded"
+                          >
+                            <Pencil className="h-4 w-4 text-gray-400" />
+                          </button>
 
-                        {/* Task content */}
-                        <div className="flex-1 min-w-0">
-                          {editingTaskId === task.id ? (
-                            <motion.input
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ duration: 0.15, ease: "easeOut" }}
-                              className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                              value={editingTaskText}
-                              onChange={(e) =>
-                                setEditingTaskText(e.target.value)
-                              }
-                              onBlur={saveEditTask}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  saveEditTask();
-                                }
-                                if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  saveEditTask();
-                                }
-                              }}
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <>
-                              <p
+                          {/* Task text at top */}
+                          <p
+                            className={cn(
+                              "font-medium text-base leading-snug text-gray-900 mb-2 break-words overflow-hidden",
+                              task.completed && "line-through text-gray-500"
+                            )}
+                          >
+                            {task.text.replace(/#\w+/g, "").trim()}
+                          </p>
+
+                          {/* Category and time at bottom */}
+                          <div className="flex items-center gap-2">
+                            {task.tags.length > 0 && (
+                              <span
                                 className={cn(
-                                  "font-medium text-base leading-snug mb-2 text-gray-900",
-                                  task.completed && "line-through text-gray-500"
+                                  "text-[11px] font-medium px-2.5 py-1 rounded",
+                                  getTagBackgroundColor
+                                    ? getTagBackgroundColor(task.tags[0])
+                                    : "bg-gray-100",
+                                  getTagTextDarkColor
+                                    ? getTagTextDarkColor(task.tags[0])
+                                    : "text-gray-700"
                                 )}
                               >
-                                {task.text.replace(/#\w+/g, "").trim()}
-                              </p>
-                              {(task.tags.length > 0 || timeString) && (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {task.tags.map((tag, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="text-xs font-semibold uppercase tracking-wide px-2 py-1 rounded-md bg-gray-100 text-gray-600"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                  {timeString && (
-                                    <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {timeString}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
+                                {task.tags[0]}
+                              </span>
+                            )}
+                            {timeString && (
+                              <div className="flex items-center gap-1.5 text-[12px] font-normal text-gray-500">
+                                <Clock className="h-3.5 w-3.5" />
+                                {timeString}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
 
                       {/* Completed badge */}
                       {task.completed && (
@@ -944,7 +950,7 @@ export const CalendarView = React.memo(function CalendarView({
   ]);
 
   return (
-    <div className="flex flex-col w-full h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="flex flex-col w-full h-full min-h-[600px] bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
         <div className="flex items-center gap-3">
@@ -1026,7 +1032,7 @@ export const CalendarView = React.memo(function CalendarView({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          className="flex-1 overflow-hidden"
+          className="flex-1 overflow-hidden min-h-0"
         >
           {viewMode === "month" && renderMonthView()}
           {viewMode === "week" && renderWeekView()}
