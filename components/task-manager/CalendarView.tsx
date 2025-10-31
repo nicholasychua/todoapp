@@ -747,16 +747,28 @@ export const CalendarView = React.memo(function CalendarView({
     return (
       <div className="flex-1 flex flex-col overflow-hidden p-6">
         {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900">
-            {format(selectedDay, "EEEE, MMMM d, yyyy")}
-          </h2>
-          <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-            <span>{dayTasks.length} total tasks</span>
-            <span>•</span>
-            <span>{dayTasks.filter((t) => t.completed).length} completed</span>
-            <span>•</span>
-            <span>{dayTasks.filter((t) => !t.completed).length} pending</span>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">
+              {format(selectedDay, "EEEE, MMMM d, yyyy")}
+            </h2>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+              <span>{dayTasks.length} total tasks</span>
+              <span>•</span>
+              <span>
+                {dayTasks.filter((t) => t.completed).length} completed
+              </span>
+              <span>•</span>
+              <span>{dayTasks.filter((t) => !t.completed).length} pending</span>
+            </div>
+          </div>
+          <div className="flex items-center">
+            <Button
+              onClick={() => onDateClick?.(selectedDay)}
+              className="bg-gray-900 hover:bg-gray-800 text-white rounded-full px-4 py-2 text-sm h-auto"
+            >
+              Add Task
+            </Button>
           </div>
         </div>
 

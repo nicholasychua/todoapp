@@ -4,6 +4,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
+import { GlassFilter } from "@/components/ui/liquid-glass";
+import { Geist } from "next/font/google";
+
+const geist = Geist({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -63,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-gray-50">
+      <body className={`${geist.className} bg-gray-50`}>
         <AuthProvider>
           <ThemeProvider
             attribute="class"
@@ -72,6 +76,8 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {children}
+            {/* Provide the SVG filter once at the root for liquid glass effects */}
+            <GlassFilter />
             <Toaster />
             <Analytics />
           </ThemeProvider>

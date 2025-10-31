@@ -362,7 +362,7 @@ function FocusSession({
                                                       }
                                                     }}
                                                     className={cn(
-                                                      "p-1 rounded-md transition-colors hover:bg-gray-50",
+                                                      "p-0 rounded-none bg-transparent",
                                                       hidden
                                                         ? "text-gray-400 hover:text-gray-500"
                                                         : "text-gray-600 hover:text-gray-700"

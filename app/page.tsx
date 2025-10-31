@@ -2959,7 +2959,7 @@ export default function TaskManager() {
                                                         }
                                                       }}
                                                       className={cn(
-                                                        "p-1 rounded-md transition-colors hover:bg-gray-50",
+                                                        "p-0 rounded-none bg-transparent",
                                                         hidden
                                                           ? "text-gray-400 hover:text-gray-500"
                                                           : "text-gray-600 hover:text-gray-700"
@@ -4059,9 +4059,9 @@ function BacklogView({
       </div>
 
       {/* Create a new list (category) */}
-      <Card className="p-4 mb-4">
+      <div className="mb-6">
         <form
-          className="flex gap-2 items-center"
+          className="max-w-2xl mx-auto"
           onSubmit={async (e) => {
             e.preventDefault();
             if (
@@ -4074,21 +4074,26 @@ function BacklogView({
             }
           }}
         >
-          <Input
-            placeholder="Create a new list..."
-            className="flex-1 text-sm rounded-lg"
-            value={newTaskText}
-            onChange={(e) => setNewTaskText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setNewTaskText("");
-            }}
-          />
-          <Button type="submit" size="sm" className="text-xs">
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+          <div className="flex items-center gap-2.5 rounded-xl border border-gray-300/60 bg-white/90 backdrop-blur-sm shadow-[0_10px_28px_rgba(0,0,0,0.08)] px-3.5 py-1">
+            <Input
+              placeholder="Create a new list..."
+              className="flex-1 h-9 py-1 text-base bg-transparent border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-0 text-gray-900 placeholder:text-gray-400"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setNewTaskText("");
+              }}
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 text-slate-500 shadow-inner ml-2"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </form>
-      </Card>
+      </div>
 
       {/* Category Cards Grid - Two Column Layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 auto-rows-max">
@@ -4259,10 +4264,8 @@ function BacklogView({
                   >
                     {tasksLoaded && catTasks.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-24 py-4">
-                        <div className="rounded-lg bg-gray-50 p-2 mb-2">
-                          <CheckCircle2 className="h-4 w-4 text-gray-300" />
-                        </div>
-                        <span className="text-xs text-gray-400 font-light">
+                        <CheckCircle2 className="h-4 w-4 text-gray-300 mb-2" />
+                        <span className="text-sm text-gray-400 font-light">
                           No tasks yet
                         </span>
                       </div>

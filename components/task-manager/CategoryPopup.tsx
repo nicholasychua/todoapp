@@ -185,7 +185,7 @@ export const CategoryPopup = memo(function CategoryPopup({
                           }
                         }}
                         className={cn(
-                          "p-1 rounded-md transition-colors hover:bg-gray-50",
+                          "p-0 rounded-none bg-transparent focus:outline-none focus:ring-0",
                           hidden
                             ? "text-gray-400 hover:text-gray-500"
                             : "text-gray-600 hover:text-gray-700"
