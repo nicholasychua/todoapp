@@ -6,30 +6,7 @@ interface CategoryMetadata {
   keywords?: string[];
 }
 
-// Simple sentiment analysis function
-const analyzeSentiment = (text: string): 'positive' | 'neutral' | 'negative' => {
-  const lowerText = text.toLowerCase();
-  
-  const positiveWords = ['happy', 'great', 'awesome', 'excellent', 'love', 'enjoy', 'excited', 'wonderful', 'amazing', 'fantastic', 'good', 'fun', 'celebrate', 'success', 'win'];
-  const negativeWords = ['sad', 'bad', 'terrible', 'hate', 'angry', 'upset', 'frustrated', 'problem', 'issue', 'error', 'fail', 'urgent', 'critical', 'fix', 'bug', 'broken'];
-  
-  let positiveScore = 0;
-  let negativeScore = 0;
-  
-  positiveWords.forEach(word => {
-    if (lowerText.includes(word)) positiveScore++;
-  });
-  
-  negativeWords.forEach(word => {
-    if (lowerText.includes(word)) negativeScore++;
-  });
-  
-  if (positiveScore > negativeScore) return 'positive';
-  if (negativeScore > positiveScore) return 'negative';
-  return 'neutral';
-};
-
-// Simple fallback categorization logic with sentiment and user-defined keywords
+// Simple fallback categorization logic - basic keyword matching only
 const fallbackCategorize = (
   taskText: string, 
   categories: string[] | CategoryMetadata[]
@@ -37,7 +14,6 @@ const fallbackCategorize = (
   console.log('Using built-in fallback categorization for:', taskText);
   
   const lowerTaskText = taskText.toLowerCase();
-  const sentiment = analyzeSentiment(taskText);
   
   // Base keyword map for common task types (fallback if no user-defined keywords)
   const defaultKeywordMap: Record<string, string[]> = {
@@ -62,8 +38,6 @@ const fallbackCategorize = (
     : (categories as string[]).map(name => ({ name }));
 
   const expandKeywordsForCategory = (category: CategoryMetadata): string[] => {
-    const lc = category.name.toLowerCase();
-    
     // Start with user-defined keywords if available
     let keywords: string[] = [...(category.keywords || [])];
     
@@ -76,82 +50,13 @@ const fallbackCategorize = (
     }
     
     // Fallback to default keywords if none provided
+    const lc = category.name.toLowerCase();
     if (keywords.length === 0) {
       keywords = defaultKeywordMap[lc] || [];
     }
 
-    // Expand by semantic hints from the category name
-    if (/(event|events|concert|show|gig|performance|festival|party|meetup|entertain|social|leisure)/.test(lc)) {
-      keywords = keywords.concat(['event', 'events', 'concert', 'show', 'gig', 'performance', 'festival', 'party', 'meetup', 'ticket', 'tickets', 'venue']);
-    }
-    if (/(music)/.test(lc)) {
-      keywords = keywords.concat(['music', 'concert', 'show', 'gig', 'performance']);
-    }
-    if (/(work|job|office|client|project|business|meeting|career|professional|employment)/.test(lc)) {
-      keywords = keywords.concat(['work', 'job', 'office', 'meeting', 'project', 'client', 'business', 'deadline', 'presentation', 'interview', 'career', 'professional', 'standup', 'sync', 'onboarding', 'resume', 'application', 'position', 'role']);
-    }
-    if (/(school|learn|study|homework|class|course|education|academic)/.test(lc)) {
-      keywords = keywords.concat(['learn', 'study', 'homework', 'assignment', 'exam', 'test', 'quiz', 'lecture', 'class', 'course', 'school', 'college', 'university', 'textbook', 'notes', 'research', 'paper', 'essay', 'lab', 'submit', 'due', 'chapter', 'problem', 'practice']);
-    }
-    if (/(hobby|fun|entertainment|leisure)/.test(lc)) {
-      keywords = keywords.concat(['hobby', 'fun', 'entertainment', 'game', 'play', 'watch', 'enjoy']);
-    }
-
     return Array.from(new Set(keywords.map(k => k.toLowerCase())));
   };
-  
-  // Semantic pattern detection for better context understanding
-  
-  // HIGHEST PRIORITY: Check for communication/personal interaction patterns
-  // Patterns: "text/call/email/message [person name] to/about [something]"
-  const communicationPattern = /\b(text|call|email|message|reach out|contact|ping|dm|remind)\s+([a-z]+)\s+(to|about|regarding|for|that|and)/i;
-  const hasCommunicationPattern = communicationPattern.test(lowerTaskText);
-  
-  // Simple person name detection (capitalized word that's not at start, or common names)
-  const commonNames = ['sarah', 'john', 'mike', 'emily', 'david', 'lisa', 'chris', 'alex', 'mom', 'dad', 'brother', 'sister', 'friend'];
-  const hasPersonName = commonNames.some(name => lowerTaskText.includes(name)) || /\b(text|call|email|message)\s+[A-Z][a-z]+/.test(taskText);
-  
-  // Communication verbs followed by person indicators
-  const isCommunicationTask = /\b(text|call|email|message|reach out|contact|ping|dm|tell|ask|remind|notify)\b/.test(lowerTaskText) && hasPersonName;
-  
-  // Check for work/professional patterns
-  const interviewPattern = /\b(interview|job|career|position|role|application|resume|cv)\b/i;
-  const hasInterviewContext = interviewPattern.test(lowerTaskText);
-  
-  // Common company/tech names that indicate work context
-  const companyIndicators = ['google', 'amazon', 'meta', 'microsoft', 'apple', 'netflix', 'datadog', 'stripe', 'uber', 'lyft', 'airbnb', 'facebook', 'twitter', 'linkedin', 'salesforce', 'oracle', 'ibm', 'adobe', 'cisco', 'intel', 'nvidia'];
-  const hasCompanyName = companyIndicators.some(company => lowerTaskText.includes(company));
-  
-  // Work-specific actions
-  const workActions = ['meeting', 'presentation', 'deadline', 'client', 'project', 'standup', 'sync', 'onboarding', 'training'];
-  const hasWorkAction = workActions.some(action => lowerTaskText.includes(action));
-  
-  // If task mentions interview OR company name, it's highly likely to be work
-  const isLikelyWorkTask = hasInterviewContext || (hasCompanyName && !lowerTaskText.includes('order') && !lowerTaskText.includes('buy'));
-  
-  // Check for course code patterns (e.g., CS101, ENGIN26, MATH3A)
-  const courseCodePattern = /\b[a-z]{2,6}\s*\d{1,4}[a-z]?\b/i;
-  const hasCourseCode = courseCodePattern.test(lowerTaskText);
-  
-  // Check for academic action words
-  const academicActions = ['homework', 'assignment', 'exam', 'test', 'quiz', 'midterm', 'final', 'lecture', 'lab', 'textbook'];
-  const hasAcademicAction = academicActions.some(action => lowerTaskText.includes(action));
-  
-  // Academic subjects that indicate learning
-  const academicSubjects = ['math', 'science', 'history', 'english', 'biology', 'chemistry', 'physics', 'calculus', 'algebra', 'geometry'];
-  const hasAcademicSubject = academicSubjects.some(subject => lowerTaskText.includes(subject));
-  
-  // Check for food-related patterns (but NOT if it's clearly work/interview related)
-  const foodPatterns = ['pizza', 'food', 'restaurant', 'dinner', 'lunch', 'breakfast', 'meal', 'takeout', 'delivery', 'eat', 'sushi', 'burger', 'sandwich', 'groceries', 'grocery'];
-  const hasFoodContext = !isLikelyWorkTask && foodPatterns.some(pattern => lowerTaskText.includes(pattern));
-  
-  // Check for shopping patterns (but context matters)
-  const shoppingPatterns = ['buy', 'purchase', 'shop', 'store'];
-  const hasShoppingAction = shoppingPatterns.some(pattern => lowerTaskText.includes(pattern));
-  
-  // Check for event/entertainment patterns
-  const eventPatterns = ['concert', 'show', 'ticket', 'festival', 'performance', 'gig', 'venue'];
-  const hasEventContext = eventPatterns.some(pattern => lowerTaskText.includes(pattern));
   
   // Find the best matching category
   let bestMatch = categoryList[0].name;
@@ -179,118 +84,56 @@ const fallbackCategorize = (
       }
     }
     
-    // Context-aware boosting based on semantic patterns
-    // HIGHEST PRIORITY: Communication/Personal tasks
-    if (isCommunicationTask && /(personal|social|communication|friends?|family|people|contact)/.test(lowerCategory)) {
-      score += 60; // Very strong boost for communication tasks
-    }
-    if (hasCommunicationPattern && /(personal|social|communication)/.test(lowerCategory)) {
-      score += 40; // Strong boost for clear communication patterns
-    }
-    
-    // PRIORITY: Work context (high priority to avoid misclassification)
-    if (isLikelyWorkTask && /(work|job|career|professional|office|business|employment)/.test(lowerCategory)) {
-      score += 50; // Very strong boost for work-related tasks with interview/company context
-    }
-    if (hasInterviewContext && /(work|job|career|professional)/.test(lowerCategory)) {
-      score += 30; // Strong boost for interview mentions
-    }
-    if (hasCompanyName && /(work|job|career|professional)/.test(lowerCategory)) {
-      score += 25; // Strong boost for company names
-    }
-    if (hasWorkAction && /(work|job|career|professional|office|business)/.test(lowerCategory)) {
-      score += 20; // Boost for work-specific actions
-    }
-    
-    // Academic context (high priority)
-    if (hasCourseCode && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 35; // Very strong boost for course codes
-    }
-    if (hasAcademicAction && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 20; // Strong boost for academic actions
-    }
-    if (hasAcademicSubject && /(learn|school|study|homework|class|course|education|academic)/.test(lowerCategory)) {
-      score += 15; // Boost for academic subjects
-    }
-    
-    // Food/Shopping context (only if NOT work-related)
-    if (hasFoodContext && /(food|shop|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
-      score += 20; // Strong boost for food-related tasks
-    }
-    if (hasShoppingAction && hasFoodContext && /(shop|food|grocery)/.test(lowerCategory)) {
-      score += 10; // Additional boost for shopping + food
-    }
-    
-    // Event context
-    if (hasEventContext && /(event|entertainment|social|concert|show)/.test(lowerCategory)) {
-      score += 15; // Boost for clear event patterns
-    }
-    
-    // PENALTIES: Prevent obvious misclassifications
-    
-    // Prevent communication tasks from being categorized incorrectly
-    if (isCommunicationTask && /(club|event|hobby|food|shop|fitness|health|sport|music|concert|game)/.test(lowerCategory)) {
-      score -= 100; // Strong penalty - communication tasks shouldn't go to these categories
-    }
-    
-    // Prevent work tasks from being categorized as food
-    if (isLikelyWorkTask && /(food|grocery|restaurant|dining|meal)/.test(lowerCategory)) {
-      score -= 100; // Strong penalty to prevent "prep datadog interview" going to food
-    }
-    
-    // Sentiment-based bonus scoring
-    if (sentiment === 'positive' && /(hobby|fun|social|event|entertainment|leisure|vacation|travel)/.test(lowerCategory)) {
-      score += 3;
-    }
-    if (sentiment === 'negative' && /(work|problem|issue|urgent|critical|fix|chore)/.test(lowerCategory)) {
-      score += 3;
-    }
-    
-    // Smart "personal" category handling
-    if (/personal/.test(lowerCategory)) {
-      // BOOST personal if it's communication, family, or life admin
-      if (isCommunicationTask || /(birthday|anniversary|family|relationship|mom|dad|parent|sibling|friend)/.test(lowerTaskText)) {
-        score += 15; // Boost for clear personal tasks
-      } else if (!/(birthday|anniversary|family|relationship|text|call|email|message)/.test(lowerTaskText)) {
-        // Only penalize if it's clearly NOT personal
-        score -= 5;
-      }
-    }
-    
     if (score > bestScore) {
       bestScore = score;
       bestMatch = category.name;
     }
   }
   
-  // Smart uncategorized handling - don't force categorization if score is too low
+  // Smart uncategorized handling - prefer uncategorized when uncertain
   const uncategorizedCategory = categoryList.find(c => /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase()));
   
-  // If score is too low (weak match), prefer uncategorized
-  if (bestScore < 15 && uncategorizedCategory) {
-    bestMatch = uncategorizedCategory.name;
+  // Conservative threshold - prefer uncategorized unless we have a strong match
+  const minScoreRequired = 20;
+  
+  // If score is too low, use uncategorized
+  if (bestScore < minScoreRequired && uncategorizedCategory) {
+    console.log(`Low score (${bestScore}) - using Uncategorized`);
     return {
-      suggestedCategory: bestMatch,
-      confidence: "low"
+      suggestedCategory: uncategorizedCategory.name,
+      confidence: "low",
+      reasoning: "Task doesn't match any category well enough"
     };
   }
   
-  // On zero score, definitely use uncategorized
-  if (bestScore === 0 && uncategorizedCategory) {
-    bestMatch = uncategorizedCategory.name;
-  }
-  
   // Determine confidence based on score
-  let confidence = "low";
+  let confidence: "low" | "medium" | "high" = "low";
+  let reasoning = "";
+  
   if (bestScore >= 50) {
     confidence = "high";
-  } else if (bestScore >= 25) {
+    reasoning = "Strong category match";
+  } else if (bestScore >= 30) {
     confidence = "medium";
+    reasoning = "Moderate category match";
+  } else {
+    confidence = "low";
+    reasoning = "Weak category match";
+    // If low confidence and uncategorized exists, use it instead
+    if (uncategorizedCategory) {
+      console.log(`Low confidence categorization - defaulting to Uncategorized`);
+      return {
+        suggestedCategory: uncategorizedCategory.name,
+        confidence: "low",
+        reasoning: "Uncertain categorization"
+      };
+    }
   }
   
   return {
     suggestedCategory: bestMatch,
-    confidence
+    confidence,
+    reasoning
   };
 };
 
@@ -338,7 +181,6 @@ export async function POST(request: Request) {
     console.log("Attempting to categorize task:", taskText);
     console.log("Available categories:", categories);
 
-    const sentiment = analyzeSentiment(taskText);
     const hasMetadata = categories.length > 0 && typeof categories[0] === 'object';
     const categoryList: CategoryMetadata[] = hasMetadata 
       ? (categories as CategoryMetadata[])
@@ -384,121 +226,218 @@ export async function POST(request: Request) {
           role: "system",
           content: `You are an expert task categorization assistant specializing in semantic understanding and contextual analysis. Your role is to deeply understand the TRUE meaning and intent behind each task by analyzing context, entity types, and real-world scenarios.
 
+## CRITICAL: Confidence-Based Categorization
+
+You must ALWAYS return a JSON object with:
+- "category": the best matching category name
+- "confidence": a number from 0-100 indicating how confident you are
+- "reasoning": brief explanation of your decision
+
+**Confidence Guidelines:**
+- 90-100: Perfect match, no ambiguity (e.g., "gym workout" → Health, "CS homework" → Learning)
+- 70-89: Strong match with clear context (e.g., "prep google interview" → Work)
+- 50-69: Moderate match, some ambiguity but reasonable fit
+- 30-49: Weak match, multiple possible categories
+- 0-29: Very uncertain, task is vague or doesn't fit well
+
+**IMPORTANT:** If confidence is below 50, you MUST use "Uncategorized" instead of forcing a weak match.
+
 ## Core Analysis Framework
 
 ### 1. Context Understanding
-- Look at the ENTIRE phrase, not isolated words
+- Analyze the ENTIRE phrase, not isolated words
 - Identify the primary action and its target
 - Consider what domain/life area this activity belongs to
 - Understand implied relationships between words
 
-### 2. Entity Recognition
-- Person names (Sarah, John, etc.) especially after communication verbs → Personal/Social
-- Company names (Google, Amazon, Meta, Datadog, etc.) → Usually Work/Professional
-- Course codes (CS101, ENGIN26, MATH 3A, BIO220) → Academic/Learning
-- Restaurant names, food items, meal types → Food
-- Family members (mom, dad, brother, sister, friend) → Personal
-- Venue names, artist names → Events/Entertainment
+### 2. Entity Recognition (HIGH CONFIDENCE INDICATORS)
+- **COMMUNICATION + PERSON = PERSONAL/SOCIAL (HIGHEST PRIORITY, 95+ confidence)**
+  - "text mom" → Personal/Social/Communication (95% confidence)
+  - "call dad" → Personal/Social/Communication (95% confidence)
+  - "email sarah" → Personal/Social/Communication (95% confidence)
+  - If no Personal/Social category exists or matches poorly → USE UNCATEGORIZED (don't force into wrong category like App/Tech)
+- Company names (Google, Amazon, Meta, Datadog, etc.) → Work/Professional (90+ confidence)
+- Course codes (CS101, ENGIN26, MATH 3A, BIO220) → Academic/Learning (95+ confidence)
+- Restaurant names, food items, meal types → Food (85+ confidence)
+- Family members (mom, dad, brother, sister, mommy, daddy) → Personal (90+ confidence)
+- Venue names, artist names → Events/Entertainment (85+ confidence)
 
 ### 3. Action-Target Analysis
-DON'T just match keywords. Instead, analyze what action is being performed on what target:
+DON'T just match keywords. Analyze what action is being performed on what target:
 
-Examples of CORRECT analysis:
-- "text sarah to review app today" → PRIMARY: communication, ENTITY: Sarah (person) → PERSONAL/SOCIAL
-- "call mom about dinner plans" → PRIMARY: communication, ENTITY: mom (family) → PERSONAL
-- "email john the documents" → PRIMARY: communication, ENTITY: John (person) → PERSONAL
-- "prep datadog interview" → PRIMARY: interview (professional), ENTITY: Datadog (company) → WORK
-- "prepare dinner" → PRIMARY: meal preparation, ENTITY: dinner (food) → FOOD
-- "finish ENGIN26 homework" → PRIMARY: homework, ENTITY: ENGIN26 (course code) → LEARNING
-- "prep for gym" → PRIMARY: exercise preparation, ENTITY: gym (fitness) → HEALTH
-- "study for google interview" → PRIMARY: interview preparation, ENTITY: Google (company) → WORK
-- "order pizza" → PRIMARY: food ordering, ENTITY: pizza (food) → FOOD
-- "review CS notes" → PRIMARY: studying, ENTITY: CS (course subject) → LEARNING
+Examples:
+- "text mom" → Communication + Family Member = PERSONAL/SOCIAL (95% confidence, NEVER App/Tech)
+- "text sarah to review app" → Communication + Person = PERSONAL/SOCIAL (95% confidence, NOT App category)
+- "call dad" → Communication + Family = PERSONAL/SOCIAL (95% confidence)
+- "prep datadog interview" → Interview + Company = WORK (95% confidence)
+- "finish ENGIN26 homework" → Homework + Course Code = LEARNING (98% confidence)
+- "order pizza" → Order + Food = appropriate food category (90% confidence)
+- "do something" → Vague = UNCATEGORIZED (10% confidence)
+- "text mom" (no Personal category exists) → UNCATEGORIZED (20% confidence, don't force into wrong category)
 
-### 4. Context Clues
-TEXT/CALL/EMAIL + PERSON NAME = PERSONAL (highest priority for communication)
-COMMUNICATION VERB + SOMEONE + ABOUT/TO = PERSONAL/SOCIAL (not club, not hobby, not event)
-INTERVIEWS + COMPANY NAME = WORK (not food, even with "prep")
-PREPARE + FOOD ITEM = FOOD
-STUDY/REVIEW + COURSE/SUBJECT = LEARNING
-MEET/CALL + FAMILY = PERSONAL
-TICKETS + VENUE/ARTIST = EVENTS
-EXERCISE + FITNESS LOCATION = HEALTH
+### 4. Semantic Context Clues (CRITICAL PRIORITIES)
+- **TEXT/CALL/EMAIL + PERSON NAME/FAMILY = PERSONAL/SOCIAL (HIGHEST PRIORITY, 95+ confidence)**
+  - These tasks MUST go to Personal/Social/Communication categories
+  - If no suitable Personal/Social category exists → USE UNCATEGORIZED
+  - NEVER categorize into App/Tech/Software categories even if the word "app" appears
+- INTERVIEWS + COMPANY NAME = WORK (95+ confidence)
+- COURSE CODE + ACADEMIC WORD = LEARNING (95+ confidence)
+- FOOD ITEM + ACTION = appropriate food category (85+ confidence)
+- EXERCISE + FITNESS LOCATION = HEALTH (90+ confidence)
 
-### 5. Disambiguation Rules
-When you see communication verbs (text, call, email, message, contact, remind):
-- If followed by a person name → PERSONAL/SOCIAL
-- These are NEVER club, hobby, event, or food tasks
+### 5. When to Use "Uncategorized" (MANDATORY)
+Use "Uncategorized" when:
+- Confidence score is below 50
+- Task is vague, random, or unclear (e.g., "stuff", "things", "idk")
+- Task doesn't match any category well
+- Multiple categories could apply equally well
+- Task is too short or ambiguous (e.g., "check")
+- You're uncertain about the true intent
+- **Communication task (text/call/email + person) but no suitable Personal/Social category exists or matches poorly**
+- **Better to use Uncategorized than force into wrong category (e.g., "text mom" → App is WRONG, use Uncategorized)**
 
-When a word like "prep", "prepare", "review", "check", "get" appears:
-- Look at what follows it
-- If it's a company name → likely WORK
-- If it's a food item → likely FOOD
-- If it's a course/subject → likely LEARNING
-- If it's a workout/exercise → likely HEALTH
+Examples that SHOULD be "Uncategorized":
+- "do stuff" (too vague)
+- "check thing" (no clear target)
+- "random task" (no context)
+- "something important" (no domain specified)
+- "asdf" (gibberish)
+- "misc" (explicitly miscellaneous)
+- "text mom" (if no Personal/Social category matches well - better uncategorized than wrong category)
 
-### 6. Common Pitfalls to AVOID
-❌ DON'T categorize "text/call/email [person]" as club, hobby, event, or anything other than PERSONAL/SOCIAL
-❌ DON'T ignore the communication verb - if someone is texting/calling someone, it's PERSONAL
-❌ DON'T categorize "prep [company] interview" as FOOD just because "prep" can mean food prep
-❌ DON'T categorize "[company] interview" as anything other than WORK
-❌ DON'T categorize course codes (CS101, ENGIN26) as anything other than LEARNING
-❌ DON'T rely on single keyword matches - always consider full context
+### 6. Decision Priority (STRICT ORDER)
+1. **Communication + Person/Family (text/call/email + person) → Personal/Social/Communication (95+ confidence)**
+   - If no suitable Personal category → Uncategorized (NOT App/Tech/other wrong category)
+2. Entity recognition (company/course/person) - 90+ confidence
+3. Primary action + clear target - 70-89 confidence
+4. Keyword matching with context - 50-69 confidence
+5. Weak matches - Use Uncategorized instead
 
-### 7. Decision Priority
-1. Communication patterns (text/call/email person → personal/social) - HIGHEST PRIORITY
-2. Explicit entity type (company → work, course code → learning, person name → personal)
-3. Primary action purpose (what is the task fundamentally about?)
-4. Life domain (where does this naturally belong?)
-5. User expectation (where would someone intuitively look for this?)
-
-### 8. When to Use "Uncategorized"
-- If the task is too vague or random
-- If it doesn't clearly fit any specific category
-- If you're uncertain or the task is ambiguous
-- DON'T force a task into a category if it doesn't belong there
-- It's BETTER to say "Uncategorized" than to guess wrong
-- Random phrases, unclear tasks, or mixed-purpose items should be "Uncategorized"`,
+### 8. Common Pitfalls to AVOID (CRITICAL)
+❌ DON'T categorize "text mom" or "call dad" into App/Tech/Software categories (even if word "app" appears in task)
+❌ DON'T force communication tasks into wrong categories - use Uncategorized if no Personal/Social category
+❌ DON'T force weak matches - use Uncategorized
+❌ DON'T ignore confidence thresholds
+❌ DON'T categorize vague tasks
+❌ DON'T rely on single keywords without context
+❌ DON'T give high confidence to ambiguous tasks
+✅ DO prioritize Personal/Social categories for communication tasks
+✅ DO use Uncategorized when communication tasks have no good personal category match`,
         },
         {
           role: "user",
           content: `Task: "${taskText}"
 
-Available categories:
+Available Categories:
 ${categoryContext}
 
-Follow the analysis framework:
-1. Identify any entities (companies, courses, people, places)
+Analyze this task carefully:
+1. Identify entities (companies, courses, people, places)
 2. Determine the primary action and its target
-3. Consider the full context and real-world meaning
-4. Match to the most appropriate category based on TRUE intent
-5. If the task is vague, random, or doesn't fit well, choose "Uncategorized" instead of forcing it
+3. Calculate your confidence score (0-100)
+4. If confidence < 50, use "Uncategorized"
+5. Provide reasoning for your decision
 
-Remember: It's better to say "Uncategorized" than to guess incorrectly.
+Respond with ONLY a JSON object in this exact format:
+{
+  "category": "CategoryName",
+  "confidence": 85,
+  "reasoning": "Brief explanation"
+}
 
-Respond with ONLY the category name that best matches. Nothing else.`,
+Do not include any other text before or after the JSON.`,
         },
       ],
       temperature: 0.1,
-      max_tokens: 30,
+      max_tokens: 150,
+      response_format: { type: "json_object" }
     });
 
     // Race between the API call and timeout
     const response = await Promise.race([apiCallPromise, timeoutPromise]) as any;
 
-    const suggestedCategory = response.choices[0].message.content?.trim();
+    const responseContent = response.choices[0].message.content?.trim();
     
-    if (!suggestedCategory) {
+    if (!responseContent) {
+      console.warn("Empty AI response, using fallback");
       return NextResponse.json(
         fallbackCategorize(taskText, categories)
       );
     }
 
-    console.log("Suggested category:", suggestedCategory);
+    // Parse the JSON response
+    let aiResult: { category: string; confidence: number; reasoning: string };
+    try {
+      aiResult = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error("Failed to parse AI response as JSON:", responseContent);
+      // If it's not JSON, try to use it as a plain category name (backward compatibility)
+      return NextResponse.json({
+        suggestedCategory: responseContent,
+        confidence: "medium",
+        reasoning: "Legacy response format"
+      });
+    }
+
+    console.log("AI categorization result:", aiResult);
+
+    // Find the uncategorized category if it exists
+    const uncategorizedCategory = categoryList.find(c => 
+      /uncategorized|general|misc|inbox|backlog/.test(c.name.toLowerCase())
+    );
+
+    // Apply confidence threshold - if confidence < 50, force to Uncategorized
+    const CONFIDENCE_THRESHOLD = 50;
+    let finalCategory = aiResult.category;
+    let finalConfidence = aiResult.confidence;
+    let finalReasoning = aiResult.reasoning;
+
+    if (finalConfidence < CONFIDENCE_THRESHOLD) {
+      console.log(`AI confidence (${finalConfidence}) below threshold (${CONFIDENCE_THRESHOLD}) - forcing Uncategorized`);
+      if (uncategorizedCategory) {
+        finalCategory = uncategorizedCategory.name;
+        finalReasoning = `Low confidence (${finalConfidence}): ${aiResult.reasoning}`;
+      } else {
+        // If no uncategorized category exists, keep the AI's choice but mark as low confidence
+        console.warn("No Uncategorized category found, keeping AI suggestion with low confidence");
+      }
+    }
+
+    // Verify the category exists in the provided categories
+    const categoryExists = categoryList.some(c => 
+      c.name.toLowerCase() === finalCategory.toLowerCase()
+    );
+
+    if (!categoryExists) {
+      console.warn(`AI suggested category "${finalCategory}" not found in available categories`);
+      // Try to find a case-insensitive match
+      const matchingCategory = categoryList.find(c => 
+        c.name.toLowerCase() === finalCategory.toLowerCase()
+      );
+      if (matchingCategory) {
+        finalCategory = matchingCategory.name;
+      } else if (uncategorizedCategory) {
+        // Category doesn't exist, use Uncategorized
+        finalCategory = uncategorizedCategory.name;
+        finalReasoning = `Category "${aiResult.category}" not found`;
+      }
+    }
+
+    // Convert numeric confidence to low/medium/high
+    let confidenceLevel: "low" | "medium" | "high";
+    if (finalConfidence >= 70) {
+      confidenceLevel = "high";
+    } else if (finalConfidence >= 50) {
+      confidenceLevel = "medium";
+    } else {
+      confidenceLevel = "low";
+    }
 
     return NextResponse.json({
-      suggestedCategory,
-      confidence: "high" // You could implement confidence scoring here
+      suggestedCategory: finalCategory,
+      confidence: confidenceLevel,
+      confidenceScore: finalConfidence,
+      reasoning: finalReasoning
     });
 
   } catch (error) {
