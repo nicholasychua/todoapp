@@ -2591,9 +2591,20 @@ export default function TaskManager() {
                                   </div>
                                 )}
 
-                                <p className="text-sm text-gray-500 font-medium text-center mt-6">
+                                {/* Desktop: show text instruction */}
+                                <p className="text-sm text-gray-500 font-medium text-center mt-6 hidden md:block">
                                   Release Ctrl to stop recording
                                 </p>
+                                
+                                {/* Mobile: show stop button */}
+                                <div className="mt-6 md:hidden flex justify-center">
+                                  <button
+                                    onClick={stopRecording}
+                                    className="px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+                                  >
+                                    Stop Recording
+                                  </button>
+                                </div>
                               </div>
                             </div>
 
@@ -3240,9 +3251,18 @@ export default function TaskManager() {
                             </div>
                           </div>
 
-                          <p className="text-sm text-gray-500 font-medium">
+                          {/* Desktop: show text instruction */}
+                          <p className="text-sm text-gray-500 font-medium hidden md:block">
                             Release Ctrl to stop recording
                           </p>
+                          
+                          {/* Mobile: show stop button */}
+                          <button
+                            onClick={stopRecording}
+                            className="md:hidden mt-2 px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md active:scale-[0.98]"
+                          >
+                            Stop Recording
+                          </button>
                         </div>
                       </div>
                     </motion.div>
