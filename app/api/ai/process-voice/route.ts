@@ -41,8 +41,13 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
     date = today.toISOString().split('T')[0];
   }
   
+  // Capitalize first letter of task name
+  const capitalizedTaskName = cleanText.length > 0 
+    ? cleanText.charAt(0).toUpperCase() + cleanText.slice(1)
+    : cleanText;
+  
   return {
-    taskName: cleanText.length > 50 ? cleanText.substring(0, 50) + '...' : cleanText,
+    taskName: capitalizedTaskName.length > 50 ? capitalizedTaskName.substring(0, 50) + '...' : capitalizedTaskName,
     description: cleanText,
     date,
     time,
@@ -163,15 +168,16 @@ export async function POST(request: Request) {
             "description": "Detailed description",
             "date": "YYYY-MM-DD or null if no date mentioned",
             "time": "HH:MM in 24-hour format or null if no time mentioned",
-            "tags": ["array", "of", "relevant", "tags"]
+            "tags": ["array", "of", "hashtags", "only"]
           }
           
           Rules:
           - Use the current date (${today}) in Pacific Time to resolve relative dates like "tomorrow".
           - If a date is mentioned, convert it to YYYY-MM-DD format.
           - If a time is mentioned, convert it to HH:MM (24-hour) format.
-          - Extract any hashtags as tags.
-          - Keep the taskName concise but descriptive.
+          - ONLY extract hashtags (words starting with #) from the input as tags. Do NOT create new categories or suggest tags.
+          - If there are no hashtags in the input, return an empty array for tags.
+          - Keep the taskName concise but descriptive. Capitalize the first letter of the task name properly.
           - Include any additional context in the description.
           - If no date is mentioned, set date to null.
           - If no time is mentioned, set time to null.`,

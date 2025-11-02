@@ -33,7 +33,6 @@ export default function DebugFirebasePage() {
   useEffect(() => {
     // Check Firebase initialization
     const auth = getClientAuth();
-
     setFirebaseStatus({
       initialized: typeof window !== "undefined",
       authAvailable: auth !== null,

@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { getClientDb } from './firebase';
 import { 
   collection,
   addDoc,
@@ -35,6 +35,8 @@ export async function createTabGroupFirestore(
     userId,
     createdAt: tabGroup.createdAt ? Timestamp.fromDate(tabGroup.createdAt) : Timestamp.now(),
   };
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const docRef = await addDoc(collection(db, 'tabGroups'), tabGroupData);
   return {
     id: docRef.id,
@@ -45,6 +47,8 @@ export async function createTabGroupFirestore(
 }
 
 export async function updateTabGroupFirestore(tabGroupId: string, updates: Partial<TabGroup>) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const tabGroupRef = doc(db, 'tabGroups', tabGroupId);
   // Convert any Date objects to Firestore Timestamps
   const firestoreUpdates: any = { ...updates };
@@ -55,6 +59,8 @@ export async function updateTabGroupFirestore(tabGroupId: string, updates: Parti
 }
 
 export async function deleteTabGroupFirestore(tabGroupId: string) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const tabGroupRef = doc(db, 'tabGroups', tabGroupId);
   await deleteDoc(tabGroupRef);
 }
@@ -63,6 +69,8 @@ export function subscribeToTabGroupsFirestore(
   userId: string, 
   callback: (tabGroups: TabGroup[]) => void
 ) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const tabGroupsQuery = query(
     collection(db, 'tabGroups'),
     where('userId', '==', userId)

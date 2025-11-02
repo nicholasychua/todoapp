@@ -1329,7 +1329,7 @@ export default function TaskManager() {
       }
       const combined =
         finalTranscript + (interimTranscript ? " " + interimTranscript : "");
-      setSpeechDraft(combined);
+      // Don't update speechDraft in real-time - only store for when recording ends
       finalTranscriptRef.current = combined;
     };
     recognition.onerror = (event: any) => {
@@ -1360,8 +1360,13 @@ export default function TaskManager() {
           setVoiceStep("confirm");
         }
       } catch (error) {
-        console.error("Failed to process voice input:", error);
-        toast.error("Failed to process voice input");
+        // Don't show error for AbortError (timeout) - fallback is already handled
+        if (error instanceof Error && error.name === "AbortError") {
+          console.log("Voice processing timed out - using fallback");
+        } else {
+          console.error("Failed to process voice input:", error);
+          toast.error("Failed to process voice input");
+        }
         // Show manual input mode as fallback
         setShowVoiceMenu(true);
         setVoiceStep("manual");
@@ -1389,8 +1394,13 @@ export default function TaskManager() {
       setOriginalVoiceRaw(manualTaskText);
       setVoiceStep("confirm");
     } catch (error) {
-      console.error("Failed to process manual input:", error);
-      toast.error("Failed to generate task. Please try again.");
+      // Don't show error for AbortError (timeout) - fallback is already handled
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("Manual input processing timed out - using fallback");
+      } else {
+        console.error("Failed to process manual input:", error);
+        toast.error("Failed to generate task. Please try again.");
+      }
     }
   };
 
@@ -1404,8 +1414,13 @@ export default function TaskManager() {
       setOriginalVoiceRaw(text);
       toast.success("Updated from transcription");
     } catch (error) {
-      console.error("Failed to regenerate from raw transcription:", error);
-      toast.error("Failed to regenerate task");
+      // Don't show error for AbortError (timeout) - fallback is already handled
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("Regeneration timed out - using fallback");
+      } else {
+        console.error("Failed to regenerate from raw transcription:", error);
+        toast.error("Failed to regenerate task");
+      }
     } finally {
       setIsRegenerating(false);
     }
@@ -2114,6 +2129,10 @@ export default function TaskManager() {
         setVoicePreviewTags([]);
         return;
       }
+      // Use the same categorization logic as typing (Shift+Enter)
+      // The task name is categorized using autoCategorizeTags, which uses the same
+      // categorizeTask API endpoint that regular typing uses
+      // Date and time are already extracted and will be preserved when creating the task
       const tags = await autoCategorizeTags(
         processedTask.taskName,
         processedTask.tags || []
@@ -3326,63 +3345,70 @@ export default function TaskManager() {
                                     type="checkbox"
                                     className="mr-2 mt-1"
                                   />
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {processedTask.taskName}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {processedTask.description}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium text-gray-900">
+                                          {processedTask.taskName.charAt(0).toUpperCase() + processedTask.taskName.slice(1)}
+                                        </div>
+                                        {(processedTask.date || processedTask.time) && (
+                                          <div className="flex items-center gap-4 mt-2 flex-wrap">
+                                            {processedTask.date && (
+                                              <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                {(() => {
+                                                  const date = new Date(processedTask.date + "T00:00:00");
+                                                  const now = new Date();
+                                                  const isCurrentYear = date.getFullYear() === now.getFullYear();
+                                                  return date.toLocaleDateString("en-US", {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                    ...(isCurrentYear ? {} : { year: "numeric" }),
+                                                    timeZone: "America/Los_Angeles",
+                                                  });
+                                                })()}
+                                              </div>
+                                            )}
+                                            {processedTask.time && (
+                                              <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                {(() => {
+                                                  const [hours, minutes] =
+                                                    processedTask.time.split(":");
+                                                  const d = new Date(0);
+                                                  d.setHours(parseInt(hours, 10));
+                                                  d.setMinutes(parseInt(minutes, 10));
+                                                  return d.toLocaleTimeString("en-US", {
+                                                    hour: "numeric",
+                                                    minute: "numeric",
+                                                    hour12: true,
+                                                    timeZone: "America/Los_Angeles",
+                                                  });
+                                                })()}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        {voicePreviewTags.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {voicePreviewTags.map((tag) => (
+                                              <span
+                                                key={tag}
+                                                className="text-xs font-medium flex items-center gap-0.5"
+                                              >
+                                                <span
+                                                  className={getTagTextColor(tag)}
+                                                >
+                                                  #
+                                                </span>
+                                                <span className="text-gray-500">
+                                                  {tag}
+                                                </span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="flex-shrink-0 text-right">
-                                    {processedTask.date && (
-                                      <div className="text-xs text-gray-500 whitespace-nowrap">
-                                        {new Date(
-                                          processedTask.date + "T00:00:00"
-                                        ).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                          timeZone: "America/Los_Angeles",
-                                        })}
-                                      </div>
-                                    )}
-                                    {processedTask.time && (
-                                      <div className="text-xs font-semibold text-gray-800 whitespace-nowrap">
-                                        {(() => {
-                                          const [hours, minutes] =
-                                            processedTask.time.split(":");
-                                          const d = new Date(0);
-                                          d.setHours(parseInt(hours, 10));
-                                          d.setMinutes(parseInt(minutes, 10));
-                                          return d.toLocaleTimeString("en-US", {
-                                            hour: "numeric",
-                                            minute: "numeric",
-                                            hour12: true,
-                                            timeZone: "America/Los_Angeles",
-                                          });
-                                        })()}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {voicePreviewTags.length > 0 && (
-                                    <div className="flex gap-1">
-                                      {voicePreviewTags.map((tag) => (
-                                        <span
-                                          key={tag}
-                                          className="text-xs font-medium flex items-center gap-0.5"
-                                        >
-                                          <span
-                                            className={getTagTextColor(tag)}
-                                          >
-                                            #
-                                          </span>
-                                          <span className="text-gray-500">
-                                            {tag}
-                                          </span>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             </div>
@@ -3401,9 +3427,14 @@ export default function TaskManager() {
                         <Button
                           onClick={() => {
                             if (processedTask) {
+                              // Use voicePreviewTags (existing categories) instead of processedTask.tags
+                              const tagsToUse = voicePreviewTags.length > 0 
+                                ? voicePreviewTags 
+                                : processedTask.tags || [];
+                              
                               const taskText = `${
                                 processedTask.taskName
-                              } ${processedTask.tags
+                              } ${tagsToUse
                                 .map((tag) => `#${tag}`)
                                 .join(" ")}`;
 

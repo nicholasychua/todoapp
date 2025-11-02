@@ -1,6 +1,6 @@
 import { createTabGroupFirestore } from './tabgroups';
 import { addCategory } from './categories';
-import { db } from './firebase';
+import { getClientDb } from './firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
 // Define default tab groups that all new users will get
@@ -27,6 +27,8 @@ const DEFAULT_CATEGORIES = [
  */
 async function hasExistingTabGroups(userId: string): Promise<boolean> {
   try {
+    const db = getClientDb();
+    if (!db) throw new Error('Firestore not available in this environment');
     const tabGroupsQuery = query(
       collection(db, 'tabGroups'),
       where('userId', '==', userId)
@@ -45,6 +47,8 @@ async function hasExistingTabGroups(userId: string): Promise<boolean> {
  */
 async function hasExistingCategories(userId: string): Promise<boolean> {
   try {
+    const db = getClientDb();
+    if (!db) throw new Error('Firestore not available in this environment');
     const categoriesQuery = query(
       collection(db, 'categories'),
       where('userId', '==', userId)

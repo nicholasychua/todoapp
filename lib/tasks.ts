@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { getClientDb } from './firebase';
 import { 
   collection,
   addDoc,
@@ -29,6 +29,8 @@ export async function createTaskFirestore(task: Omit<Task, 'id' | 'userId'>, use
     userId,
     createdAt: task.createdAt ? Timestamp.fromDate(task.createdAt) : Timestamp.now(),
   };
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const docRef = await addDoc(collection(db, 'tasks'), taskData);
   return {
     id: docRef.id,
@@ -39,6 +41,8 @@ export async function createTaskFirestore(task: Omit<Task, 'id' | 'userId'>, use
 }
 
 export async function updateTaskFirestore(taskId: string, updates: Partial<Task>) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const taskRef = doc(db, 'tasks', taskId);
   // Convert any Date objects to Firestore Timestamps
   const firestoreUpdates: any = { ...updates };
@@ -49,11 +53,15 @@ export async function updateTaskFirestore(taskId: string, updates: Partial<Task>
 }
 
 export async function deleteTaskFirestore(taskId: string) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const taskRef = doc(db, 'tasks', taskId);
   await deleteDoc(taskRef);
 }
 
 export function subscribeToTasksFirestore(userId: string, callback: (tasks: Task[]) => void) {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
   const tasksQuery = query(
     collection(db, 'tasks'),
     where('userId', '==', userId)

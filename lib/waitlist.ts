@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { getClientDb } from './firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 export async function addToWaitlist(email: string) {
@@ -6,7 +6,8 @@ export async function addToWaitlist(email: string) {
   
   try {
     console.log('Attempting to add email to waitlist:', email);
-    console.log('Firebase db object:', db);
+    const db = getClientDb();
+    if (!db) throw new Error('Firestore not available in this environment');
     
     const result = await addDoc(collection(db, 'waitlist'), {
       email,
