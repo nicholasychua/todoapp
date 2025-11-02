@@ -1316,21 +1316,28 @@ export default function TaskManager() {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
+    recognition.maxAlternatives = 1;
     recognition.onresult = (event: any) => {
       let interimTranscript = "";
-      let finalTranscript = "";
+      let newFinalTranscript = "";
+      
+      // Accumulate transcripts from this event
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+          newFinalTranscript += transcript + " ";
         } else {
           interimTranscript += transcript;
         }
       }
-      const combined =
-        finalTranscript + (interimTranscript ? " " + interimTranscript : "");
-      // Don't update speechDraft in real-time - only store for when recording ends
-      finalTranscriptRef.current = combined;
+      
+      // Append new final transcript to existing ones (don't replace!)
+      if (newFinalTranscript) {
+        const currentFinal = finalTranscriptRef.current || "";
+        finalTranscriptRef.current = currentFinal + newFinalTranscript;
+      }
+      
+      // Don't show transcription while speaking - only store it
     };
     recognition.onerror = (event: any) => {
       setIsRecording(false);
@@ -1340,10 +1347,17 @@ export default function TaskManager() {
     recognition.onend = async () => {
       setIsRecording(false);
       setIsRecordingComplete(true);
-      setVoiceRaw(finalTranscriptRef.current);
-      setOriginalVoiceRaw(finalTranscriptRef.current);
+      
+      // Capitalize the first letter of the transcript
+      const transcript = finalTranscriptRef.current?.trim() || "";
+      const capitalizedTranscript = transcript 
+        ? transcript.charAt(0).toUpperCase() + transcript.slice(1)
+        : transcript;
+      
+      setVoiceRaw(capitalizedTranscript);
+      setOriginalVoiceRaw(capitalizedTranscript);
 
-      if (!finalTranscriptRef.current.trim()) {
+      if (!capitalizedTranscript) {
         // No speech detected, show manual input mode
         setShowVoiceMenu(true);
         setVoiceStep("manual");
@@ -1352,7 +1366,7 @@ export default function TaskManager() {
       }
 
       try {
-        const result = await processVoiceInput(finalTranscriptRef.current);
+        const result = await processVoiceInput(capitalizedTranscript);
         if (result) {
           // Show the confirmation screen instead of directly creating the task
           setProcessedTask(result);
@@ -3351,59 +3365,61 @@ export default function TaskManager() {
                                         <div className="text-sm font-medium text-gray-900">
                                           {processedTask.taskName.charAt(0).toUpperCase() + processedTask.taskName.slice(1)}
                                         </div>
-                                        {(processedTask.date || processedTask.time) && (
-                                          <div className="flex items-center gap-4 mt-2 flex-wrap">
-                                            {processedTask.date && (
-                                              <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                                                {(() => {
-                                                  const date = new Date(processedTask.date + "T00:00:00");
-                                                  const now = new Date();
-                                                  const isCurrentYear = date.getFullYear() === now.getFullYear();
-                                                  return date.toLocaleDateString("en-US", {
-                                                    month: "short",
-                                                    day: "numeric",
-                                                    ...(isCurrentYear ? {} : { year: "numeric" }),
-                                                    timeZone: "America/Los_Angeles",
-                                                  });
-                                                })()}
+                                        {(processedTask.date || processedTask.time || voicePreviewTags.length > 0) && (
+                                          <div className="flex items-center justify-between gap-3 mt-2">
+                                            <div className="flex items-center gap-4 flex-wrap">
+                                              {processedTask.date && (
+                                                <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                  {(() => {
+                                                    const date = new Date(processedTask.date + "T00:00:00");
+                                                    const now = new Date();
+                                                    const isCurrentYear = date.getFullYear() === now.getFullYear();
+                                                    return date.toLocaleDateString("en-US", {
+                                                      month: "short",
+                                                      day: "numeric",
+                                                      ...(isCurrentYear ? {} : { year: "numeric" }),
+                                                      timeZone: "America/Los_Angeles",
+                                                    });
+                                                  })()}
+                                                </div>
+                                              )}
+                                              {processedTask.time && (
+                                                <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                  {(() => {
+                                                    const [hours, minutes] =
+                                                      processedTask.time.split(":");
+                                                    const d = new Date(0);
+                                                    d.setHours(parseInt(hours, 10));
+                                                    d.setMinutes(parseInt(minutes, 10));
+                                                    return d.toLocaleTimeString("en-US", {
+                                                      hour: "numeric",
+                                                      minute: "numeric",
+                                                      hour12: true,
+                                                      timeZone: "America/Los_Angeles",
+                                                    });
+                                                  })()}
+                                                </div>
+                                              )}
+                                            </div>
+                                            {voicePreviewTags.length > 0 && (
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {voicePreviewTags.map((tag) => (
+                                                  <span
+                                                    key={tag}
+                                                    className="text-xs font-medium flex items-center gap-0.5"
+                                                  >
+                                                    <span
+                                                      className={getTagTextColor(tag)}
+                                                    >
+                                                      #
+                                                    </span>
+                                                    <span className="text-gray-500">
+                                                      {tag}
+                                                    </span>
+                                                  </span>
+                                                ))}
                                               </div>
                                             )}
-                                            {processedTask.time && (
-                                              <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                                                {(() => {
-                                                  const [hours, minutes] =
-                                                    processedTask.time.split(":");
-                                                  const d = new Date(0);
-                                                  d.setHours(parseInt(hours, 10));
-                                                  d.setMinutes(parseInt(minutes, 10));
-                                                  return d.toLocaleTimeString("en-US", {
-                                                    hour: "numeric",
-                                                    minute: "numeric",
-                                                    hour12: true,
-                                                    timeZone: "America/Los_Angeles",
-                                                  });
-                                                })()}
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-                                        {voicePreviewTags.length > 0 && (
-                                          <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {voicePreviewTags.map((tag) => (
-                                              <span
-                                                key={tag}
-                                                className="text-xs font-medium flex items-center gap-0.5"
-                                              >
-                                                <span
-                                                  className={getTagTextColor(tag)}
-                                                >
-                                                  #
-                                                </span>
-                                                <span className="text-gray-500">
-                                                  {tag}
-                                                </span>
-                                              </span>
-                                            ))}
                                           </div>
                                         )}
                                       </div>
@@ -4211,10 +4227,10 @@ function BacklogView({
                                         );
                                     }}
                                     className={cn(
-                                      "p-1.5 rounded-md border transition-colors hover:bg-gray-50",
+                                      "p-1.5 rounded-md transition-colors hover:bg-gray-50",
                                       hidden
-                                        ? "text-gray-400 border-gray-200 hover:text-gray-500"
-                                        : "text-gray-600 border-gray-200 hover:text-gray-700"
+                                        ? "text-gray-400 hover:text-gray-500"
+                                        : "text-gray-600 hover:text-gray-700"
                                     )}
                                     title={
                                       hidden ? "Show on Home" : "Hide on Home"
