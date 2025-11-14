@@ -1,4 +1,4 @@
-import { getClientDb } from './firebase';
+import { db } from './firebase';
 import {
   collection,
   addDoc,
@@ -23,8 +23,6 @@ export interface Category {
 }
 
 export function subscribeToCategories(userId: string, callback: (categories: Category[]) => void) {
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   const categoriesQuery = query(
     collection(db, 'categories'),
     where('userId', '==', userId)
@@ -51,8 +49,6 @@ export async function addCategory(
   keywords?: string[]
 ) {
   const now = new Date();
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   const docRef = await addDoc(collection(db, 'categories'), {
     name,
     userId,
@@ -73,20 +69,14 @@ export async function addCategory(
 }
 
 export async function deleteCategory(categoryId: string) {
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   await deleteDoc(doc(db, 'categories', categoryId));
 }
 
 export async function renameCategory(categoryId: string, newName: string) {
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   await updateDoc(doc(db, 'categories', categoryId), { name: newName });
 }
 
 export async function setCategoryHiddenOnHome(categoryId: string, hidden: boolean) {
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   await updateDoc(doc(db, 'categories', categoryId), { hiddenOnHome: hidden });
 }
 
@@ -94,7 +84,5 @@ export async function updateCategory(
   categoryId: string, 
   updates: { name?: string; description?: string; keywords?: string[] }
 ) {
-  const db = getClientDb();
-  if (!db) throw new Error('Firestore not available in this environment');
   await updateDoc(doc(db, 'categories', categoryId), updates);
 } 

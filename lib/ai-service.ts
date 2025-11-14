@@ -9,8 +9,6 @@ export interface ProcessedTask {
 export interface CategorizationResult {
   suggestedCategory: string;
   confidence: string;
-  confidenceScore?: number; // 0-100 numeric confidence score from AI
-  reasoning?: string; // AI's reasoning for the categorization
 }
 
 export interface CategoryMetadata {
@@ -23,12 +21,12 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
   try {
     console.log('Starting voice processing for:', rawInput);
     
-    // Create an abort controller for timeout (longer for voice processing)
+    // Create an abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.warn('Voice processing request timeout after 10 seconds, using fallback...');
+      console.warn('Voice processing request timeout, aborting...');
       controller.abort();
-    }, 10000); // 10 second timeout (voice processing can take longer)
+    }, 5000); // 5 second timeout
     
     const requestBody = { rawInput };
     console.log('Making voice processing request with body:', requestBody);
@@ -43,6 +41,7 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
     });
 
     clearTimeout(timeoutId);
+
     console.log('Voice processing response received:', response.status, response.ok);
 
     if (!response.ok) {
@@ -58,17 +57,18 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
     console.log('Voice processing result:', result);
     return result as ProcessedTask;
   } catch (error) {
+    console.error('Error in processVoiceInput:', error);
+    
     // Check if it's an abort error (timeout)
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn('Voice processing request timed out, using fallback');
-      return getFallbackVoiceProcessing(rawInput);
-    } else if (error instanceof Error && (error.message === 'Failed to fetch' || error.message.includes('NetworkError'))) {
+    } else if (error instanceof Error && error.message === 'Failed to fetch') {
       console.warn('Network error during voice processing, using fallback');
-      return getFallbackVoiceProcessing(rawInput);
+    } else if (error instanceof Error && error.message.includes('NetworkError')) {
+      console.warn('Network error during voice processing, using fallback');
     }
     
-    // For any other error, log it and use fallback
-    console.error('Error in processVoiceInput:', error);
+    // If there's a network error or other issue, use fallback
     console.warn('Using fallback voice processing due to error');
     return getFallbackVoiceProcessing(rawInput);
   }
@@ -84,9 +84,9 @@ export async function categorizeTask(
     // Create an abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.warn('Categorization request timeout after 8 seconds, using fallback...');
+      console.warn('Categorization request timeout, aborting...');
       controller.abort();
-    }, 8000); // 8 second timeout
+    }, 5000); // 5 second timeout
 
     const requestBody = { 
       taskText, 
@@ -121,17 +121,18 @@ export async function categorizeTask(
     console.log('Categorization result:', result);
     return result as CategorizationResult;
   } catch (error) {
+    console.error('Error in categorizeTask:', error);
+    
     // Check if it's an abort error (timeout)
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn('Categorization request timed out, using fallback');
-      return getFallbackCategorization(taskText, categories);
-    } else if (error instanceof Error && (error.message === 'Failed to fetch' || error.message.includes('NetworkError'))) {
+    } else if (error instanceof Error && error.message === 'Failed to fetch') {
       console.warn('Network error during categorization, using fallback');
-      return getFallbackCategorization(taskText, categories);
+    } else if (error instanceof Error && error.message.includes('NetworkError')) {
+      console.warn('Network error during categorization, using fallback');
     }
     
-    // For any other error, log it and use fallback
-    console.error('Error in categorizeTask:', error);
+    // If there's a network error or other issue, use fallback
     console.warn('Using fallback categorization due to error');
     return getFallbackCategorization(taskText, categories);
   }

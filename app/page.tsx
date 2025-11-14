@@ -2305,10 +2305,10 @@ export default function TaskManager() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full h-full flex flex-col items-center justify-center pl-[220px] pr-8 pt-8"
+              className="w-full h-full flex flex-col items-center justify-center px-4 pt-6 pb-10 md:px-0 md:pl-[220px] md:pr-8 md:pt-8 md:pb-0"
             >
               <div
-                className="w-full h-full max-h-[calc(100vh-200px)] mx-auto"
+                className="w-full h-full max-h-[calc(100vh-140px)] md:max-h-[calc(100vh-200px)] mx-auto"
                 style={{ maxWidth: "1100px" }}
               >
                 <CalendarView
