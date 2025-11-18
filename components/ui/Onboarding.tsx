@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Sparkles, Mic, Layers, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Mic, Layers, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface OnboardingStep {
@@ -90,30 +90,36 @@ export function Onboarding({
               duration: 0.45,
               ease: [0.22, 1, 0.36, 1],
             }}
-            className="relative mx-4 w-full max-w-xl min-h-[600px] rounded-3xl bg-white px-8 py-10 md:px-12 md:py-12 shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
+            className="relative mx-4 w-full max-w-xl h-[610px] rounded-3xl bg-white px-8 py-10 md:px-12 md:py-12 shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
           >
-            {/* Step progress (2-step indicator) */}
-            <div className="mb-6 flex items-center gap-2">
-              <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-900" />
-              <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-200" />
-            </div>
+            {/* Top bar: logo + progress */}
+            <div className="mb-6 flex items-center gap-4">
+              {/* Subspace logo */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: -4 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="flex items-center justify-center w-10"
+              >
+                <Image
+                  src="/subspacelogo.png"
+                  alt="Subspace logo"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 rounded-full shadow-sm"
+                  priority
+                />
+              </motion.div>
 
-            {/* Subspace logo */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: -4 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="mb-8 inline-flex items-center justify-center"
-            >
-              <Image
-                src="/subspacelogo.png"
-                alt="Subspace logo"
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full shadow-sm"
-                priority
-              />
-            </motion.div>
+              {/* Step progress (2-step indicator) */}
+              <div className="flex-1 flex items-center justify-center gap-2 -mt-2">
+                <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-900" />
+                <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-200" />
+              </div>
+
+              {/* Spacer to balance the logo and center the progress bar */}
+              <div className="w-10" />
+            </div>
 
             {/* Letter-style copy */}
             <motion.div
@@ -196,7 +202,7 @@ export function Onboarding({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mx-4 w-full max-w-xl min-h-[600px] rounded-3xl bg-white px-8 py-10 md:px-12 md:py-12 shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
+            className="relative mx-4 w-full max-w-xl h-[610px] rounded-3xl bg-white px-8 py-10 md:px-12 md:py-12 shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
           >
             {/* Top bar: back + 2-step progress + close */}
             <div className="mb-6 flex items-center gap-4">
@@ -209,26 +215,17 @@ export function Onboarding({
                 <ArrowLeft className="h-4 w-4" />
               </button>
 
-              <div className="flex-1 flex items-center gap-2">
+              <div className="flex-1 flex items-center justify-center gap-2">
                 <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-200" />
                 <div className="h-1.5 w-14 md:w-16 rounded-full bg-slate-900" />
               </div>
 
-              <button
-                type="button"
-                onClick={onComplete}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
-                aria-label="Close onboarding"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              {/* Spacer to balance the back button and center the progress bar */}
+              <div className="w-8" />
             </div>
 
             {/* Header copy */}
             <div className="mb-4 space-y-1 text-left">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-                step 2 of 2
-              </p>
               <h2 className="text-lg md:text-xl font-semibold text-slate-900">
                 Get started
               </h2>
@@ -293,7 +290,7 @@ export function Onboarding({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.3 }}
-              className="mt-8 flex justify-start"
+              className="mt-10 flex justify-start"
             >
               <button
                 onClick={onComplete}
