@@ -79,6 +79,7 @@ import {
 } from "@/lib/categories";
 import {
   processVoiceInput,
+  processTextInput,
   type ProcessedTask,
   categorizeTask,
   type CategorizationResult,
@@ -90,6 +91,14 @@ import { CalendarView } from "@/components/task-manager/CalendarView";
 import { FilterDropdown } from "@/components/ui/filter-dropdown";
 import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
 import { TaskEditDialog } from "@/components/ui/TaskEditDialog";
+import { Onboarding } from "@/components/ui/Onboarding";
+import {
+  shouldShowOnboarding,
+  getOnboardingState,
+  completeOnboardingStep,
+  completeOnboarding,
+  type OnboardingStep,
+} from "@/lib/onboarding";
 
 // Define a comprehensive color palette for categories
 // Using softer, muted tones inspired by https://coolors.co/palette/555b6e-89b0ae-bee3db-faf9f9-ffd6ba
@@ -741,7 +750,7 @@ export default function TaskManager() {
   >("date");
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
   const [pendingCompletions, setPendingCompletions] = useState<
-    Record<string, NodeJS.Timeout>
+    Record<string, ReturnType<typeof setTimeout>>
   >({});
   const [showCategoryPopup, setShowCategoryPopup] = useState(false);
   const [categoryPopupPosition, setCategoryPopupPosition] = useState({
@@ -760,7 +769,7 @@ export default function TaskManager() {
     Record<
       string,
       {
-        timeoutId: NodeJS.Timeout | null;
+        timeoutId: ReturnType<typeof setTimeout> | null;
         startMs: number;
         durationMs: number;
         remainingMs: number;
@@ -785,6 +794,12 @@ export default function TaskManager() {
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingCompletedSteps, setOnboardingCompletedSteps] = useState<
+    string[]
+  >([]);
+
   // Placeholder text based on screen size
   const [placeholderText, setPlaceholderText] = useState(
     "Add new task (type # for categories)"
@@ -805,6 +820,27 @@ export default function TaskManager() {
 
     return () => window.removeEventListener("resize", updatePlaceholder);
   }, []);
+
+  // Check if onboarding should be shown
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      if (!user) return;
+
+      try {
+        const shouldShow = await shouldShowOnboarding(user.uid);
+        setShowOnboarding(shouldShow);
+
+        if (shouldShow) {
+          const state = await getOnboardingState(user.uid);
+          setOnboardingCompletedSteps(state?.completedSteps ?? []);
+        }
+      } catch (error) {
+        console.error("Error checking onboarding state:", error);
+      }
+    };
+
+    checkOnboarding();
+  }, [user]);
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
@@ -852,13 +888,9 @@ export default function TaskManager() {
     if (categories.length === 0) return existingTags;
     try {
       const cleanText = formatTextWithTags(baseText);
-      // Pass full category metadata for better categorization
-      const categoryMetadata = categories.map((cat) => ({
-        name: cat.name,
-        description: cat.description,
-        keywords: cat.keywords,
-      }));
-      const result = await categorizeTask(cleanText, categoryMetadata);
+      // Pass category names and userId for AI categorization
+      const categoryNames = categories.map((cat) => cat.name);
+      const result = await categorizeTask(cleanText, categoryNames, user!.uid);
       const suggested = result?.suggestedCategory;
 
       // Track AI categorization analytics
@@ -892,6 +924,30 @@ export default function TaskManager() {
       console.log("User logged out successfully");
     } catch (error) {
       console.error("Error logging out:", error);
+    }
+  };
+
+  // Onboarding handlers
+  const handleOnboardingStepComplete = async (stepId: string) => {
+    if (!user) return;
+
+    try {
+      await completeOnboardingStep(user.uid, stepId as OnboardingStep);
+      setOnboardingCompletedSteps((prev) => [...prev, stepId]);
+    } catch (error) {
+      console.error("Error completing onboarding step:", error);
+    }
+  };
+
+  const handleOnboardingComplete = async () => {
+    if (!user) return;
+
+    try {
+      await completeOnboarding(user.uid);
+      setShowOnboarding(false);
+      toast.success("Welcome! You're all set up 🎉");
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
     }
   };
 
@@ -996,6 +1052,11 @@ export default function TaskManager() {
       // Track task creation analytics
       analytics.taskCreated(value, finalTags.length > 0, !!finalDate);
 
+      // Track onboarding step if this is the first task
+      if (showOnboarding && !onboardingCompletedSteps.includes("add-task")) {
+        await handleOnboardingStepComplete("add-task");
+      }
+
       setNewTaskText("");
       setSpeechDraft("");
       setNewTaskDate(undefined);
@@ -1062,8 +1123,10 @@ export default function TaskManager() {
     setIsAILoading(true);
 
     try {
-      // Process the input text to extract task details including date
-      const result = await processVoiceInput(taskText);
+      // Process the typed input text to extract task details including date.
+      // This uses a lightweight, text-only parser and does NOT hit the
+      // voice-processing endpoint to keep behavior predictable for typing.
+      const result = await processTextInput(taskText);
 
       // Create task with extracted information
       if (result) {
@@ -1085,9 +1148,6 @@ export default function TaskManager() {
           result.tags || []
         );
 
-        // Track voice input analytics
-        analytics.voiceInputProcessed(true, finalTags.length, !!result.date);
-
         // Add the task
         const created = await createTask({
           text: taskText,
@@ -1096,6 +1156,14 @@ export default function TaskManager() {
           createdAt: taskDate || new Date(),
           group: "master",
         });
+
+        // Track onboarding step for dictation
+        if (
+          showOnboarding &&
+          !onboardingCompletedSteps.includes("try-dictation")
+        ) {
+          await handleOnboardingStepComplete("try-dictation");
+        }
 
         // Clear the input text
         setNewTaskText("");
@@ -1320,7 +1388,7 @@ export default function TaskManager() {
     recognition.onresult = (event: any) => {
       let interimTranscript = "";
       let newFinalTranscript = "";
-      
+
       // Accumulate transcripts from this event
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const transcript = event.results[i][0].transcript;
@@ -1330,13 +1398,13 @@ export default function TaskManager() {
           interimTranscript += transcript;
         }
       }
-      
+
       // Append new final transcript to existing ones (don't replace!)
       if (newFinalTranscript) {
         const currentFinal = finalTranscriptRef.current || "";
         finalTranscriptRef.current = currentFinal + newFinalTranscript;
       }
-      
+
       // Don't show transcription while speaking - only store it
     };
     recognition.onerror = (event: any) => {
@@ -1347,13 +1415,13 @@ export default function TaskManager() {
     recognition.onend = async () => {
       setIsRecording(false);
       setIsRecordingComplete(true);
-      
+
       // Capitalize the first letter of the transcript
       const transcript = finalTranscriptRef.current?.trim() || "";
-      const capitalizedTranscript = transcript 
+      const capitalizedTranscript = transcript
         ? transcript.charAt(0).toUpperCase() + transcript.slice(1)
         : transcript;
-      
+
       setVoiceRaw(capitalizedTranscript);
       setOriginalVoiceRaw(capitalizedTranscript);
 
@@ -1673,11 +1741,18 @@ export default function TaskManager() {
     setFocusSessionTaskIds([]);
   };
 
-  const handleBacklogToggle = () => {
+  const handleBacklogToggle = async () => {
     setShowBacklog((prev) => {
       const newValue = !prev;
       if (newValue) {
         analytics.viewChanged("backlog");
+        // Track onboarding step for exploring subspaces
+        if (
+          showOnboarding &&
+          !onboardingCompletedSteps.includes("explore-subspaces")
+        ) {
+          handleOnboardingStepComplete("explore-subspaces");
+        }
       }
       return newValue;
     });
@@ -1730,7 +1805,7 @@ export default function TaskManager() {
         prev: Record<
           string,
           {
-            timeoutId: NodeJS.Timeout | null;
+            timeoutId: ReturnType<typeof setTimeout> | null;
             startMs: number;
             durationMs: number;
             remainingMs: number;
@@ -1747,7 +1822,7 @@ export default function TaskManager() {
               p: Record<
                 string,
                 {
-                  timeoutId: NodeJS.Timeout | null;
+                  timeoutId: ReturnType<typeof setTimeout> | null;
                   startMs: number;
                   durationMs: number;
                   remainingMs: number;
@@ -1758,7 +1833,7 @@ export default function TaskManager() {
               const updated = { ...p } as Record<
                 string,
                 {
-                  timeoutId: NodeJS.Timeout | null;
+                  timeoutId: ReturnType<typeof setTimeout> | null;
                   startMs: number;
                   durationMs: number;
                   remainingMs: number;
@@ -1792,7 +1867,7 @@ export default function TaskManager() {
         prev: Record<
           string,
           {
-            timeoutId: NodeJS.Timeout | null;
+            timeoutId: ReturnType<typeof setTimeout> | null;
             startMs: number;
             durationMs: number;
             remainingMs: number;
@@ -1803,7 +1878,7 @@ export default function TaskManager() {
         const updated = { ...prev } as Record<
           string,
           {
-            timeoutId: NodeJS.Timeout | null;
+            timeoutId: ReturnType<typeof setTimeout> | null;
             startMs: number;
             durationMs: number;
             remainingMs: number;
@@ -1822,7 +1897,7 @@ export default function TaskManager() {
         prev: Record<
           string,
           {
-            timeoutId: NodeJS.Timeout | null;
+            timeoutId: ReturnType<typeof setTimeout> | null;
             startMs: number;
             durationMs: number;
             remainingMs: number;
@@ -1841,7 +1916,7 @@ export default function TaskManager() {
               p: Record<
                 string,
                 {
-                  timeoutId: NodeJS.Timeout | null;
+                  timeoutId: ReturnType<typeof setTimeout> | null;
                   startMs: number;
                   durationMs: number;
                   remainingMs: number;
@@ -1852,7 +1927,7 @@ export default function TaskManager() {
               const updated = { ...p } as Record<
                 string,
                 {
-                  timeoutId: NodeJS.Timeout | null;
+                  timeoutId: ReturnType<typeof setTimeout> | null;
                   startMs: number;
                   durationMs: number;
                   remainingMs: number;
@@ -1885,7 +1960,7 @@ export default function TaskManager() {
         prev: Record<
           string,
           {
-            timeoutId: NodeJS.Timeout | null;
+            timeoutId: ReturnType<typeof setTimeout> | null;
             startMs: number;
             durationMs: number;
             remainingMs: number;
@@ -2595,7 +2670,7 @@ export default function TaskManager() {
                                 <p className="text-sm text-gray-500 font-medium text-center mt-6 hidden md:block">
                                   Release Ctrl to stop recording
                                 </p>
-                                
+
                                 {/* Mobile: show stop button */}
                                 <div className="mt-6 md:hidden flex justify-center">
                                   <button
@@ -2792,7 +2867,7 @@ export default function TaskManager() {
                               : ""
                           )}
                           tabIndex={0}
-                          onKeyDown={(e) => {
+                          onKeyDown={(e: React.KeyboardEvent) => {
                             if (
                               e.key === "Enter" &&
                               transientEditingTaskIds.includes(task.id)
@@ -3255,7 +3330,7 @@ export default function TaskManager() {
                           <p className="text-sm text-gray-500 font-medium hidden md:block">
                             Release Ctrl to stop recording
                           </p>
-                          
+
                           {/* Mobile: show stop button */}
                           <button
                             onClick={stopRecording}
@@ -3383,23 +3458,41 @@ export default function TaskManager() {
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium text-gray-900">
-                                          {processedTask.taskName.charAt(0).toUpperCase() + processedTask.taskName.slice(1)}
+                                          {processedTask.taskName
+                                            .charAt(0)
+                                            .toUpperCase() +
+                                            processedTask.taskName.slice(1)}
                                         </div>
-                                        {(processedTask.date || processedTask.time || voicePreviewTags.length > 0) && (
+                                        {(processedTask.date ||
+                                          processedTask.time ||
+                                          voicePreviewTags.length > 0) && (
                                           <div className="flex items-center justify-between gap-3 mt-2">
                                             <div className="flex items-center gap-4 flex-wrap">
                                               {processedTask.date && (
                                                 <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
                                                   {(() => {
-                                                    const date = new Date(processedTask.date + "T00:00:00");
+                                                    const date = new Date(
+                                                      processedTask.date +
+                                                        "T00:00:00"
+                                                    );
                                                     const now = new Date();
-                                                    const isCurrentYear = date.getFullYear() === now.getFullYear();
-                                                    return date.toLocaleDateString("en-US", {
-                                                      month: "short",
-                                                      day: "numeric",
-                                                      ...(isCurrentYear ? {} : { year: "numeric" }),
-                                                      timeZone: "America/Los_Angeles",
-                                                    });
+                                                    const isCurrentYear =
+                                                      date.getFullYear() ===
+                                                      now.getFullYear();
+                                                    return date.toLocaleDateString(
+                                                      "en-US",
+                                                      {
+                                                        month: "short",
+                                                        day: "numeric",
+                                                        ...(isCurrentYear
+                                                          ? {}
+                                                          : {
+                                                              year: "numeric",
+                                                            }),
+                                                        timeZone:
+                                                          "America/Los_Angeles",
+                                                      }
+                                                    );
                                                   })()}
                                                 </div>
                                               )}
@@ -3407,16 +3500,26 @@ export default function TaskManager() {
                                                 <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
                                                   {(() => {
                                                     const [hours, minutes] =
-                                                      processedTask.time.split(":");
+                                                      processedTask.time.split(
+                                                        ":"
+                                                      );
                                                     const d = new Date(0);
-                                                    d.setHours(parseInt(hours, 10));
-                                                    d.setMinutes(parseInt(minutes, 10));
-                                                    return d.toLocaleTimeString("en-US", {
-                                                      hour: "numeric",
-                                                      minute: "numeric",
-                                                      hour12: true,
-                                                      timeZone: "America/Los_Angeles",
-                                                    });
+                                                    d.setHours(
+                                                      parseInt(hours, 10)
+                                                    );
+                                                    d.setMinutes(
+                                                      parseInt(minutes, 10)
+                                                    );
+                                                    return d.toLocaleTimeString(
+                                                      "en-US",
+                                                      {
+                                                        hour: "numeric",
+                                                        minute: "numeric",
+                                                        hour12: true,
+                                                        timeZone:
+                                                          "America/Los_Angeles",
+                                                      }
+                                                    );
                                                   })()}
                                                 </div>
                                               )}
@@ -3429,7 +3532,9 @@ export default function TaskManager() {
                                                     className="text-xs font-medium flex items-center gap-0.5"
                                                   >
                                                     <span
-                                                      className={getTagTextColor(tag)}
+                                                      className={getTagTextColor(
+                                                        tag
+                                                      )}
                                                     >
                                                       #
                                                     </span>
@@ -3464,15 +3569,14 @@ export default function TaskManager() {
                           onClick={() => {
                             if (processedTask) {
                               // Use voicePreviewTags (existing categories) instead of processedTask.tags
-                              const tagsToUse = voicePreviewTags.length > 0 
-                                ? voicePreviewTags 
-                                : processedTask.tags || [];
-                              
+                              const tagsToUse =
+                                voicePreviewTags.length > 0
+                                  ? voicePreviewTags
+                                  : processedTask.tags || [];
+
                               const taskText = `${
                                 processedTask.taskName
-                              } ${tagsToUse
-                                .map((tag) => `#${tag}`)
-                                .join(" ")}`;
+                              } ${tagsToUse.map((tag) => `#${tag}`).join(" ")}`;
 
                               let taskDate: Date | undefined = undefined;
                               if (processedTask.date) {
@@ -3591,6 +3695,15 @@ export default function TaskManager() {
         categories={categories}
         getTagTextColor={getTagTextColor}
       />
+
+      {/* Onboarding Component */}
+      {showOnboarding && user && (
+        <Onboarding
+          onComplete={handleOnboardingComplete}
+          onStepComplete={handleOnboardingStepComplete}
+          completedSteps={onboardingCompletedSteps}
+        />
+      )}
     </div>
   );
 }
@@ -3787,12 +3900,12 @@ function BacklogView({
             .replace(/#\w+/g, "")
             .replace(/\s{2,}/g, " ")
             .trim();
-          const categoryMetadata = categories.map((cat) => ({
-            name: cat.name,
-            description: cat.description,
-            keywords: cat.keywords,
-          }));
-          const result = await categorizeTask(cleanText, categoryMetadata);
+          const categoryNames = categories.map((cat) => cat.name);
+          const result = await categorizeTask(
+            cleanText,
+            categoryNames,
+            user!.uid
+          );
           const suggested = result?.suggestedCategory;
           if (suggested) {
             finalTags = finalTags.includes(suggested)
@@ -3823,12 +3936,8 @@ function BacklogView({
     if (!user || !taskText.trim() || categories.length === 0) return;
 
     try {
-      const categoryMetadata = categories.map((cat) => ({
-        name: cat.name,
-        description: cat.description,
-        keywords: cat.keywords,
-      }));
-      const result = await categorizeTask(taskText, categoryMetadata);
+      const categoryNames = categories.map((cat) => cat.name);
+      const result = await categorizeTask(taskText, categoryNames, user.uid);
 
       if (result.suggestedCategory) {
         // Add the suggested category as a tag
@@ -4169,7 +4278,7 @@ function BacklogView({
             key={columnIndex}
             axis="y"
             values={column}
-            onReorder={(newColumnOrder) => {
+            onReorder={(newColumnOrder: string[]) => {
               const newOrder = [...categoryOrder];
               // Update the positions based on the new column order
               column.forEach((item, oldIndex) => {
@@ -4427,7 +4536,7 @@ function BacklogView({
             exit={{ scale: 0.98, opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="bg-white text-gray-900 border border-gray-200 shadow-xl rounded-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
             tabIndex={-1}
             style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           >

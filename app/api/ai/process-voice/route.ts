@@ -148,70 +148,87 @@ export async function POST(request: Request) {
       return NextResponse.json(fallbackResult);
     }
 
-    const openai = new AzureOpenAI({
-      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      apiVersion: "2024-03-01-preview",
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `You are a task processing assistant. Extract task information from the user's voice input.
-          The current date is ${today} in Pacific Time (PT).
-          Return a JSON object with the following structure:
-          {
-            "taskName": "Main task name",
-            "description": "Detailed description",
-            "date": "YYYY-MM-DD or null if no date mentioned",
-            "time": "HH:MM in 24-hour format or null if no time mentioned",
-            "tags": ["array", "of", "hashtags", "only"]
-          }
-          
-          Rules:
-          - Use the current date (${today}) in Pacific Time to resolve relative dates like "tomorrow".
-          - If a date is mentioned, convert it to YYYY-MM-DD format.
-          - If a time is mentioned, convert it to HH:MM (24-hour) format.
-          - ONLY extract hashtags (words starting with #) from the input as tags. Do NOT create new categories or suggest tags.
-          - If there are no hashtags in the input, return an empty array for tags.
-          - Keep the taskName concise but descriptive. Capitalize the first letter of the task name properly.
-          - Include any additional context in the description.
-          - If no date is mentioned, set date to null.
-          - If no time is mentioned, set time to null.`,
-        },
-        {
-          role: "user",
-          content: rawInput,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) {
-      console.warn("Empty response from AI, using fallback");
-      const fallbackResult = fallbackProcessVoiceInput(rawInput);
-      return NextResponse.json(fallbackResult);
-    }
-
     try {
-      console.log("AI Response content:", content);
-      const result = JSON.parse(content);
-      
-      // Validate the result structure
-      if (!result.taskName || typeof result.taskName !== 'string') {
-        console.warn("Invalid AI response structure, using fallback");
+      const openai = new AzureOpenAI({
+        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+        apiKey: process.env.AZURE_OPENAI_API_KEY,
+        apiVersion: "2024-03-01-preview",
+        deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+        timeout: 5000, // 5 second timeout
+      });
+
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('OpenAI request timeout')), 5000);
+      });
+
+      // Race between the API call and timeout
+      const response = await Promise.race([
+        openai.chat.completions.create({
+          model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: `You are a task processing assistant. Extract task information from the user's voice input.
+              The current date is ${today} in Pacific Time (PT).
+              Return a JSON object with the following structure:
+              {
+                "taskName": "Main task name",
+                "description": "Detailed description",
+                "date": "YYYY-MM-DD or null if no date mentioned",
+                "time": "HH:MM in 24-hour format or null if no time mentioned",
+                "tags": ["array", "of", "hashtags", "only"]
+              }
+              
+              Rules:
+              - Use the current date (${today}) in Pacific Time to resolve relative dates like "tomorrow".
+              - If a date is mentioned, convert it to YYYY-MM-DD format.
+              - If a time is mentioned, convert it to HH:MM (24-hour) format.
+              - ONLY extract hashtags (words starting with #) from the input as tags. Do NOT create new categories or suggest tags.
+              - If there are no hashtags in the input, return an empty array for tags.
+              - Keep the taskName concise but descriptive. Capitalize the first letter of the task name properly.
+              - Include any additional context in the description.
+              - If no date is mentioned, set date to null.
+              - If no time is mentioned, set time to null.`,
+            },
+            {
+              role: "user",
+              content: rawInput,
+            },
+          ],
+          response_format: { type: "json_object" },
+        }),
+        timeoutPromise
+      ]);
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        console.warn("Empty response from AI, using fallback");
         const fallbackResult = fallbackProcessVoiceInput(rawInput);
         return NextResponse.json(fallbackResult);
       }
-      
-      return NextResponse.json(result);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      console.error("Raw content that failed to parse:", content);
+
+      try {
+        console.log("AI Response content:", content);
+        const result = JSON.parse(content);
+        
+        // Validate the result structure
+        if (!result.taskName || typeof result.taskName !== 'string') {
+          console.warn("Invalid AI response structure, using fallback");
+          const fallbackResult = fallbackProcessVoiceInput(rawInput);
+          return NextResponse.json(fallbackResult);
+        }
+        
+        return NextResponse.json(result);
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", parseError);
+        console.error("Raw content that failed to parse:", content);
+        const fallbackResult = fallbackProcessVoiceInput(rawInput);
+        return NextResponse.json(fallbackResult);
+      }
+    } catch (aiError) {
+      // Handle any OpenAI errors (including timeout and network errors)
+      console.warn("OpenAI API error, using fallback:", aiError);
       const fallbackResult = fallbackProcessVoiceInput(rawInput);
       return NextResponse.json(fallbackResult);
     }

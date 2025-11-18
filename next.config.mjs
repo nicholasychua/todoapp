@@ -25,7 +25,7 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Reduce bundle size
   experimental: {
-    optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', 'framer-motion'],
+    optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
   },
   // External packages for server-side
   serverExternalPackages: ['openai'],
@@ -46,6 +46,7 @@ const nextConfig = {
         'openai': false,
       };
     }
+    
     return config;
   },
   env: {

@@ -63,7 +63,7 @@ The Subspace Team
 
    - `localhost` (for development)
    - Your production domain (e.g., `yourdomain.com`)
-   - Your Firebase Auth domain (e.g., `your-project.firebaseapp.com`)
+   - Your custom auth domain (`auth.usesubspace.live`)
 
 4. Add any additional domains where your app will be hosted
 

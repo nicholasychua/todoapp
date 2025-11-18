@@ -83,4 +83,40 @@ export function subscribeToTasksFirestore(userId: string, callback: (tasks: Task
   });
 }
 
+/**
+ * Fetch task examples for each category (for AI categorization)
+ * Returns a map of category name -> array of task texts
+ */
+export async function getTaskExamplesByCategory(userId: string): Promise<Record<string, string[]>> {
+  const db = getClientDb();
+  if (!db) throw new Error('Firestore not available in this environment');
+  
+  const tasksQuery = query(
+    collection(db, 'tasks'),
+    where('userId', '==', userId)
+  );
+  
+  const querySnapshot = await getDocs(tasksQuery);
+  const categoryExamples: Record<string, string[]> = {};
+  
+  querySnapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const taskText = data.text || '';
+    const tags = data.tags || [];
+    
+    // Add this task to each of its categories
+    tags.forEach((category: string) => {
+      if (!categoryExamples[category]) {
+        categoryExamples[category] = [];
+      }
+      // Limit to 10 most recent examples per category to keep context manageable
+      if (categoryExamples[category].length < 10) {
+        categoryExamples[category].push(taskText);
+      }
+    });
+  });
+  
+  return categoryExamples;
+}
+
 export {} 

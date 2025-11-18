@@ -1,7 +1,8 @@
 import { createTabGroupFirestore } from './tabgroups';
 import { addCategory } from './categories';
-import { getClientDb } from './firebase';
+import { db } from './firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { initializeOnboarding } from './onboarding';
 
 // Define default tab groups that all new users will get
 const DEFAULT_TAB_GROUPS = [
@@ -27,15 +28,22 @@ const DEFAULT_CATEGORIES = [
  */
 async function hasExistingTabGroups(userId: string): Promise<boolean> {
   try {
-    const db = getClientDb();
-    if (!db) throw new Error('Firestore not available in this environment');
-    const tabGroupsQuery = query(
-      collection(db, 'tabGroups'),
-      where('userId', '==', userId)
-    );
+    // Add timeout to prevent hanging on network errors
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore query timeout')), 3000);
+    });
     
-    const querySnapshot = await getDocs(tabGroupsQuery);
-    return querySnapshot.docs.length > 0;
+    const queryPromise = (async () => {
+      const tabGroupsQuery = query(
+        collection(db, 'tabGroups'),
+        where('userId', '==', userId)
+      );
+      
+      const querySnapshot = await getDocs(tabGroupsQuery);
+      return querySnapshot.docs.length > 0;
+    })();
+    
+    return await Promise.race([queryPromise, timeoutPromise]);
   } catch (error) {
     console.error('Error checking existing tab groups:', error);
     return false;
@@ -47,15 +55,22 @@ async function hasExistingTabGroups(userId: string): Promise<boolean> {
  */
 async function hasExistingCategories(userId: string): Promise<boolean> {
   try {
-    const db = getClientDb();
-    if (!db) throw new Error('Firestore not available in this environment');
-    const categoriesQuery = query(
-      collection(db, 'categories'),
-      where('userId', '==', userId)
-    );
+    // Add timeout to prevent hanging on network errors
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore query timeout')), 3000);
+    });
     
-    const querySnapshot = await getDocs(categoriesQuery);
-    return querySnapshot.docs.length > 0;
+    const queryPromise = (async () => {
+      const categoriesQuery = query(
+        collection(db, 'categories'),
+        where('userId', '==', userId)
+      );
+      
+      const querySnapshot = await getDocs(categoriesQuery);
+      return querySnapshot.docs.length > 0;
+    })();
+    
+    return await Promise.race([queryPromise, timeoutPromise]);
   } catch (error) {
     console.error('Error checking existing categories:', error);
     return false;
@@ -145,11 +160,19 @@ export async function setupNewUserDefaults(userId: string): Promise<void> {
   try {
     console.log('Setting up defaults for new user:', userId);
     
-    // Set up default tab groups and categories in parallel for better performance
-    await Promise.all([
+    // Add a timeout to the entire setup process to prevent hanging
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Setup timeout - taking too long')), 5000);
+    });
+    
+    // Set up default tab groups, categories, and onboarding in parallel for better performance
+    const setupPromise = Promise.all([
       setupDefaultTabGroups(userId),
-      setupDefaultCategories(userId)
+      setupDefaultCategories(userId),
+      initializeOnboarding(userId)
     ]);
+    
+    await Promise.race([setupPromise, timeoutPromise]);
     
     console.log('Successfully set up all defaults for new user');
   } catch (error) {
