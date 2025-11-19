@@ -246,3 +246,60 @@ export async function resetOnboarding(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Check if user has completed Subspaces onboarding
+ */
+export async function hasCompletedSubspacesOnboarding(userId: string): Promise<boolean> {
+  try {
+    const db = getClientDb();
+    if (!db) {
+      console.error("Firestore is not available");
+      return false;
+    }
+
+    const onboardingRef = doc(db, "onboarding", userId);
+    const onboardingDoc = await getDoc(onboardingRef);
+
+    if (!onboardingDoc.exists()) {
+      return false;
+    }
+
+    const data = onboardingDoc.data();
+    return data.subspacesOnboardingCompleted ?? false;
+  } catch (error) {
+    console.error("Error checking Subspaces onboarding status:", error);
+    return false;
+  }
+}
+
+/**
+ * Mark Subspaces onboarding as completed
+ */
+export async function completeSubspacesOnboarding(userId: string): Promise<void> {
+  try {
+    const db = getClientDb();
+    if (!db) {
+      console.error("Firestore is not available");
+      return;
+    }
+
+    const onboardingRef = doc(db, "onboarding", userId);
+    
+    // Check if document exists, if not initialize first
+    const state = await getOnboardingState(userId);
+    if (!state) {
+      await initializeOnboarding(userId);
+    }
+
+    await updateDoc(onboardingRef, {
+      subspacesOnboardingCompleted: true,
+      subspacesOnboardingCompletedAt: new Date(),
+    });
+
+    console.log("Subspaces onboarding completed for user:", userId);
+  } catch (error) {
+    console.error("Error completing Subspaces onboarding:", error);
+    throw error;
+  }
+}
+

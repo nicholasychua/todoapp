@@ -92,6 +92,7 @@ import { FilterDropdown } from "@/components/ui/filter-dropdown";
 import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
 import { TaskEditDialog } from "@/components/ui/TaskEditDialog";
 import { Onboarding } from "@/components/ui/Onboarding";
+import { SubspacesOnboarding } from "@/components/ui/SubspacesOnboarding";
 import {
   shouldShowOnboarding,
   getOnboardingState,
@@ -99,6 +100,8 @@ import {
   dismissOnboardingWelcome,
   hasOnboardingStarted,
   resetOnboarding,
+  hasCompletedSubspacesOnboarding,
+  completeSubspacesOnboarding,
   type OnboardingStep,
 } from "@/lib/onboarding";
 
@@ -792,6 +795,8 @@ export default function TaskManager() {
   const [onboardingCompletedSteps, setOnboardingCompletedSteps] = useState<
     string[]
   >([]);
+  const [showSubspacesOnboarding, setShowSubspacesOnboarding] = useState(false);
+  const onboardingToastShownRef = useRef(false);
 
   // Placeholder text based on screen size
   const [placeholderText, setPlaceholderText] = useState(
@@ -1090,8 +1095,9 @@ export default function TaskManager() {
         const wasComplete = allSteps.every((s) => prev.includes(s));
         const isNowComplete = allSteps.every((s) => newSteps.includes(s));
 
-        // Only show toast if we just completed all steps (not already complete)
-        if (isNowComplete && !wasComplete) {
+        // Only show toast if we just completed all steps (not already complete) and haven't shown it before
+        if (isNowComplete && !wasComplete && !onboardingToastShownRef.current) {
+          onboardingToastShownRef.current = true;
           setShowOnboarding(false);
           // Show celebration toast only once
           setTimeout(() => {
@@ -1113,9 +1119,20 @@ export default function TaskManager() {
     try {
       await dismissOnboardingWelcome(user.uid);
       setOnboardingHasStarted(true);
-      toast.success("Welcome! You're all set up.");
+      // Toast is shown by handleOnboardingStepComplete when all steps are done
     } catch (error) {
       console.error("Error dismissing onboarding welcome:", error);
+    }
+  };
+
+  const handleSubspacesOnboardingComplete = async () => {
+    if (!user) return;
+
+    try {
+      await completeSubspacesOnboarding(user.uid);
+      setShowSubspacesOnboarding(false);
+    } catch (error) {
+      console.error("Error completing Subspaces onboarding:", error);
     }
   };
 
@@ -1933,6 +1950,15 @@ export default function TaskManager() {
         ) {
           handleOnboardingStepComplete("explore-subspaces");
         }
+
+        // Check if user needs to see Subspaces onboarding
+        if (user) {
+          hasCompletedSubspacesOnboarding(user.uid).then((completed) => {
+            if (!completed) {
+              setShowSubspacesOnboarding(true);
+            }
+          });
+        }
       }
       return newValue;
     });
@@ -2553,6 +2579,13 @@ export default function TaskManager() {
                 parseTagsFromText={parseTagsFromText}
                 onTaskEdit={startEditTask}
               />
+
+              {/* Subspaces Onboarding */}
+              {showSubspacesOnboarding && (
+                <SubspacesOnboarding
+                  onComplete={handleSubspacesOnboardingComplete}
+                />
+              )}
             </motion.div>
           ) : showCalendar ? (
             <motion.div
