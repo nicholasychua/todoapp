@@ -1350,7 +1350,14 @@ export default function TaskManager() {
     updates: Partial<Task>
   ) => {
     try {
+      const originalTask = tasks.find((t) => t.id === taskId);
+
       await updateTask(taskId, updates);
+
+      // Track task edit analytics if text was changed
+      if (updates.text && originalTask) {
+        analytics.taskEdited(originalTask.text, updates.text);
+      }
     } catch (error) {
       toast.error("Failed to update task");
       throw error;
@@ -1389,7 +1396,14 @@ export default function TaskManager() {
     }
 
     try {
+      const originalTask = tasks.find((t) => t.id === editingTaskId);
+      const originalText = originalTask?.text || "";
+
       await updateTask(editingTaskId, { text: editingTaskText.trim() });
+
+      // Track task edit analytics
+      analytics.taskEdited(originalText, editingTaskText.trim());
+
       setEditingTaskId(null);
       setEditingTaskText("");
     } catch (error) {
@@ -4282,7 +4296,14 @@ function BacklogView({
     }
 
     try {
+      const originalTask = tasks.find((t) => t.id === editingTaskId);
+      const originalText = originalTask?.text || "";
+
       await updateTask(editingTaskId, { text: editingTaskText.trim() });
+
+      // Track task edit analytics
+      analytics.taskEdited(originalText, editingTaskText.trim());
+
       setEditingTaskId(null);
       setEditingTaskText("");
     } catch (error) {
@@ -4379,6 +4400,10 @@ function BacklogView({
         createdAt: finalDate,
         group: "master",
       });
+
+      // Track task creation analytics
+      analytics.taskCreated(newTaskText, finalTags.length > 0, !!finalDate);
+
       setNewTaskText("");
       setNewTaskDate(undefined);
       setNewTaskTime(null);
