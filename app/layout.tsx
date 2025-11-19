@@ -34,23 +34,14 @@ export const metadata: Metadata = {
       "AI-powered task manager for focused work. Plan, track, and ship faster.",
     url: "/",
     siteName: "Subspace",
-    images: [
-      {
-        url: "/demo-product.png",
-        width: 1200,
-        height: 630,
-        alt: "Subspace task manager",
-      },
-    ],
     locale: "en_US",
     type: "website",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Subspace",
     description:
       "AI-powered task manager for focused work. Plan, track, and ship faster.",
-    images: ["/demo-product.png"],
   },
   robots: {
     index: true,
