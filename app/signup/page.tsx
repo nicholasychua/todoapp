@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { analytics } from "@/lib/analytics";
 
 const containerVariants = {
   hidden: {},
@@ -43,10 +44,16 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      await signUp(email, password);
+      const user = await signUp(email, password);
+      
+      // Track successful signup
+      analytics.userSignedUp('email', user.uid);
+      
       toast.success("Account created successfully!");
       router.push("/");
     } catch (error: any) {
+      // Track authentication error
+      analytics.authenticationError('email', error.code || 'unknown', error.message || 'Failed to create account');
       toast.error(error.message || "Failed to create account");
     } finally {
       setLoading(false);
@@ -55,10 +62,16 @@ export default function SignUpPage() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
+      
+      // Track successful Google signup/signin
+      analytics.userSignedUp('google', user.uid);
+      
       toast.success("Signed in with Google successfully!");
       router.push("/");
     } catch (error: any) {
+      // Track authentication error
+      analytics.authenticationError('google', error.code || 'unknown', error.message || 'Failed to sign in with Google');
       toast.error(error.message || "Failed to sign in with Google");
     }
   };

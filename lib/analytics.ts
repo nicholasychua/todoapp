@@ -1,10 +1,21 @@
 import { track } from '@vercel/analytics';
 
+// Dual tracking: Send events to both Vercel Analytics and Google Analytics
+const trackEvent = (eventName: string, eventParams: Record<string, any>) => {
+  // Send to Vercel Analytics
+  track(eventName, eventParams);
+  
+  // Send to Google Analytics
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', eventName, eventParams);
+  }
+};
+
 // Task management analytics events
 export const analytics = {
   // Task creation and management
   taskCreated: (taskText: string, hasTags: boolean, hasDate: boolean) => {
-    track('task_created', {
+    trackEvent('task_created', {
       hasTags,
       hasDate,
       textLength: taskText.length,
@@ -12,20 +23,20 @@ export const analytics = {
   },
 
   taskCompleted: (taskText: string, completionTime: number) => {
-    track('task_completed', {
+    trackEvent('task_completed', {
       textLength: taskText.length,
       completionTime, // time in seconds since creation
     });
   },
 
   taskDeleted: (taskText: string) => {
-    track('task_deleted', {
+    trackEvent('task_deleted', {
       textLength: taskText.length,
     });
   },
 
   taskEdited: (originalText: string, newText: string) => {
-    track('task_edited', {
+    trackEvent('task_edited', {
       originalLength: originalText.length,
       newLength: newText.length,
       textChanged: originalText !== newText,
@@ -34,14 +45,14 @@ export const analytics = {
 
   // Voice input analytics
   voiceInputUsed: (inputLength: number, processingTime: number) => {
-    track('voice_input_used', {
+    trackEvent('voice_input_used', {
       inputLength,
       processingTime,
     });
   },
 
   voiceInputProcessed: (success: boolean, extractedTags: number, hasDate: boolean) => {
-    track('voice_input_processed', {
+    trackEvent('voice_input_processed', {
       success,
       extractedTags,
       hasDate,
@@ -50,7 +61,7 @@ export const analytics = {
 
   // AI categorization analytics
   aiCategorizationUsed: (taskText: string, suggestedCategory: string, confidence: string) => {
-    track('ai_categorization_used', {
+    trackEvent('ai_categorization_used', {
       textLength: taskText.length,
       suggestedCategory,
       confidence,
@@ -58,7 +69,7 @@ export const analytics = {
   },
 
   aiCategorizationFallback: (taskText: string, reason: string) => {
-    track('ai_categorization_fallback', {
+    trackEvent('ai_categorization_fallback', {
       textLength: taskText.length,
       reason,
     });
@@ -66,20 +77,20 @@ export const analytics = {
 
   // View and navigation analytics
   viewChanged: (view: 'todo' | 'backlog' | 'calendar' | 'pomodoro') => {
-    track('view_changed', {
+    trackEvent('view_changed', {
       view,
     });
   },
 
   pomodoroSessionStarted: (taskCount: number, duration: number) => {
-    track('pomodoro_session_started', {
+    trackEvent('pomodoro_session_started', {
       taskCount,
       duration, // in minutes
     });
   },
 
   pomodoroSessionCompleted: (duration: number, tasksCompleted: number) => {
-    track('pomodoro_session_completed', {
+    trackEvent('pomodoro_session_completed', {
       duration,
       tasksCompleted,
     });
@@ -87,7 +98,7 @@ export const analytics = {
 
   // Category management
   categoryCreated: (categoryName: string, hasDescription: boolean, hasKeywords: boolean) => {
-    track('category_created', {
+    trackEvent('category_created', {
       categoryName,
       hasDescription,
       hasKeywords,
@@ -95,7 +106,7 @@ export const analytics = {
   },
 
   categoryUsed: (categoryName: string, taskCount: number) => {
-    track('category_used', {
+    trackEvent('category_used', {
       categoryName,
       taskCount,
     });
@@ -103,21 +114,79 @@ export const analytics = {
 
   // User engagement
   sessionStarted: (userType: 'new' | 'returning') => {
-    track('session_started', {
+    trackEvent('session_started', {
       userType,
     });
   },
 
   featureUsed: (feature: string, context?: string) => {
-    track('feature_used', {
+    trackEvent('feature_used', {
       feature,
       context,
     });
   },
 
+  // Authentication tracking
+  userSignedUp: (method: 'email' | 'google', userId: string) => {
+    trackEvent('user_signed_up', {
+      method,
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  userSignedIn: (method: 'email' | 'google', userId: string) => {
+    trackEvent('user_signed_in', {
+      method,
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  authenticationError: (method: 'email' | 'google', errorCode: string, errorMessage: string) => {
+    trackEvent('authentication_error', {
+      method,
+      errorCode,
+      errorMessage: errorMessage.substring(0, 100),
+    });
+  },
+
+  // Onboarding tracking
+  onboardingStarted: (userId: string) => {
+    trackEvent('onboarding_started', {
+      userId,
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  onboardingStepCompleted: (userId: string, step: string) => {
+    trackEvent('onboarding_step_completed', {
+      userId,
+      step,
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  onboardingCompleted: (userId: string, completionTime: number) => {
+    trackEvent('onboarding_completed', {
+      userId,
+      completionTime, // time in seconds from account creation
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  onboardingSkipped: (userId: string, completedSteps: number, totalSteps: number) => {
+    trackEvent('onboarding_skipped', {
+      userId,
+      completedSteps,
+      totalSteps,
+      completionRate: (completedSteps / totalSteps) * 100,
+    });
+  },
+
   // Error tracking
   errorOccurred: (errorType: string, errorMessage: string, context?: string) => {
-    track('error_occurred', {
+    trackEvent('error_occurred', {
       errorType,
       errorMessage: errorMessage.substring(0, 100), // Limit message length
       context,
@@ -126,7 +195,7 @@ export const analytics = {
 
   // Performance tracking
   performanceMetric: (metric: string, value: number, unit: string) => {
-    track('performance_metric', {
+    trackEvent('performance_metric', {
       metric,
       value,
       unit,

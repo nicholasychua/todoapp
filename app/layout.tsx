@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { GlassFilter } from "@/components/ui/liquid-glass";
 import { Geist } from "next/font/google";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const geist = Geist({ subsets: ["latin"], display: "swap" });
 
@@ -79,6 +80,7 @@ export default function RootLayout({
             {/* Provide the SVG filter once at the root for liquid glass effects */}
             <GlassFilter />
             <Toaster />
+            <GoogleAnalytics />
             <Analytics />
           </ThemeProvider>
         </AuthProvider>

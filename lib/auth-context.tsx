@@ -17,9 +17,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (email: string, password: string) => Promise<User>;
+  signInWithGoogle: () => Promise<User>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -82,8 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Skip actual authentication in SSR
   const isBrowser = typeof window !== "undefined";
 
-  const signIn = async (email: string, password: string) => {
-    if (!isBrowser) return;
+  const signIn = async (email: string, password: string): Promise<User> => {
+    if (!isBrowser) throw new Error("Not in browser environment");
 
     const clientAuth = getClientAuth();
     if (!clientAuth) {
@@ -94,8 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      await signInWithEmailAndPassword(clientAuth, email, password);
+      const userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
       setError(null);
+      return userCredential.user;
     } catch (error: any) {
       console.log("Sign-in error:", error);
       let errorMsg = "Failed to sign in. Please try again.";
@@ -117,8 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string) => {
-    if (!isBrowser) return;
+  const signUp = async (email: string, password: string): Promise<User> => {
+    if (!isBrowser) throw new Error("Not in browser environment");
 
     const clientAuth = getClientAuth();
     if (!clientAuth) {
@@ -129,8 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      await createUserWithEmailAndPassword(clientAuth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(clientAuth, email, password);
       setError(null);
+      return userCredential.user;
     } catch (error: any) {
       console.log("Sign-up error:", error);
       let errorMsg = "Failed to create account. Please try again.";
@@ -150,8 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
-    if (!isBrowser) return;
+  const signInWithGoogle = async (): Promise<User> => {
+    if (!isBrowser) throw new Error("Not in browser environment");
 
     const clientAuth = getClientAuth();
     if (!clientAuth) {
@@ -169,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(clientAuth, provider);
       console.log("Google sign-in successful:", result.user.email);
       setError(null);
+      return result.user;
     } catch (error: any) {
       console.error("Google sign-in error:", error);
       let errorMessage = "Failed to sign in with Google. Please try again.";

@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 
 // Fallback voice processing function
 const fallbackProcessVoiceInput = (rawInput: string) => {
-  console.log('Using built-in fallback voice processing for:', rawInput);
-  
   const input = rawInput.trim();
   
   // Extract hashtags
@@ -16,29 +14,129 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
   // Simple date/time extraction
   let date: string | null = null;
   let time: string | null = null;
+  const lowerInput = input.toLowerCase();
   
-  // Check for common time patterns
-  const timeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1]);
-    const minutes = timeMatch[2];
-    const ampm = timeMatch[3]?.toLowerCase();
-    
-    if (ampm === 'pm' && hours !== 12) hours += 12;
-    if (ampm === 'am' && hours === 12) hours = 0;
-    
-    time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+  // Natural language time expressions (basic fallback)
+  const naturalTimes: Record<string, string> = {
+    'noon': '12:00',
+    'midnight': '00:00',
+    'morning': '09:00',
+    'afternoon': '14:00',
+    'evening': '18:00',
+    'night': '20:00'
+  };
+  
+  // Check for natural language times first
+  for (const [word, timeValue] of Object.entries(naturalTimes)) {
+    if (lowerInput.includes(word)) {
+      time = timeValue;
+      break;
+    }
   }
   
-  // Check for date patterns
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // If no natural time found, check for standard time patterns (12pm, 3:30am, etc.)
+  if (!time) {
+    const timeMatch = input.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2] || '00';
+      const ampm = timeMatch[3]?.toLowerCase();
+      
+      if (ampm === 'pm' && hours !== 12) hours += 12;
+      if (ampm === 'am' && hours === 12) hours = 0;
+      
+      time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+  }
   
-  if (input.toLowerCase().includes('tomorrow')) {
+  // Enhanced date parsing
+  const today = new Date();
+  
+  // Parse "tomorrow" or "tmr"
+  if (lowerInput.includes('tomorrow') || lowerInput.includes('tmr')) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     date = tomorrow.toISOString().split('T')[0];
-  } else if (input.toLowerCase().includes('today')) {
+  } 
+  // Parse "today"
+  else if (lowerInput.includes('today')) {
     date = today.toISOString().split('T')[0];
+  } 
+  // Parse day names (Monday, Tuesday, etc.)
+  else {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayAbbreviations: Record<string, string> = {
+      'sun': 'sunday',
+      'mon': 'monday',
+      'tue': 'tuesday',
+      'tues': 'tuesday',
+      'wed': 'wednesday',
+      'thu': 'thursday',
+      'thur': 'thursday',
+      'thurs': 'thursday',
+      'fri': 'friday',
+      'sat': 'saturday'
+    };
+    
+    // Check for "next" + day name (e.g., "next Friday")
+    const nextDayMatch = lowerInput.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)/i);
+    if (nextDayMatch) {
+      let targetDayName = nextDayMatch[1].toLowerCase();
+      // Convert abbreviation to full name
+      targetDayName = dayAbbreviations[targetDayName] || targetDayName;
+      const targetDay = dayNames.indexOf(targetDayName);
+      if (targetDay !== -1) {
+        const resultDate = new Date(today);
+        const currentDay = resultDate.getDay();
+        let daysToAdd = targetDay - currentDay;
+        // "next" means the following week, so add 7 days
+        if (daysToAdd <= 0) {
+          daysToAdd += 7;
+        }
+        daysToAdd += 7; // Add another week for "next"
+        resultDate.setDate(resultDate.getDate() + daysToAdd);
+        date = resultDate.toISOString().split('T')[0];
+      }
+    } 
+    // Check for day name (e.g., "Friday", "on Friday", "by Friday")
+    else {
+      for (const dayName of dayNames) {
+        const dayRegex = new RegExp(`\\b(on|by|this)?\\s*${dayName}\\b`, 'i');
+        if (dayRegex.test(lowerInput)) {
+          const targetDay = dayNames.indexOf(dayName);
+          const resultDate = new Date(today);
+          const currentDay = resultDate.getDay();
+          let daysToAdd = targetDay - currentDay;
+          // If the day has passed this week, go to next week
+          if (daysToAdd <= 0) {
+            daysToAdd += 7;
+          }
+          resultDate.setDate(resultDate.getDate() + daysToAdd);
+          date = resultDate.toISOString().split('T')[0];
+          break;
+        }
+      }
+      
+      // Check abbreviations too
+      if (!date) {
+        for (const [abbr, fullName] of Object.entries(dayAbbreviations)) {
+          const abbrRegex = new RegExp(`\\b(on|by|this)?\\s*${abbr}\\b`, 'i');
+          if (abbrRegex.test(lowerInput)) {
+            const targetDay = dayNames.indexOf(fullName);
+            const resultDate = new Date(today);
+            const currentDay = resultDate.getDay();
+            let daysToAdd = targetDay - currentDay;
+            // If the day has passed this week, go to next week
+            if (daysToAdd <= 0) {
+              daysToAdd += 7;
+            }
+            resultDate.setDate(resultDate.getDate() + daysToAdd);
+            date = resultDate.toISOString().split('T')[0];
+            break;
+          }
+        }
+      }
+    }
   }
   
   // Capitalize first letter of task name
@@ -130,13 +228,6 @@ export async function POST(request: Request) {
     // Get current date in Pacific Time
     const today = getCurrentDateInPST();
 
-    console.log("Attempting to process voice input:", rawInput);
-    console.log("Current date in PST:", today);
-    console.log(
-      "Using model:",
-      process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4"
-    );
-
     // Dynamically import OpenAI to avoid bundling issues
     let AzureOpenAI;
     try {
@@ -169,27 +260,46 @@ export async function POST(request: Request) {
           messages: [
             {
               role: "system",
-              content: `You are a task processing assistant. Extract task information from the user's voice input.
-              The current date is ${today} in Pacific Time (PT).
-              Return a JSON object with the following structure:
-              {
-                "taskName": "Main task name",
-                "description": "Detailed description",
-                "date": "YYYY-MM-DD or null if no date mentioned",
-                "time": "HH:MM in 24-hour format or null if no time mentioned",
-                "tags": ["array", "of", "hashtags", "only"]
-              }
-              
-              Rules:
-              - Use the current date (${today}) in Pacific Time to resolve relative dates like "tomorrow".
-              - If a date is mentioned, convert it to YYYY-MM-DD format.
-              - If a time is mentioned, convert it to HH:MM (24-hour) format.
-              - ONLY extract hashtags (words starting with #) from the input as tags. Do NOT create new categories or suggest tags.
-              - If there are no hashtags in the input, return an empty array for tags.
-              - Keep the taskName concise but descriptive. Capitalize the first letter of the task name properly.
-              - Include any additional context in the description.
-              - If no date is mentioned, set date to null.
-              - If no time is mentioned, set time to null.`,
+              content: `You are an intelligent task processing assistant. Extract task information from natural language input.
+
+Current date: ${today} (Pacific Time)
+
+Return JSON:
+{
+  "taskName": "Main task name",
+  "description": "Detailed description", 
+  "date": "YYYY-MM-DD or null",
+  "time": "HH:MM in 24-hour format or null",
+  "tags": ["hashtags", "only"]
+}
+
+Date Intelligence:
+- Understand relative dates: "tomorrow", "today", "next Monday", "Friday", etc.
+- Understand date formats: "11/25", "Nov 25", "November 25th"
+- Calculate from current date (${today})
+
+Time Intelligence:
+- Understand natural language times:
+  * "noon" = "12:00"
+  * "midnight" = "00:00"
+  * "morning" = "09:00"
+  * "afternoon" = "14:00"
+  * "evening" = "18:00"
+  * "night" = "20:00"
+- Convert 12-hour to 24-hour: "2pm" = "14:00", "9am" = "09:00"
+- Handle variations: "2:30pm", "two thirty", "half past two"
+- If time is ambiguous or unclear, set to null
+
+Tags:
+- ONLY extract words with # prefix (e.g., #work, #personal)
+- Do NOT create or suggest tags
+- Empty array if no hashtags present
+
+Task Name:
+- Concise, descriptive, properly capitalized
+- Remove date/time/tag information from the task name itself
+
+If date/time unclear or not mentioned: set to null`,
             },
             {
               role: "user",
@@ -209,7 +319,6 @@ export async function POST(request: Request) {
       }
 
       try {
-        console.log("AI Response content:", content);
         const result = JSON.parse(content);
         
         // Validate the result structure

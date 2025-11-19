@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { analytics } from "@/lib/analytics";
 
 const containerVariants = {
   hidden: {},
@@ -57,11 +58,19 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      const user = await signIn(email, password);
+      
+      // Track successful signin
+      analytics.userSignedIn('email', user.uid);
+      
       toast.success("Logged in successfully!");
       router.push("/");
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to log in";
+      
+      // Track authentication error
+      analytics.authenticationError('email', error.code || 'unknown', errorMessage);
+      
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -71,11 +80,19 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await signInWithGoogle();
+      const user = await signInWithGoogle();
+      
+      // Track successful Google signin
+      analytics.userSignedIn('google', user.uid);
+      
       toast.success("Signed in with Google successfully!");
       router.push("/");
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to sign in with Google";
+      
+      // Track authentication error
+      analytics.authenticationError('google', error.code || 'unknown', errorMessage);
+      
       toast.error(errorMessage);
       console.error("Google sign-in error:", error);
     } finally {

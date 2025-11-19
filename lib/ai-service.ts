@@ -27,8 +27,6 @@ export async function processTextInput(
 
 export async function processVoiceInput(rawInput: string): Promise<ProcessedTask> {
   try {
-    console.log('Starting voice processing for:', rawInput);
-    
     // Create an abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -37,7 +35,6 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
     }, 5000); // 5 second timeout
     
     const requestBody = { rawInput };
-    console.log('Making voice processing request with body:', requestBody);
     
     const response = await fetch('/api/ai/process-voice', {
       method: 'POST',
@@ -50,8 +47,6 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
 
     clearTimeout(timeoutId);
 
-    console.log('Voice processing response received:', response.status, response.ok);
-
     if (!response.ok) {
       const errorBody = await response.text();
       console.error('Error processing voice input. Status:', response.status, 'Body:', errorBody);
@@ -62,7 +57,6 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
     }
 
     const result = await response.json();
-    console.log('Voice processing result:', result);
     return result as ProcessedTask;
   } catch (error) {
     console.error('Error in processVoiceInput:', error);
@@ -88,8 +82,6 @@ export async function categorizeTask(
   userId: string
 ): Promise<CategorizationResult> {
   try {
-    console.log('Starting categorization for:', taskText);
-    
     // Create an abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -102,8 +94,6 @@ export async function categorizeTask(
       categories,
       userId
     };
-    
-    console.log('Making categorization request with body:', requestBody);
 
     const response = await fetch('/api/ai/categorize-task', {
       method: 'POST',
@@ -115,7 +105,6 @@ export async function categorizeTask(
     });
 
     clearTimeout(timeoutId);
-    console.log('Categorization response received:', response.status, response.ok);
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -127,7 +116,6 @@ export async function categorizeTask(
     }
 
     const result = await response.json();
-    console.log('Categorization result:', result);
     return result as CategorizationResult;
   } catch (error) {
     console.error('Error in categorizeTask:', error);
@@ -161,29 +149,129 @@ function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
   // Simple date/time extraction
   let date: string | null = null;
   let time: string | null = null;
+  const lowerInput = input.toLowerCase();
   
-  // Check for common time patterns
-  const timeMatch = input.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1]);
-    const minutes = timeMatch[2];
-    const ampm = timeMatch[3]?.toLowerCase();
-    
-    if (ampm === 'pm' && hours !== 12) hours += 12;
-    if (ampm === 'am' && hours === 12) hours = 0;
-    
-    time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+  // Natural language time expressions (basic fallback)
+  const naturalTimes: Record<string, string> = {
+    'noon': '12:00',
+    'midnight': '00:00',
+    'morning': '09:00',
+    'afternoon': '14:00',
+    'evening': '18:00',
+    'night': '20:00'
+  };
+  
+  // Check for natural language times first
+  for (const [word, timeValue] of Object.entries(naturalTimes)) {
+    if (lowerInput.includes(word)) {
+      time = timeValue;
+      break;
+    }
   }
   
-  // Check for date patterns
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // If no natural time found, check for standard time patterns (12pm, 3:30am, etc.)
+  if (!time) {
+    const timeMatch = input.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2] || '00';
+      const ampm = timeMatch[3]?.toLowerCase();
+      
+      if (ampm === 'pm' && hours !== 12) hours += 12;
+      if (ampm === 'am' && hours === 12) hours = 0;
+      
+      time = `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+  }
   
-  if (input.toLowerCase().includes('tomorrow')) {
+  // Enhanced date parsing
+  const today = new Date();
+  
+  // Parse "tomorrow" or "tmr"
+  if (lowerInput.includes('tomorrow') || lowerInput.includes('tmr')) {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     date = tomorrow.toISOString().split('T')[0];
-  } else if (input.toLowerCase().includes('today')) {
+  } 
+  // Parse "today"
+  else if (lowerInput.includes('today')) {
     date = today.toISOString().split('T')[0];
+  } 
+  // Parse day names (Monday, Tuesday, etc.)
+  else {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayAbbreviations: Record<string, string> = {
+      'sun': 'sunday',
+      'mon': 'monday',
+      'tue': 'tuesday',
+      'tues': 'tuesday',
+      'wed': 'wednesday',
+      'thu': 'thursday',
+      'thur': 'thursday',
+      'thurs': 'thursday',
+      'fri': 'friday',
+      'sat': 'saturday'
+    };
+    
+    // Check for "next" + day name (e.g., "next Friday")
+    const nextDayMatch = lowerInput.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)/i);
+    if (nextDayMatch) {
+      let targetDayName = nextDayMatch[1].toLowerCase();
+      // Convert abbreviation to full name
+      targetDayName = dayAbbreviations[targetDayName] || targetDayName;
+      const targetDay = dayNames.indexOf(targetDayName);
+      if (targetDay !== -1) {
+        const resultDate = new Date(today);
+        const currentDay = resultDate.getDay();
+        let daysToAdd = targetDay - currentDay;
+        // "next" means the following week, so add 7 days
+        if (daysToAdd <= 0) {
+          daysToAdd += 7;
+        }
+        daysToAdd += 7; // Add another week for "next"
+        resultDate.setDate(resultDate.getDate() + daysToAdd);
+        date = resultDate.toISOString().split('T')[0];
+      }
+    } 
+    // Check for day name (e.g., "Friday", "on Friday", "by Friday")
+    else {
+      for (const dayName of dayNames) {
+        const dayRegex = new RegExp(`\\b(on|by|this)?\\s*${dayName}\\b`, 'i');
+        if (dayRegex.test(lowerInput)) {
+          const targetDay = dayNames.indexOf(dayName);
+          const resultDate = new Date(today);
+          const currentDay = resultDate.getDay();
+          let daysToAdd = targetDay - currentDay;
+          // If the day has passed this week, go to next week
+          if (daysToAdd <= 0) {
+            daysToAdd += 7;
+          }
+          resultDate.setDate(resultDate.getDate() + daysToAdd);
+          date = resultDate.toISOString().split('T')[0];
+          break;
+        }
+      }
+      
+      // Check abbreviations too
+      if (!date) {
+        for (const [abbr, fullName] of Object.entries(dayAbbreviations)) {
+          const abbrRegex = new RegExp(`\\b(on|by|this)?\\s*${abbr}\\b`, 'i');
+          if (abbrRegex.test(lowerInput)) {
+            const targetDay = dayNames.indexOf(fullName);
+            const resultDate = new Date(today);
+            const currentDay = resultDate.getDay();
+            let daysToAdd = targetDay - currentDay;
+            // If the day has passed this week, go to next week
+            if (daysToAdd <= 0) {
+              daysToAdd += 7;
+            }
+            resultDate.setDate(resultDate.getDate() + daysToAdd);
+            date = resultDate.toISOString().split('T')[0];
+            break;
+          }
+        }
+      }
+    }
   }
   
   return {
@@ -200,7 +288,6 @@ function getFallbackCategorization(
   taskText: string, 
   categories: string[]
 ): CategorizationResult {
-  console.log('Using simple fallback categorization for:', taskText, 'with categories:', categories);
   
   const lowerTaskText = taskText.toLowerCase();
   
@@ -252,7 +339,6 @@ function getFallbackCategorization(
   
   // Use uncategorized if score is too low
   if (bestScore < 10 && uncategorizedCategory) {
-    console.log('Fallback: Low score, using Uncategorized');
     return {
       suggestedCategory: uncategorizedCategory,
       confidence: "low"
@@ -266,8 +352,6 @@ function getFallbackCategorization(
   } else if (bestScore >= 10) {
     confidence = "medium";
   }
-  
-  console.log('Fallback result:', { suggestedCategory: bestMatch, confidence, score: bestScore });
   
   return {
     suggestedCategory: bestMatch,

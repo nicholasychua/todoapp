@@ -96,7 +96,9 @@ import {
   shouldShowOnboarding,
   getOnboardingState,
   completeOnboardingStep,
-  completeOnboarding,
+  dismissOnboardingWelcome,
+  hasOnboardingStarted,
+  resetOnboarding,
   type OnboardingStep,
 } from "@/lib/onboarding";
 
@@ -374,16 +376,6 @@ function Sidebar({
             <button
               className={cn(
                 "w-full text-left px-3 py-3 text-xl font-medium",
-                showCalendar ? "text-gray-900" : "text-gray-500"
-              )}
-              onClick={() => handleMenuClick(handleCalendarToggle)}
-            >
-              Calendar
-            </button>
-
-            <button
-              className={cn(
-                "w-full text-left px-3 py-3 text-xl font-medium",
                 showBacklog ? "text-gray-900" : "text-gray-500"
               )}
               onClick={() => handleMenuClick(handleBacklogToggle)}
@@ -543,7 +535,6 @@ function CategoryPopup({
         onSelect(customInput.trim());
         onClose();
         setCustomInput("");
-        toast.success(`Created category: ${customInput.trim()}`);
       } catch (error) {
         console.error("Failed to create category:", error);
         toast.error("Failed to create category");
@@ -729,6 +720,7 @@ export default function TaskManager() {
   const [voiceStep, setVoiceStep] = useState<
     "listening" | "confirm" | "manual"
   >("listening");
+  const [hasSeenVoiceEditTip, setHasSeenVoiceEditTip] = useState(true); // Default to true, will check localStorage
   const [activeGroup, setActiveGroup] = useState("master");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showTagManager, setShowTagManager] = useState(false);
@@ -796,6 +788,7 @@ export default function TaskManager() {
 
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingHasStarted, setOnboardingHasStarted] = useState(false);
   const [onboardingCompletedSteps, setOnboardingCompletedSteps] = useState<
     string[]
   >([]);
@@ -833,6 +826,9 @@ export default function TaskManager() {
         if (shouldShow) {
           const state = await getOnboardingState(user.uid);
           setOnboardingCompletedSteps(state?.completedSteps ?? []);
+
+          const started = await hasOnboardingStarted(user.uid);
+          setOnboardingHasStarted(started);
         }
       } catch (error) {
         console.error("Error checking onboarding state:", error);
@@ -841,6 +837,35 @@ export default function TaskManager() {
 
     checkOnboarding();
   }, [user]);
+
+  // Expose reset onboarding function for testing (can be called from console)
+  useEffect(() => {
+    if (typeof window !== "undefined" && user) {
+      (window as any).resetOnboarding = async () => {
+        try {
+          await resetOnboarding(user.uid);
+          setShowOnboarding(true);
+          setOnboardingHasStarted(false);
+          setOnboardingCompletedSteps([]);
+          window.location.reload();
+        } catch (error) {
+          console.error("Error resetting onboarding:", error);
+          toast.error("Failed to reset onboarding");
+        }
+      };
+      console.log(
+        "💡 Tip: Call resetOnboarding() in console to see the onboarding flow again"
+      );
+    }
+  }, [user]);
+
+  // Check if user has seen voice edit tip
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const seen = localStorage.getItem("hasSeenVoiceEditTip") === "true";
+      setHasSeenVoiceEditTip(seen);
+    }
+  }, []);
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
@@ -869,6 +894,126 @@ export default function TaskManager() {
     const tagRegex = /#(\w+)/g;
     const matches = text.match(tagRegex) || [];
     return matches.map((tag) => tag.substring(1));
+  };
+
+  // Parse date and time from task text
+  const parseTaskDateTime = (
+    text: string
+  ): { date: Date | null; time: string | null } => {
+    const lowerText = text.toLowerCase();
+    let date: Date | null = null;
+    let time: string | null = null;
+
+    // Parse time - supports "12pm", "12:30pm", "3am", etc.
+    const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2] || "00";
+      const ampm = timeMatch[3]?.toLowerCase();
+
+      if (ampm === "pm" && hours !== 12) hours += 12;
+      if (ampm === "am" && hours === 12) hours = 0;
+
+      time = `${hours.toString().padStart(2, "0")}:${minutes}`;
+    }
+
+    // Enhanced date parsing
+    const today = new Date();
+
+    // Parse "tomorrow" or "tmr"
+    if (lowerText.includes("tomorrow") || lowerText.includes("tmr")) {
+      date = new Date(today);
+      date.setDate(date.getDate() + 1);
+    }
+    // Parse "today"
+    else if (lowerText.includes("today")) {
+      date = new Date(today);
+    }
+    // Parse day names (Monday, Tuesday, etc.)
+    else {
+      const dayNames = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ];
+      const dayAbbreviations: Record<string, string> = {
+        sun: "sunday",
+        mon: "monday",
+        tue: "tuesday",
+        tues: "tuesday",
+        wed: "wednesday",
+        thu: "thursday",
+        thur: "thursday",
+        thurs: "thursday",
+        fri: "friday",
+        sat: "saturday",
+      };
+
+      // Check for "next" + day name (e.g., "next Friday")
+      const nextDayMatch = lowerText.match(
+        /next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)/i
+      );
+      if (nextDayMatch) {
+        let targetDayName = nextDayMatch[1].toLowerCase();
+        // Convert abbreviation to full name
+        targetDayName = dayAbbreviations[targetDayName] || targetDayName;
+        const targetDay = dayNames.indexOf(targetDayName);
+        if (targetDay !== -1) {
+          date = new Date(today);
+          const currentDay = date.getDay();
+          let daysToAdd = targetDay - currentDay;
+          // "next" means the following week, so add 7 days
+          if (daysToAdd <= 0) {
+            daysToAdd += 7;
+          }
+          daysToAdd += 7; // Add another week for "next"
+          date.setDate(date.getDate() + daysToAdd);
+        }
+      }
+      // Check for day name (e.g., "Friday", "on Friday", "by Friday")
+      else {
+        for (const dayName of dayNames) {
+          const dayRegex = new RegExp(`\\b(on|by|this)?\\s*${dayName}\\b`, "i");
+          if (dayRegex.test(lowerText)) {
+            const targetDay = dayNames.indexOf(dayName);
+            date = new Date(today);
+            const currentDay = date.getDay();
+            let daysToAdd = targetDay - currentDay;
+            // If the day has passed this week, go to next week
+            if (daysToAdd <= 0) {
+              daysToAdd += 7;
+            }
+            date.setDate(date.getDate() + daysToAdd);
+            break;
+          }
+        }
+
+        // Check abbreviations too
+        if (!date) {
+          for (const [abbr, fullName] of Object.entries(dayAbbreviations)) {
+            const abbrRegex = new RegExp(`\\b(on|by|this)?\\s*${abbr}\\b`, "i");
+            if (abbrRegex.test(lowerText)) {
+              const targetDay = dayNames.indexOf(fullName);
+              date = new Date(today);
+              const currentDay = date.getDay();
+              let daysToAdd = targetDay - currentDay;
+              // If the day has passed this week, go to next week
+              if (daysToAdd <= 0) {
+                daysToAdd += 7;
+              }
+              date.setDate(date.getDate() + daysToAdd);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return { date, time };
   };
 
   // Format text with colored tags
@@ -933,7 +1078,22 @@ export default function TaskManager() {
 
     try {
       await completeOnboardingStep(user.uid, stepId as OnboardingStep);
-      setOnboardingCompletedSteps((prev) => [...prev, stepId]);
+      setOnboardingCompletedSteps((prev) => {
+        const newSteps = [...prev, stepId];
+        // Check if all steps are complete
+        const allSteps = ["add-task", "try-dictation", "explore-subspaces"];
+        const allComplete = allSteps.every((s) => newSteps.includes(s));
+        if (allComplete) {
+          setShowOnboarding(false);
+          // Show celebration toast
+          setTimeout(() => {
+            toast.success("🎉 You're all set! Happy organizing!", {
+              duration: 5000,
+            });
+          }, 500);
+        }
+        return newSteps;
+      });
     } catch (error) {
       console.error("Error completing onboarding step:", error);
     }
@@ -943,11 +1103,11 @@ export default function TaskManager() {
     if (!user) return;
 
     try {
-      await completeOnboarding(user.uid);
-      setShowOnboarding(false);
-      toast.success("Welcome! You're all set up 🎉");
+      await dismissOnboardingWelcome(user.uid);
+      setOnboardingHasStarted(true);
+      toast.success("Welcome! You're all set up.");
     } catch (error) {
-      console.error("Error completing onboarding:", error);
+      console.error("Error dismissing onboarding welcome:", error);
     }
   };
 
@@ -1024,19 +1184,31 @@ export default function TaskManager() {
     try {
       const tags = parseTagsFromText(value);
 
-      // Create the final date with time if both are selected
-      let finalDate = (date ?? newTaskDate) || new Date();
+      // Parse date and time from the task text automatically
+      const parsedDateTime = parseTaskDateTime(value);
 
-      // Always apply time if it's set, regardless of whether a date is selected
-      if (newTaskTime) {
-        const [hours, minutes] = newTaskTime.split(":").map(Number);
+      // Create the final date with time if both are selected
+      let finalDate =
+        (date ?? parsedDateTime.date ?? newTaskDate) || new Date();
+
+      // Check if the date parameter already has a time set (from voice dictation)
+      const hasTimeInDate =
+        date && (date.getHours() !== 0 || date.getMinutes() !== 0);
+
+      // Always apply time if it's set (from date parameter, parsing, or manual selection)
+      const timeToUse = hasTimeInDate
+        ? null
+        : parsedDateTime.time || newTaskTime;
+      if (timeToUse) {
+        const [hours, minutes] = timeToUse.split(":").map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
-      } else {
-        // If no time specified, set to midnight to indicate no specific time
+      } else if (!hasTimeInDate) {
+        // If no time specified and date doesn't have time, set to midnight
         finalDate = new Date(finalDate);
         finalDate.setHours(0, 0, 0, 0);
       }
+      // If hasTimeInDate is true, keep the time from the date parameter
 
       // Auto-categorize to prepend the most relevant category tag if applicable
       const finalTags = await autoCategorizeTags(value, tags);
@@ -1062,22 +1234,11 @@ export default function TaskManager() {
       setNewTaskDate(undefined);
       setNewTaskTime(null);
 
-      // If the task routes to a hidden category, inform user and provide quick navigation
+      // If the task routes to a hidden category, temporarily reveal on Home
       const primary = finalTags[0];
       const isHiddenTarget = primary && hiddenCategoryNames.includes(primary);
-      if (isHiddenTarget) {
-        toast.success(`Added to hidden list "${primary}"`, {
-          action: {
-            label: "Open Subspaces",
-            onClick: () => setShowBacklog(true),
-          },
-        } as any);
-        // Temporarily reveal this task on Home for a few seconds
-        if (created?.id) {
-          startTemporaryVisibility(created.id);
-        }
-      } else {
-        toast.success("Task added successfully!");
+      if (isHiddenTarget && created?.id) {
+        startTemporaryVisibility(created.id);
       }
     } catch (error) {
       toast.error("Failed to add task");
@@ -1103,9 +1264,6 @@ export default function TaskManager() {
         createdAt: finalDate,
         group: "master",
       });
-
-      // Basic success toast without AI context
-      toast.success("Task added successfully!");
 
       setNewTaskText("");
       setSpeechDraft("");
@@ -1157,18 +1315,15 @@ export default function TaskManager() {
           group: "master",
         });
 
-        // Track onboarding step for dictation
-        if (
-          showOnboarding &&
-          !onboardingCompletedSteps.includes("try-dictation")
-        ) {
-          await handleOnboardingStepComplete("try-dictation");
+        // Track onboarding step - only mark add-task for Shift+Enter
+        // (dictation step is tracked separately in voice menu)
+        if (showOnboarding && !onboardingCompletedSteps.includes("add-task")) {
+          await handleOnboardingStepComplete("add-task");
         }
 
         // Clear the input text
         setNewTaskText("");
 
-        toast.success("Task created");
         // If added into a hidden category, temporarily reveal on Home
         const primary = finalTags[0];
         if (primary && hiddenCategoryNames.includes(primary) && created?.id) {
@@ -1196,7 +1351,6 @@ export default function TaskManager() {
   ) => {
     try {
       await updateTask(taskId, updates);
-      toast.success("Task updated");
     } catch (error) {
       toast.error("Failed to update task");
       throw error;
@@ -1348,7 +1502,6 @@ export default function TaskManager() {
 
     try {
       await deleteTask(taskId);
-      toast.success("Task deleted successfully!");
     } catch (error) {
       toast.error("Failed to delete task");
       analytics.errorOccurred(
@@ -1494,7 +1647,6 @@ export default function TaskManager() {
       const result = await processVoiceInput(text);
       setProcessedTask(result);
       setOriginalVoiceRaw(text);
-      toast.success("Updated from transcription");
     } catch (error) {
       // Don't show error for AbortError (timeout) - fallback is already handled
       if (error instanceof Error && error.name === "AbortError") {
@@ -1791,7 +1943,6 @@ export default function TaskManager() {
       tags: taskData.category ? [taskData.category] : [],
       group: "master",
     });
-    toast.success("Task created successfully!");
   };
 
   // Temporary visibility helpers (TaskManager scope)
@@ -2012,7 +2163,6 @@ export default function TaskManager() {
 
     try {
       await updateTask(taskId, { createdAt: newDate });
-      toast.success("Task date updated!");
     } catch (error) {
       toast.error("Failed to update task date");
     }
@@ -2450,6 +2600,87 @@ export default function TaskManager() {
                 {/* Add Task Input */}
                 <div className="space-y-6">
                   <div className="relative">
+                    {/* Onboarding Tooltip - Desktop (Left side) */}
+                    <AnimatePresence>
+                      {showOnboarding &&
+                        onboardingHasStarted &&
+                        !onboardingCompletedSteps.includes("add-task") && (
+                          <>
+                            {/* Desktop version - to the left */}
+                            <motion.div
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -10 }}
+                              transition={{
+                                duration: 0.3,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="absolute right-full top-0 mr-4 hidden xl:block z-10"
+                            >
+                              <div className="relative">
+                                <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 w-[280px]">
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      Add your first task!
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-slate-600 mb-2">
+                                    Try typing:
+                                  </p>
+                                  <p className="text-xs italic text-slate-700 bg-slate-50 rounded-lg px-2 py-1.5 mb-2">
+                                    "Finish project report by Friday at 5pm"
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    Press{" "}
+                                    <span className="font-medium">
+                                      Shift+Enter
+                                    </span>{" "}
+                                    to auto-categorize
+                                  </p>
+                                </div>
+                                {/* Arrow pointing to input */}
+                                <div className="absolute top-[24px] -right-2 w-4 h-4 bg-white border-r border-b border-slate-200 transform rotate-[-45deg]"></div>
+                              </div>
+                            </motion.div>
+
+                            {/* Mobile/Tablet version - above input */}
+                            <motion.div
+                              initial={{ opacity: 0, y: -8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              transition={{
+                                duration: 0.3,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="mb-3 xl:hidden"
+                            >
+                              <div className="bg-white rounded-xl shadow-md border border-slate-200 p-3">
+                                <div className="flex items-start gap-2 mb-1.5">
+                                  <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    Add your first task!
+                                  </p>
+                                </div>
+                                <p className="text-xs text-slate-600 mb-1.5">
+                                  Try:{" "}
+                                  <span className="italic text-slate-700">
+                                    "Finish project report by Friday at 5pm"
+                                  </span>
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Press{" "}
+                                  <span className="font-medium">
+                                    Shift+Enter
+                                  </span>{" "}
+                                  to auto-categorize
+                                </p>
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                    </AnimatePresence>
+
                     <div className="relative">
                       <textarea
                         ref={textareaRef}
@@ -3029,10 +3260,6 @@ export default function TaskManager() {
                                                     await updateTask(task.id, {
                                                       tags: updatedTags,
                                                     });
-
-                                                    toast.success(
-                                                      `Changed category to ${category.name}`
-                                                    );
                                                   } catch (error) {
                                                     toast.error(
                                                       "Failed to update category"
@@ -3065,11 +3292,6 @@ export default function TaskManager() {
                                                           await setCategoryHiddenOnHome(
                                                             category.id,
                                                             !hidden
-                                                          );
-                                                          toast.success(
-                                                            hidden
-                                                              ? `${category.name} is now visible on Home`
-                                                              : `${category.name} is now hidden from Home`
                                                           );
                                                         } catch (error) {
                                                           toast.error(
@@ -3186,57 +3408,59 @@ export default function TaskManager() {
                     })}
                   </AnimatePresence>
 
-                  {tasksLoaded && filteredTasks.length === 0 && (
-                    <div className="relative flex flex-col items-center justify-center py-24 text-center">
-                      {/* Skeleton Cards Background */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 opacity-20 pointer-events-none">
-                        {[1, 2, 3].map((i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: i * 0.1 }}
-                            className="w-full max-w-2xl bg-gray-100 rounded-2xl p-4 flex items-center gap-4"
-                          >
-                            <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Circle className="h-6 w-6 text-gray-300" />
-                            </div>
-                            <div className="flex-1 space-y-2">
-                              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
+                  {tasksLoaded &&
+                    filteredTasks.length === 0 &&
+                    !showVoiceMenu && (
+                      <div className="relative flex flex-col items-center justify-center py-24 text-center">
+                        {/* Skeleton Cards Background */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 opacity-20 pointer-events-none">
+                          {[1, 2, 3].map((i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.5, delay: i * 0.1 }}
+                              className="w-full max-w-2xl bg-gray-100 rounded-2xl p-4 flex items-center gap-4"
+                            >
+                              <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center">
+                                <Circle className="h-6 w-6 text-gray-300" />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
 
-                      {/* Main Content */}
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{
-                          duration: 0.5,
-                          delay: 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className="relative z-10"
-                      >
-                        <h3 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
-                          {filter === "completed"
-                            ? "No completed tasks"
-                            : filter === "active"
-                            ? "No active tasks"
-                            : "No tasks"}
-                        </h3>
-                        <p className="text-base text-gray-500 max-w-md leading-relaxed">
-                          {filter === "completed"
-                            ? "Complete your tasks to see them here."
-                            : filter === "active"
-                            ? "Create your first task by clicking the button below."
-                            : "Start typing or hold control to start dictation."}
-                        </p>
-                      </motion.div>
-                    </div>
-                  )}
+                        {/* Main Content */}
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{
+                            duration: 0.5,
+                            delay: 0.2,
+                            ease: [0.22, 1, 0.36, 1],
+                          }}
+                          className="relative z-10"
+                        >
+                          <h3 className="text-3xl font-light text-gray-900 mb-3 tracking-tight">
+                            {filter === "completed"
+                              ? "No completed tasks"
+                              : filter === "active"
+                              ? "No active tasks"
+                              : "No tasks"}
+                          </h3>
+                          <p className="text-base text-gray-500 max-w-md leading-relaxed">
+                            {filter === "completed"
+                              ? "Complete your tasks to see them here."
+                              : filter === "active"
+                              ? "Create your first task by clicking the button below."
+                              : "Start typing or hold control to start dictation."}
+                          </p>
+                        </motion.div>
+                      </div>
+                    )}
                 </div>
               </div>
             </motion.div>
@@ -3264,6 +3488,46 @@ export default function TaskManager() {
               Hold Ctrl
             </span>
           </button>
+
+          {/* Voice Tooltip - Show after first task is added */}
+          <AnimatePresence>
+            {showOnboarding &&
+              onboardingCompletedSteps.includes("add-task") &&
+              !onboardingCompletedSteps.includes("try-dictation") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10, transition: { duration: 0.3 } }}
+                  transition={{ duration: 0.3, delay: 0.5 }}
+                  className="absolute bottom-full right-0 mb-3 w-72"
+                >
+                  <div className="relative">
+                    {/* Arrow pointing down to button */}
+                    <div className="absolute -bottom-2 right-6 w-4 h-4 bg-white border-r border-b border-slate-200/60 transform rotate-45"></div>
+
+                    {/* Tooltip content */}
+                    <div className="relative rounded-2xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-200/60 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                          <Mic className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                            Try talking to your tasks
+                          </h4>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Try saying:{" "}
+                            <span className="font-medium text-gray-900">
+                              "Call Mom on Saturday at 8pm"
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+          </AnimatePresence>
         </motion.div>
       )}
 
@@ -3275,7 +3539,7 @@ export default function TaskManager() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 backdrop-blur-md"
+            className="fixed inset-0 z-[51] bg-black/40 backdrop-blur-lg"
           />
 
           {/* Main modal container */}
@@ -3289,10 +3553,10 @@ export default function TaskManager() {
               damping: 30,
               duration: 0.4,
             }}
-            className="relative z-10 w-full max-w-xl mx-4"
+            className="relative z-[60] w-full max-w-xl mx-4"
           >
             {/* Glass container */}
-            <div className="relative overflow-hidden rounded-3xl bg-white/95 backdrop-blur-sm border border-gray-200/50 shadow-xl">
+            <div className="relative overflow-hidden rounded-3xl bg-white backdrop-blur-sm border border-gray-200/50 shadow-xl">
               {/* Content */}
               <div className="relative p-8">
                 <AnimatePresence mode="wait" initial={false}>
@@ -3359,6 +3623,49 @@ export default function TaskManager() {
                           <div className="mb-2 text-sm font-medium text-gray-700">
                             Raw Transcription
                           </div>
+
+                          {/* First-time voice edit tip */}
+                          <AnimatePresence>
+                            {!hasSeenVoiceEditTip && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                transition={{
+                                  duration: 0.3,
+                                  ease: [0.22, 1, 0.36, 1],
+                                }}
+                                className="mb-3 p-3 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                                  <div className="flex-1">
+                                    <p className="text-xs text-slate-700">
+                                      <span className="font-medium text-slate-900">
+                                        Tip:
+                                      </span>{" "}
+                                      Click on the text fields below to edit if
+                                      the transcription isn't quite right!
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setHasSeenVoiceEditTip(true);
+                                      localStorage.setItem(
+                                        "hasSeenVoiceEditTip",
+                                        "true"
+                                      );
+                                    }}
+                                    className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+                                    aria-label="Dismiss tip"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
                           <div className="relative">
                             {/* Bottom-right overlay: show hint or a tiny loading bubble */}
                             <AnimatePresence initial={false}>
@@ -3447,6 +3754,7 @@ export default function TaskManager() {
                             <div className="text-sm font-medium mb-2 text-gray-700">
                               Processed Task
                             </div>
+
                             <div className="space-y-3">
                               <div className="relative">
                                 <div className="flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
@@ -3566,7 +3874,7 @@ export default function TaskManager() {
                           Cancel
                         </Button>
                         <Button
-                          onClick={() => {
+                          onClick={async () => {
                             if (processedTask) {
                               // Use voicePreviewTags (existing categories) instead of processedTask.tags
                               const tagsToUse =
@@ -3588,6 +3896,18 @@ export default function TaskManager() {
                               }
 
                               addTask(taskText, taskDate);
+
+                              // Mark dictation onboarding step complete after task is added
+                              if (
+                                showOnboarding &&
+                                !onboardingCompletedSteps.includes(
+                                  "try-dictation"
+                                )
+                              ) {
+                                await handleOnboardingStepComplete(
+                                  "try-dictation"
+                                );
+                              }
                             }
                             setShowVoiceMenu(false);
                           }}
@@ -3636,9 +3956,21 @@ export default function TaskManager() {
                                       tags: [],
                                       createdAt: todayNoTime,
                                       group: "master",
-                                    }).then(() => {
+                                    }).then(async () => {
                                       setManualTaskText("");
                                       setShowVoiceMenu(false);
+
+                                      // Mark dictation onboarding step complete
+                                      if (
+                                        showOnboarding &&
+                                        !onboardingCompletedSteps.includes(
+                                          "try-dictation"
+                                        )
+                                      ) {
+                                        await handleOnboardingStepComplete(
+                                          "try-dictation"
+                                        );
+                                      }
                                     });
                                   }
                                 }}
@@ -3702,6 +4034,7 @@ export default function TaskManager() {
           onComplete={handleOnboardingComplete}
           onStepComplete={handleOnboardingStepComplete}
           completedSteps={onboardingCompletedSteps}
+          hasStarted={onboardingHasStarted}
         />
       )}
     </div>
@@ -3788,6 +4121,126 @@ function BacklogView({
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Parse date and time from task text (local version for TabPageContent)
+  const parseTaskDateTimeLocal = (
+    text: string
+  ): { date: Date | null; time: string | null } => {
+    const lowerText = text.toLowerCase();
+    let date: Date | null = null;
+    let time: string | null = null;
+
+    // Parse time - supports "12pm", "12:30pm", "3am", etc.
+    const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = timeMatch[2] || "00";
+      const ampm = timeMatch[3]?.toLowerCase();
+
+      if (ampm === "pm" && hours !== 12) hours += 12;
+      if (ampm === "am" && hours === 12) hours = 0;
+
+      time = `${hours.toString().padStart(2, "0")}:${minutes}`;
+    }
+
+    // Enhanced date parsing
+    const today = new Date();
+
+    // Parse "tomorrow" or "tmr"
+    if (lowerText.includes("tomorrow") || lowerText.includes("tmr")) {
+      date = new Date(today);
+      date.setDate(date.getDate() + 1);
+    }
+    // Parse "today"
+    else if (lowerText.includes("today")) {
+      date = new Date(today);
+    }
+    // Parse day names (Monday, Tuesday, etc.)
+    else {
+      const dayNames = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ];
+      const dayAbbreviations: Record<string, string> = {
+        sun: "sunday",
+        mon: "monday",
+        tue: "tuesday",
+        tues: "tuesday",
+        wed: "wednesday",
+        thu: "thursday",
+        thur: "thursday",
+        thurs: "thursday",
+        fri: "friday",
+        sat: "saturday",
+      };
+
+      // Check for "next" + day name (e.g., "next Friday")
+      const nextDayMatch = lowerText.match(
+        /next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)/i
+      );
+      if (nextDayMatch) {
+        let targetDayName = nextDayMatch[1].toLowerCase();
+        // Convert abbreviation to full name
+        targetDayName = dayAbbreviations[targetDayName] || targetDayName;
+        const targetDay = dayNames.indexOf(targetDayName);
+        if (targetDay !== -1) {
+          date = new Date(today);
+          const currentDay = date.getDay();
+          let daysToAdd = targetDay - currentDay;
+          // "next" means the following week, so add 7 days
+          if (daysToAdd <= 0) {
+            daysToAdd += 7;
+          }
+          daysToAdd += 7; // Add another week for "next"
+          date.setDate(date.getDate() + daysToAdd);
+        }
+      }
+      // Check for day name (e.g., "Friday", "on Friday", "by Friday")
+      else {
+        for (const dayName of dayNames) {
+          const dayRegex = new RegExp(`\\b(on|by|this)?\\s*${dayName}\\b`, "i");
+          if (dayRegex.test(lowerText)) {
+            const targetDay = dayNames.indexOf(dayName);
+            date = new Date(today);
+            const currentDay = date.getDay();
+            let daysToAdd = targetDay - currentDay;
+            // If the day has passed this week, go to next week
+            if (daysToAdd <= 0) {
+              daysToAdd += 7;
+            }
+            date.setDate(date.getDate() + daysToAdd);
+            break;
+          }
+        }
+
+        // Check abbreviations too
+        if (!date) {
+          for (const [abbr, fullName] of Object.entries(dayAbbreviations)) {
+            const abbrRegex = new RegExp(`\\b(on|by|this)?\\s*${abbr}\\b`, "i");
+            if (abbrRegex.test(lowerText)) {
+              const targetDay = dayNames.indexOf(fullName);
+              date = new Date(today);
+              const currentDay = date.getDay();
+              let daysToAdd = targetDay - currentDay;
+              // If the day has passed this week, go to next week
+              if (daysToAdd <= 0) {
+                daysToAdd += 7;
+              }
+              date.setDate(date.getDate() + daysToAdd);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return { date, time };
+  };
 
   // Helper to get state for a card
   const getCardState = (catName: string) =>
@@ -3878,12 +4331,16 @@ function BacklogView({
     try {
       const tags = parseTagsFromText(newTaskText);
 
-      // Create the final date with time if both are selected
-      let finalDate = newTaskDate || new Date();
+      // Parse date and time from the task text automatically
+      const parsedDateTime = parseTaskDateTimeLocal(newTaskText);
 
-      // Always apply time if it's set, regardless of whether a date is selected
-      if (newTaskTime) {
-        const [hours, minutes] = newTaskTime.split(":").map(Number);
+      // Create the final date with time if both are selected
+      let finalDate = parsedDateTime.date ?? newTaskDate ?? new Date();
+
+      // Always apply time if it's set (from parsing or manual selection)
+      const timeToUse = parsedDateTime.time || newTaskTime;
+      if (timeToUse) {
+        const [hours, minutes] = timeToUse.split(":").map(Number);
         finalDate = new Date(finalDate);
         finalDate.setHours(hours, minutes, 0, 0);
       } else {
@@ -3925,7 +4382,6 @@ function BacklogView({
       setNewTaskText("");
       setNewTaskDate(undefined);
       setNewTaskTime(null);
-      toast.success("Task added to backlog!");
     } catch (error) {
       toast.error("Failed to add task");
     }
@@ -3943,7 +4399,6 @@ function BacklogView({
         // Add the suggested category as a tag
         const categorizedText = taskText + ` #${result.suggestedCategory}`;
         setCardState(selectedCategory || "", { input: categorizedText });
-        toast.success(`Categorized as: ${result.suggestedCategory}`);
       }
     } catch (error) {
       console.error("Error categorizing task:", error);
@@ -4048,7 +4503,6 @@ function BacklogView({
       await Promise.all(
         selectedTaskIds.map((id) => updateTask(id, { completed: true }))
       );
-      toast.success(`Completed ${selectedTaskIds.length} tasks`);
       clearSelection();
     } catch (error) {
       toast.error("Failed to complete tasks");
@@ -4058,7 +4512,6 @@ function BacklogView({
   const bulkDelete = async () => {
     try {
       await Promise.all(selectedTaskIds.map((id) => deleteTask(id)));
-      toast.success(`Deleted ${selectedTaskIds.length} tasks`);
       clearSelection();
     } catch (error) {
       toast.error("Failed to delete tasks");
@@ -4076,7 +4529,6 @@ function BacklogView({
           return Promise.resolve();
         })
       );
-      toast.success(`Added tag "${tag}" to ${selectedTaskIds.length} tasks`);
       clearSelection();
     } catch (error) {
       toast.error("Failed to add tags");
@@ -4420,7 +4872,6 @@ function BacklogView({
                                 })
                               );
                               await deleteCategory(category.id);
-                              toast.success(`Deleted '${catName}'`);
                             } catch (err) {
                               toast.error("Failed to delete category");
                             }
@@ -5136,9 +5587,6 @@ function PomodoroTimer({
                                                 await updateTask(task.id, {
                                                   tags: updatedTags,
                                                 });
-                                                toast.success(
-                                                  `Changed category to ${category.name}`
-                                                );
                                               } catch (error) {
                                                 toast.error(
                                                   "Failed to update category"
@@ -5171,11 +5619,6 @@ function PomodoroTimer({
                                                       await setCategoryHiddenOnHome(
                                                         category.id,
                                                         !hidden
-                                                      );
-                                                      toast.success(
-                                                        hidden
-                                                          ? `${category.name} is now visible on Home`
-                                                          : `${category.name} is now hidden from Home`
                                                       );
                                                     } catch (error) {
                                                       toast.error(

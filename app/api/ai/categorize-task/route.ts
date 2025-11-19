@@ -13,7 +13,6 @@ const fallbackCategorize = (
   taskText: string, 
   categoriesWithExamples: CategoryWithExamples[]
 ) => {
-  console.log('Using built-in fallback categorization for:', taskText);
   
   const lowerTaskText = taskText.toLowerCase();
   
@@ -106,9 +105,12 @@ const fallbackCategorize = (
 
 // Check if required environment variables are set
 const isAIConfigured = () => {
-  return process.env.AZURE_OPENAI_API_KEY && 
-         process.env.AZURE_OPENAI_ENDPOINT && 
-         process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+  // Support both OpenAI and Azure OpenAI
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAzure = !!(process.env.AZURE_OPENAI_API_KEY && 
+                      process.env.AZURE_OPENAI_ENDPOINT && 
+                      process.env.AZURE_OPENAI_DEPLOYMENT_NAME);
+  return hasOpenAI || hasAzure;
 };
 
 export async function POST(request: Request) {
@@ -138,10 +140,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    console.log("Attempting to categorize task:", taskText);
-    console.log("Available categories:", categories);
-    console.log("User ID:", userId);
-
     // Build categories (without examples for now - requires Firebase Admin SDK)
     // The AI will use category names and semantic understanding
     const categoriesWithExamples: CategoryWithExamples[] = categories.map(categoryName => ({
@@ -149,11 +147,9 @@ export async function POST(request: Request) {
       examples: [] // TODO: Fetch examples when Firebase Admin SDK is configured
     }));
 
-    console.log("Categories:", categoriesWithExamples.map(c => c.name));
-
     // Check if AI is properly configured - use fallback if not
     if (!isAIConfigured()) {
-      console.warn("Azure OpenAI not configured - using fallback categorization");
+      console.warn("OpenAI not configured - using fallback categorization");
       const fallbackResult = fallbackCategorize(taskText, categoriesWithExamples);
       return NextResponse.json(fallbackResult);
     }
@@ -168,13 +164,30 @@ export async function POST(request: Request) {
       return NextResponse.json(fallbackResult);
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      baseURL: process.env.AZURE_OPENAI_ENDPOINT,
-      defaultQuery: { "api-version": "2024-02-15-preview" },
-      defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY },
-      timeout: 5000, // 5 second timeout
-    });
+    // Configure OpenAI client (supports both OpenAI and Azure)
+    const isAzure = !!(
+      process.env.AZURE_OPENAI_ENDPOINT &&
+      process.env.AZURE_OPENAI_API_KEY &&
+      process.env.AZURE_OPENAI_DEPLOYMENT_NAME
+    );
+
+    // Remove trailing slash from Azure endpoint if present
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT?.replace(/\/$/, '');
+    const azureDeployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
+    
+    const openai = isAzure
+      ? new OpenAI({
+          // For Azure OpenAI, use the base endpoint URL without the deployment path
+          apiKey: process.env.AZURE_OPENAI_API_KEY,
+          baseURL: `${azureEndpoint}/openai/deployments/${azureDeployment}`,
+          defaultQuery: { "api-version": "2024-08-01-preview" },
+          defaultHeaders: { "api-key": process.env.AZURE_OPENAI_API_KEY },
+          timeout: 5000,
+        })
+      : new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+          timeout: 5000,
+        });
 
     // Build category context with names and example tasks
     const categoryContext = categoriesWithExamples.map(cat => {
@@ -192,9 +205,15 @@ export async function POST(request: Request) {
       setTimeout(() => reject(new Error('AI categorization timeout')), 5000);
     });
 
+    // Determine which model to use
+    const model = isAzure 
+      // In Azure, `model` should be set to the *deployment name*.
+      ? (process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4o-mini")
+      : "gpt-4o-mini"; // Use gpt-4o-mini for standard OpenAI (faster & cheaper)
+    
     // Create the OpenAI API call promise
     const apiCallPromise = openai.chat.completions.create({
-      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4",
+      model,
       messages: [
         {
           role: "system",
@@ -350,8 +369,6 @@ Respond with ONLY a JSON object:
         return NextResponse.json(fallbackResult);
       }
 
-      console.log("AI categorization result:", aiResult);
-
       // Find the uncategorized category if it exists
       const uncategorizedCategory = categoriesWithExamples.find(c => 
         /uncategorized|general|misc|inbox|backlog/i.test(c.name)
@@ -364,7 +381,6 @@ Respond with ONLY a JSON object:
       let finalReasoning = aiResult.reasoning;
 
       if (finalConfidence < CONFIDENCE_THRESHOLD) {
-        console.log(`AI confidence (${finalConfidence}) below threshold (${CONFIDENCE_THRESHOLD}) - forcing Uncategorized`);
         if (uncategorizedCategory) {
           finalCategory = uncategorizedCategory.name;
           finalReasoning = `Low confidence (${finalConfidence}): ${aiResult.reasoning}`;
@@ -412,6 +428,14 @@ Respond with ONLY a JSON object:
       });
     } catch (aiError) {
       // Handle any OpenAI errors (including timeout and network errors)
+      const err = aiError as any;
+      if (err?.status === 404 || err?.code === "404") {
+        console.warn(
+          "OpenAI API returned 404 (resource not found). " +
+          "If you're using Azure OpenAI, double-check AZURE_OPENAI_ENDPOINT " +
+          "and AZURE_OPENAI_DEPLOYMENT_NAME match your deployment."
+        );
+      }
       console.warn("OpenAI API error, using fallback:", aiError);
       const fallbackResult = fallbackCategorize(taskText, categoriesWithExamples);
       return NextResponse.json(fallbackResult);

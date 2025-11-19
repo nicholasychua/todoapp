@@ -163,11 +163,61 @@ export async function shouldShowOnboarding(userId: string): Promise<boolean> {
 
     // Show onboarding if:
     // 1. State doesn't exist (new user)
-    // 2. State exists but not completed
-    return !state || !state.completed;
+    // 2. State exists but not all steps are completed
+    if (!state) return true;
+    
+    // Check if all steps are completed
+    const allStepsCompleted = ONBOARDING_STEPS.every((step) =>
+      state.completedSteps.includes(step)
+    );
+    
+    return !allStepsCompleted;
   } catch (error) {
     console.error("Error checking onboarding status:", error);
     return false;
+  }
+}
+
+/**
+ * Check if user has dismissed the welcome screens
+ */
+export async function hasOnboardingStarted(userId: string): Promise<boolean> {
+  try {
+    const state = await getOnboardingState(userId);
+    return state?.completed ?? false;
+  } catch (error) {
+    console.error("Error checking onboarding started status:", error);
+    return false;
+  }
+}
+
+/**
+ * Mark that user has dismissed the welcome screens (not the same as completing all tasks)
+ */
+export async function dismissOnboardingWelcome(userId: string): Promise<void> {
+  try {
+    const db = getClientDb();
+    if (!db) {
+      console.error("Firestore is not available");
+      return;
+    }
+
+    const onboardingRef = doc(db, "onboarding", userId);
+    let state = await getOnboardingState(userId);
+
+    if (!state) {
+      await initializeOnboarding(userId);
+      state = await getOnboardingState(userId);
+    }
+
+    await updateDoc(onboardingRef, {
+      completed: true, // This now means "welcome dismissed", not "all tasks done"
+    });
+
+    console.log("Onboarding welcome dismissed for user:", userId);
+  } catch (error) {
+    console.error("Error dismissing onboarding welcome:", error);
+    throw error;
   }
 }
 

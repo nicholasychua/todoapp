@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "./button";
-import { Card } from "./card";
 import { useTabGroupService } from "../../hooks/useTabGroupService";
 import { motion, AnimatePresence } from "framer-motion";
 import type { TabGroup } from "../../lib/tabgroups";
@@ -175,9 +174,8 @@ function FocusSession({
         <div className="w-px bg-gray-200 h-5/6 self-center ml-4 mr-12" />
         {/* Right: Task List */}
         <div className="flex flex-1 items-center justify-center">
-          <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
-            <div className="py-0 flex flex-col gap-0">
-              <AnimatePresence initial={false}>
+          <div className="w-[440px] flex flex-col justify-center gap-0 border-none shadow-none">
+            <AnimatePresence initial={false}>
                 {filteredTasks.map((task, idx) => {
                   // Date logic
                   const hasDate = task.createdAt instanceof Date;
@@ -235,8 +233,7 @@ function FocusSession({
                         delay: idx * 0.04,
                       }}
                       className={cn(
-                        "flex items-start px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative",
-                        idx !== tasks.length - 1 && "border-b border-gray-200",
+                        "flex items-start px-4 py-3 min-h-[40px] group hover:bg-accent/50 transition-colors relative border-none shadow-none rounded-none bg-transparent",
                         effectivelyCompleted ? "bg-muted/30" : ""
                       )}
                     >
@@ -276,7 +273,7 @@ function FocusSession({
                             {task.tags.map((tag) => (
                               <Popover key={tag}>
                                 <PopoverTrigger asChild>
-                                  <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded transition-colors">
+                                  <span className="text-xs font-medium flex items-center gap-0.5 cursor-pointer">
                                     <span className="text-gray-500">{tag}</span>
                                     <span
                                       className={cn(
@@ -403,8 +400,7 @@ function FocusSession({
                   );
                 })}
               </AnimatePresence>
-            </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

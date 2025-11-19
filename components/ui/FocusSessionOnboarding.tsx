@@ -191,7 +191,7 @@ export function FocusSessionOnboarding({
                                   {task.tags.map((tag) => (
                                     <span
                                       key={tag}
-                                      className="text-xs font-medium flex items-center gap-0.5 px-2 py-1 rounded-md bg-gray-100"
+                                      className="text-xs font-medium flex items-center gap-0.5"
                                     >
                                       <span
                                         className={cn(
