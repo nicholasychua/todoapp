@@ -4976,42 +4976,74 @@ function BacklogView({
                       </div>
                     ) : catTasks.length > 0 || !tasksLoaded ? (
                       <div className="space-y-2">
-                        {catTasks.slice(0, 3).map((task, idx) => (
-                          <div
-                            key={task.id}
-                            className={cn(
-                              "flex items-start gap-3 p-2 rounded transition-colors",
-                              completedTaskIds.includes(task.id) ||
-                                task.completed
-                                ? "opacity-50"
-                                : "hover:bg-gray-50"
-                            )}
-                          >
-                            <StyledCheckbox
-                              checked={
+                        {catTasks.slice(0, 3).map((task, idx) => {
+                          // Date logic for preview
+                          const hasDate = task.createdAt instanceof Date;
+                          let dateString = "";
+                          let isPastOrToday = false;
+                          if (hasDate) {
+                            const d = task.createdAt;
+                            dateString = `${d.getMonth() + 1}/${d.getDate()}/${d
+                              .getFullYear()
+                              .toString()
+                              .slice(-2)}`;
+                            const dateOnly = new Date(d);
+                            dateOnly.setHours(0, 0, 0, 0);
+                            const todayOnly = new Date();
+                            todayOnly.setHours(0, 0, 0, 0);
+                            isPastOrToday =
+                              dateOnly.getTime() <= todayOnly.getTime();
+                          }
+
+                          return (
+                            <div
+                              key={task.id}
+                              className={cn(
+                                "flex items-center gap-3 p-2 rounded transition-colors",
                                 completedTaskIds.includes(task.id) ||
-                                task.completed
-                              }
-                              onCheckedChange={() =>
-                                toggleTaskCompletion(task.id)
-                              }
-                              className="flex-shrink-0 mt-0.5"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span
-                                className={cn(
-                                  "text-sm leading-relaxed block",
+                                  task.completed
+                                  ? "opacity-50"
+                                  : "hover:bg-gray-50"
+                              )}
+                            >
+                              <StyledCheckbox
+                                checked={
                                   completedTaskIds.includes(task.id) ||
-                                    task.completed
-                                    ? "text-gray-500 line-through"
-                                    : "text-gray-900"
+                                  task.completed
+                                }
+                                onCheckedChange={() =>
+                                  toggleTaskCompletion(task.id)
+                                }
+                                className="flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0 flex items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "text-sm leading-relaxed flex-1",
+                                    completedTaskIds.includes(task.id) ||
+                                      task.completed
+                                      ? "text-gray-500 line-through"
+                                      : "text-gray-900"
+                                  )}
+                                >
+                                  {formatTextWithTags(task.text)}
+                                </span>
+                                {hasDate && (
+                                  <span
+                                    className={cn(
+                                      "text-xs flex-shrink-0",
+                                      isPastOrToday
+                                        ? "text-red-500"
+                                        : "text-gray-400"
+                                    )}
+                                  >
+                                    {dateString}
+                                  </span>
                                 )}
-                              >
-                                {formatTextWithTags(task.text)}
-                              </span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {catTasks.length > 3 && (
                           <div className="text-xs text-gray-400 text-center pt-2">
                             +{catTasks.length - 3} more
@@ -5113,27 +5145,6 @@ function BacklogView({
                       </TooltipProvider>
                     );
                   })()}
-                <button className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 17h5l-5 5v-5z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M9 11h.01M9 8h.01"
-                    />
-                  </svg>
-                </button>
                 <button
                   onClick={closeCategoryModal}
                   className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors"
@@ -5211,26 +5222,93 @@ function BacklogView({
                           />
                         </div>
 
-                        {/* Task text */}
-                        {editingTaskId === task.id ? (
-                          <input
-                            ref={editInputRef}
-                            type="text"
-                            value={editingTaskText}
-                            onChange={(e) => setEditingTaskText(e.target.value)}
-                            onBlur={saveInlineEdit}
-                            onKeyDown={handleEditKeyDown}
-                            className="flex-1 text-base text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:border-blue-400 focus:ring-0 transition-all duration-150 ease-out"
-                            style={{ animation: "fadeIn 0.15s ease-out" }}
-                          />
-                        ) : (
-                          <span
-                            className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed hover:text-gray-600 transition-colors"
-                            onClick={() => startInlineEdit(task)}
-                          >
-                            {task.text}
-                          </span>
-                        )}
+                        {/* Task text and date */}
+                        <div className="flex-1 flex items-center gap-3">
+                          {editingTaskId === task.id ? (
+                            <input
+                              ref={editInputRef}
+                              type="text"
+                              value={editingTaskText}
+                              onChange={(e) =>
+                                setEditingTaskText(e.target.value)
+                              }
+                              onBlur={saveInlineEdit}
+                              onKeyDown={handleEditKeyDown}
+                              className="flex-1 text-base text-gray-900 bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:border-blue-400 focus:ring-0 transition-all duration-150 ease-out"
+                              style={{ animation: "fadeIn 0.15s ease-out" }}
+                            />
+                          ) : (
+                            <span
+                              className="flex-1 text-base text-gray-900 cursor-pointer leading-relaxed hover:text-gray-600 transition-colors"
+                              onClick={() => startInlineEdit(task)}
+                            >
+                              {task.text}
+                            </span>
+                          )}
+                          
+                          {/* Date display with popover to edit */}
+                          {(() => {
+                            const hasDate = task.createdAt instanceof Date;
+                            let dateString = "";
+                            let timeString = "";
+                            let isPastOrToday = false;
+                            if (hasDate) {
+                              const d = task.createdAt;
+                              dateString = `${d.getMonth() + 1}/${d.getDate()}/${d
+                                .getFullYear()
+                                .toString()
+                                .slice(-2)}`;
+                              const dateOnly = new Date(d);
+                              dateOnly.setHours(0, 0, 0, 0);
+                              const todayOnly = new Date();
+                              todayOnly.setHours(0, 0, 0, 0);
+                              isPastOrToday =
+                                dateOnly.getTime() <= todayOnly.getTime();
+                              const hours = d.getHours();
+                              const minutes = d.getMinutes();
+                              if (hours !== 0 || minutes !== 0) {
+                                timeString = d.toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                });
+                              }
+                            }
+
+                            return hasDate ? (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <span
+                                    className={cn(
+                                      "text-xs cursor-pointer hover:bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0",
+                                      isPastOrToday
+                                        ? "text-red-500"
+                                        : "text-gray-400"
+                                    )}
+                                  >
+                                    {dateString}
+                                    {timeString ? `, ${timeString}` : ""}
+                                  </span>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-auto p-0 z-[99999]"
+                                  align="start"
+                                >
+                                  <Calendar
+                                    mode="single"
+                                    selected={task.createdAt}
+                                    onSelect={(selectedDate) => {
+                                      if (selectedDate) {
+                                        updateTaskDate(task.id, selectedDate);
+                                      }
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            ) : null;
+                          })()}
+                        </div>
 
                         {/* Delete button */}
                         <button
@@ -5256,9 +5334,9 @@ function BacklogView({
                   if (!user || !cardStates[selectedCategory]?.input?.trim())
                     return;
 
-                  // Create today's date with no time (set to midnight)
-                  const todayNoTime = new Date();
-                  todayNoTime.setHours(0, 0, 0, 0);
+                  // Use the selected date or default to today's date
+                  const taskDate = cardStates[selectedCategory]?.date || new Date();
+                  taskDate.setHours(0, 0, 0, 0);
 
                   // Force Enter/Add submissions into Uncategorized
                   const tags: string[] = [];
@@ -5267,7 +5345,7 @@ function BacklogView({
                     text: taskText,
                     completed: false,
                     tags,
-                    createdAt: todayNoTime,
+                    createdAt: taskDate,
                     group: "master",
                   });
 
@@ -5283,7 +5361,7 @@ function BacklogView({
                 <div className="flex-1 relative">
                   <Input
                     placeholder="Add a new task..."
-                    className="flex-1 text-base rounded-lg bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300"
+                    className="flex-1 text-base rounded-lg bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300 pr-10"
                     value={cardStates[selectedCategory]?.input || ""}
                     onChange={(e) =>
                       setCardState(selectedCategory, { input: e.target.value })
@@ -5299,6 +5377,37 @@ function BacklogView({
                       }
                     }}
                   />
+                  {/* Calendar button inside input */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-blue-500 p-1 rounded transition-colors"
+                          aria-label="Select date"
+                        >
+                          <CalendarIcon className="w-4 h-4" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto p-0 z-[99999]"
+                        align="end"
+                      >
+                        <Calendar
+                          mode="single"
+                          selected={cardStates[selectedCategory]?.date}
+                          onSelect={(selectedDate) => {
+                            if (selectedDate) {
+                              setCardState(selectedCategory, {
+                                date: selectedDate,
+                              });
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
                 <Button
                   type="submit"

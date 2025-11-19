@@ -174,7 +174,6 @@ function FocusSession({
         <div className="w-px bg-gray-200 h-5/6 self-center ml-4 mr-12" />
         {/* Right: Task List */}
         <div className="flex flex-1 items-center justify-center">
-          <div className="w-[440px] flex flex-col justify-center gap-0 border-none shadow-none">
             <AnimatePresence initial={false}>
                 {filteredTasks.map((task, idx) => {
                   // Date logic
@@ -400,7 +399,6 @@ function FocusSession({
                   );
                 })}
               </AnimatePresence>
-          </div>
         </div>
       </div>
     </div>

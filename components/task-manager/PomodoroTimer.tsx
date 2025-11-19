@@ -4,7 +4,6 @@ import { memo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Settings, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -186,8 +185,6 @@ export const PomodoroTimer = memo(function PomodoroTimer({
         <div className="w-px bg-gray-200 h-3/4" />
         {/* Right: Task List */}
         <div className="flex flex-1 items-center justify-start pl-32">
-          <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
-            <div className="py-0 flex flex-col gap-0">
               <AnimatePresence initial={false}>
                 {filteredTasks.map((task, idx) => {
                   // Date logic
@@ -464,8 +461,6 @@ export const PomodoroTimer = memo(function PomodoroTimer({
                   );
                 })}
               </AnimatePresence>
-            </div>
-          </Card>
         </div>
       </div>
     </div>
