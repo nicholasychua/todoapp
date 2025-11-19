@@ -1079,13 +1079,21 @@ export default function TaskManager() {
     try {
       await completeOnboardingStep(user.uid, stepId as OnboardingStep);
       setOnboardingCompletedSteps((prev) => {
+        // Don't add duplicate steps
+        if (prev.includes(stepId)) {
+          return prev;
+        }
+
         const newSteps = [...prev, stepId];
         // Check if all steps are complete
         const allSteps = ["add-task", "try-dictation", "explore-subspaces"];
-        const allComplete = allSteps.every((s) => newSteps.includes(s));
-        if (allComplete) {
+        const wasComplete = allSteps.every((s) => prev.includes(s));
+        const isNowComplete = allSteps.every((s) => newSteps.includes(s));
+
+        // Only show toast if we just completed all steps (not already complete)
+        if (isNowComplete && !wasComplete) {
           setShowOnboarding(false);
-          // Show celebration toast
+          // Show celebration toast only once
           setTimeout(() => {
             toast.success("🎉 You're all set! Happy organizing!", {
               duration: 5000,
@@ -1265,6 +1273,9 @@ export default function TaskManager() {
         group: "master",
       });
 
+      // Track task creation analytics
+      analytics.taskCreated(value, false, true);
+
       setNewTaskText("");
       setSpeechDraft("");
       setNewTaskDate(undefined);
@@ -1314,6 +1325,9 @@ export default function TaskManager() {
           createdAt: taskDate || new Date(),
           group: "master",
         });
+
+        // Track task creation analytics
+        analytics.taskCreated(taskText, finalTags.length > 0, !!taskDate);
 
         // Track onboarding step - only mark add-task for Shift+Enter
         // (dictation step is tracked separately in voice menu)
@@ -1957,6 +1971,9 @@ export default function TaskManager() {
       tags: taskData.category ? [taskData.category] : [],
       group: "master",
     });
+
+    // Track task creation analytics
+    analytics.taskCreated(taskData.text, !!taskData.category, true);
   };
 
   // Temporary visibility helpers (TaskManager scope)
@@ -3971,6 +3988,9 @@ export default function TaskManager() {
                                       createdAt: todayNoTime,
                                       group: "master",
                                     }).then(async () => {
+                                      // Track task creation analytics
+                                      analytics.taskCreated(text, false, true);
+
                                       setManualTaskText("");
                                       setShowVoiceMenu(false);
 
@@ -5209,13 +5229,18 @@ function BacklogView({
 
                   // Force Enter/Add submissions into Uncategorized
                   const tags: string[] = [];
+                  const taskText = cardStates[selectedCategory]?.input || "";
                   await createTask({
-                    text: cardStates[selectedCategory]?.input,
+                    text: taskText,
                     completed: false,
                     tags,
                     createdAt: todayNoTime,
                     group: "master",
                   });
+
+                  // Track task creation analytics
+                  analytics.taskCreated(taskText, false, true);
+
                   setCardState(selectedCategory, {
                     input: "",
                     date: undefined,

@@ -17,6 +17,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       visibleToasts={4}
       offset={16}
       gap={-64}
+      pauseWhenPageIsHidden={false}
       toastOptions={{
         classNames: {
           toast: "group toast glass-panel rounded-2xl",
@@ -26,6 +27,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton:
             "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
         },
+        unstyled: false,
+        duration: 4000,
       }}
       {...props}
     />

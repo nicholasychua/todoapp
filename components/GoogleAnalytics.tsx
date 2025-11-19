@@ -2,8 +2,25 @@
 
 import Script from 'next/script';
 import { GA_MEASUREMENT_ID } from '@/lib/google-analytics';
+import { useEffect, useState } from 'react';
 
 export default function GoogleAnalytics() {
+  const [isProduction, setIsProduction] = useState(false);
+
+  useEffect(() => {
+    // Only load Google Analytics on production domain
+    const hostname = window.location.hostname;
+    setIsProduction(
+      hostname === 'usesubspace.live' || 
+      hostname === 'www.usesubspace.live'
+    );
+  }, []);
+
+  // Don't load GA scripts on localhost
+  if (!isProduction) {
+    return null;
+  }
+
   return (
     <>
       <Script

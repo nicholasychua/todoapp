@@ -1,7 +1,20 @@
 import { track } from '@vercel/analytics';
 
+// Check if we're in production
+const isProduction = () => {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'usesubspace.live' || 
+         window.location.hostname === 'www.usesubspace.live';
+};
+
 // Dual tracking: Send events to both Vercel Analytics and Google Analytics
 const trackEvent = (eventName: string, eventParams: Record<string, any>) => {
+  // Only track in production
+  if (!isProduction()) {
+    console.log('[Analytics - Dev Only]', eventName, eventParams);
+    return;
+  }
+
   // Send to Vercel Analytics
   track(eventName, eventParams);
   

@@ -462,3 +462,23 @@ h4 {
     opacity: 0;
   }
 }
+
+/* Disable hover pause/expand behavior for Sonner toasts */
+[data-sonner-toaster] [data-sonner-toast] {
+  pointer-events: auto !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast]:hover {
+  transform: none !important;
+  scale: 1 !important;
+}
+
+/* Prevent toast expansion on hover */
+[data-sonner-toaster][data-y-position="top"] [data-sonner-toast]:hover {
+  transform: none !important;
+}
+
+/* Keep buttons clickable */
+[data-sonner-toaster] [data-sonner-toast] button {
+  pointer-events: auto !important;
+}
