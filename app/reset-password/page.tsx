@@ -149,7 +149,7 @@ export default function ResetPasswordPage() {
       {/* Logo at top left */}
       <div className="absolute top-10 left-8">
         <Link
-          href="/landing"
+          href="/home"
           className="flex items-center gap-1.5 focus:outline-none"
         >
           <Image

@@ -20,7 +20,7 @@ import {
 import { FeatureSection } from "@/components/FeatureSection";
 import SideShadedFrame from "@/components/ui/side-shaded-frame";
 
-export default function ComingSoonPage() {
+export default function HomePage() {
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },

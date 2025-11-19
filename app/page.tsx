@@ -2262,10 +2262,10 @@ export default function TaskManager() {
   };
 
   // All useEffect hooks
-  // Redirect to coming soon page if not authenticated
+  // Redirect to home page if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/coming-soon");
+      router.push("/home");
     } else if (!loading && user) {
       // If user is authenticated, stay on the main page
       console.log("User authenticated:", user.uid);

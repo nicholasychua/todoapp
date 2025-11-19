@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Coming Soon • Subspace",
+  title: "Home • Subspace",
 };
 
-export default function ComingSoonLayout({
+export default function HomeLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // Override Inter with system font just for this route

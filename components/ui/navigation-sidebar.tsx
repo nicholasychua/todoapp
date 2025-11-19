@@ -14,7 +14,7 @@ export function NavigationSidebar({ currentPage }: NavigationSidebarProps) {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/coming-soon');
+      router.push('/home');
     } catch (error) {
       console.error("Error logging out:", error);
     }
