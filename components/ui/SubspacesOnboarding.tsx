@@ -34,7 +34,7 @@ export function SubspacesOnboarding({ onComplete }: SubspacesOnboardingProps) {
       id: "manage",
       title: "Manage Your Subspaces",
       description:
-        "Add new categories using the text box at the top. You can also hide or show categories from your main page using the eye icon on each card.",
+        "Add new categories using the text box at the top. You can hide or show categories from the main page for increased focus using the eye icon on each card.",
       icon: <Plus className="w-5 h-5 text-slate-700" />,
       highlights: ["create-category", "visibility-toggle"],
       position: "top-20 md:top-32 right-6 md:right-12", // Same position as step 1
