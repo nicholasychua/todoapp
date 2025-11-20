@@ -49,18 +49,27 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
     }
   }
   
-  // Enhanced date parsing
-  const today = new Date();
+  // Enhanced date parsing - use local time to avoid timezone issues
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  // Helper to format date as YYYY-MM-DD in local time
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   
   // Parse "tomorrow" or "tmr"
   if (lowerInput.includes('tomorrow') || lowerInput.includes('tmr')) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    date = tomorrow.toISOString().split('T')[0];
+    date = formatLocalDate(tomorrow);
   } 
   // Parse "today"
   else if (lowerInput.includes('today')) {
-    date = today.toISOString().split('T')[0];
+    date = formatLocalDate(today);
   } 
   // Parse day names (Monday, Tuesday, etc.)
   else {
@@ -95,7 +104,7 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
         }
         daysToAdd += 7; // Add another week for "next"
         resultDate.setDate(resultDate.getDate() + daysToAdd);
-        date = resultDate.toISOString().split('T')[0];
+        date = formatLocalDate(resultDate);
       }
     } 
     // Check for day name (e.g., "Friday", "on Friday", "by Friday")
@@ -112,7 +121,7 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
             daysToAdd += 7;
           }
           resultDate.setDate(resultDate.getDate() + daysToAdd);
-          date = resultDate.toISOString().split('T')[0];
+          date = formatLocalDate(resultDate);
           break;
         }
       }
@@ -131,7 +140,7 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
               daysToAdd += 7;
             }
             resultDate.setDate(resultDate.getDate() + daysToAdd);
-            date = resultDate.toISOString().split('T')[0];
+            date = formatLocalDate(resultDate);
             break;
           }
         }
