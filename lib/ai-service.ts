@@ -6,6 +6,10 @@ export interface ProcessedTask {
   tags: string[];
 }
 
+export interface ProcessedTasksResponse {
+  tasks: ProcessedTask[];
+}
+
 export interface CategorizationResult {
   suggestedCategory: string;
   confidence: string;
@@ -21,11 +25,11 @@ export interface CategorizationResult {
  */
 export async function processTextInput(
   rawInput: string
-): Promise<ProcessedTask> {
+): Promise<ProcessedTask[]> {
   return getFallbackVoiceProcessing(rawInput);
 }
 
-export async function processVoiceInput(rawInput: string): Promise<ProcessedTask> {
+export async function processVoiceInput(rawInput: string): Promise<ProcessedTask[]> {
   try {
     // Create an abort controller for timeout
     const controller = new AbortController();
@@ -56,8 +60,8 @@ export async function processVoiceInput(rawInput: string): Promise<ProcessedTask
       return getFallbackVoiceProcessing(rawInput);
     }
 
-    const result = await response.json();
-    return result as ProcessedTask;
+    const result = await response.json() as ProcessedTasksResponse;
+    return result.tasks || [];
   } catch (error) {
     console.error('Error in processVoiceInput:', error);
     
@@ -135,21 +139,19 @@ export async function categorizeTask(
   }
 }
 
-// Fallback voice processing function
-function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
-  const input = rawInput.trim();
-  
-  // Extract hashtags
-  const tagMatches = input.match(/#(\w+)/g) || [];
-  const tags = tagMatches.map(tag => tag.substring(1));
+// Helper function to parse a single task
+function parseSingleTask(text: string, globalTags: string[] = []): ProcessedTask {
+  // Extract hashtags specific to this task
+  const tagMatches = text.match(/#(\w+)/g) || [];
+  const tags = [...new Set([...tagMatches.map(tag => tag.substring(1)), ...globalTags])];
   
   // Remove hashtags from the main text
-  const cleanText = input.replace(/#\w+/g, '').trim();
+  const cleanText = text.replace(/#\w+/g, '').trim();
   
   // Simple date/time extraction
   let date: string | null = null;
   let time: string | null = null;
-  const lowerInput = input.toLowerCase();
+  const lowerInput = text.toLowerCase();
   
   // Natural language time expressions (basic fallback)
   const naturalTimes: Record<string, string> = {
@@ -171,7 +173,7 @@ function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
   
   // If no natural time found, check for standard time patterns (12pm, 3:30am, etc.)
   if (!time) {
-    const timeMatch = input.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1]);
       const minutes = timeMatch[2] || '00';
@@ -317,6 +319,55 @@ function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
     time,
     tags
   };
+}
+
+// Fallback voice processing function - supports multiple tasks
+function getFallbackVoiceProcessing(rawInput: string): ProcessedTask[] {
+  const input = rawInput.trim();
+  
+  // Extract global hashtags (tags that apply to all tasks)
+  const tagMatches = input.match(/#(\w+)/g) || [];
+  const globalTags = tagMatches.map(tag => tag.substring(1));
+  
+  // Try to detect multiple tasks using common separators
+  const separators = [
+    /\s+and\s+(?:I\s+)?(?:have\s+|need\s+to\s+)?/gi, // "and I have", "and I need to", "and"
+    /\s+then\s+/gi, // "then"
+    /\s*,\s*(?:and\s+)?(?:I\s+)?(?:have\s+|need\s+to\s+)?/gi, // ", and", ", and I have"
+    /\s*;\s*/gi, // semicolon
+  ];
+  
+  // Split input into potential tasks
+  let taskStrings: string[] = [input];
+  
+  for (const separator of separators) {
+    const newTaskStrings: string[] = [];
+    for (const taskStr of taskStrings) {
+      const parts = taskStr.split(separator);
+      newTaskStrings.push(...parts);
+    }
+    taskStrings = newTaskStrings;
+  }
+  
+  // Filter out empty strings and process each task
+  const tasks = taskStrings
+    .map(str => str.trim())
+    .filter(str => str.length > 0)
+    .filter(str => {
+      // Filter out strings that are too short to be meaningful tasks
+      // But keep them if they have time/date info
+      const hasDateTime = /\d{1,2}\s*(am|pm|:)/i.test(str) || 
+                          /(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i.test(str);
+      return str.length > 5 || hasDateTime;
+    })
+    .map(taskStr => parseSingleTask(taskStr, globalTags));
+  
+  // If we couldn't split into multiple tasks, just return the single parsed task
+  if (tasks.length === 0) {
+    tasks.push(parseSingleTask(input, globalTags));
+  }
+  
+  return tasks;
 }
 
 // Simplified fallback categorization function that uses basic reasoning

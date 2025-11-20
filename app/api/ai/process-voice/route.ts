@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 
-// Fallback voice processing function
-const fallbackProcessVoiceInput = (rawInput: string) => {
-  const input = rawInput.trim();
-  
-  // Extract hashtags
-  const tagMatches = input.match(/#(\w+)/g) || [];
-  const tags = tagMatches.map(tag => tag.substring(1));
+// Helper function to parse a single task
+const parseSingleTask = (text: string, globalTags: string[] = []) => {
+  // Extract hashtags specific to this task
+  const tagMatches = text.match(/#(\w+)/g) || [];
+  const tags = [...new Set([...tagMatches.map(tag => tag.substring(1)), ...globalTags])];
   
   // Remove hashtags from the main text
-  const cleanText = input.replace(/#\w+/g, '').trim();
+  const cleanText = text.replace(/#\w+/g, '').trim();
   
   // Simple date/time extraction
   let date: string | null = null;
   let time: string | null = null;
-  const lowerInput = input.toLowerCase();
+  const lowerInput = text.toLowerCase();
   
   // Natural language time expressions (basic fallback)
   const naturalTimes: Record<string, string> = {
@@ -36,7 +34,7 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
   
   // If no natural time found, check for standard time patterns (12pm, 3:30am, etc.)
   if (!time) {
-    const timeMatch = input.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
     if (timeMatch) {
       let hours = parseInt(timeMatch[1]);
       const minutes = timeMatch[2] || '00';
@@ -184,6 +182,55 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
   };
 };
 
+// Fallback voice processing function - supports multiple tasks
+const fallbackProcessVoiceInput = (rawInput: string) => {
+  const input = rawInput.trim();
+  
+  // Extract global hashtags (tags that apply to all tasks)
+  const tagMatches = input.match(/#(\w+)/g) || [];
+  const globalTags = tagMatches.map(tag => tag.substring(1));
+  
+  // Try to detect multiple tasks using common separators
+  const separators = [
+    /\s+and\s+(?:I\s+)?(?:have\s+|need\s+to\s+)?/gi, // "and I have", "and I need to", "and"
+    /\s+then\s+/gi, // "then"
+    /\s*,\s*(?:and\s+)?(?:I\s+)?(?:have\s+|need\s+to\s+)?/gi, // ", and", ", and I have"
+    /\s*;\s*/gi, // semicolon
+  ];
+  
+  // Split input into potential tasks
+  let taskStrings: string[] = [input];
+  
+  for (const separator of separators) {
+    const newTaskStrings: string[] = [];
+    for (const taskStr of taskStrings) {
+      const parts = taskStr.split(separator);
+      newTaskStrings.push(...parts);
+    }
+    taskStrings = newTaskStrings;
+  }
+  
+  // Filter out empty strings and process each task
+  const tasks = taskStrings
+    .map(str => str.trim())
+    .filter(str => str.length > 0)
+    .filter(str => {
+      // Filter out strings that are too short to be meaningful tasks
+      // But keep them if they have time/date info
+      const hasDateTime = /\d{1,2}\s*(am|pm|:)/i.test(str) || 
+                          /(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i.test(str);
+      return str.length > 5 || hasDateTime;
+    })
+    .map(taskStr => parseSingleTask(taskStr, globalTags));
+  
+  // If we couldn't split into multiple tasks, just return the single parsed task
+  if (tasks.length === 0) {
+    tasks.push(parseSingleTask(input, globalTags));
+  }
+  
+  return tasks;
+};
+
 // Check if required environment variables are set
 const isAIConfigured = () => {
   return process.env.AZURE_OPENAI_ENDPOINT && 
@@ -253,7 +300,7 @@ export async function POST(request: Request) {
     if (!isAIConfigured()) {
       console.warn("Azure OpenAI not configured - using fallback voice processing");
       const fallbackResult = fallbackProcessVoiceInput(rawInput);
-      return NextResponse.json(fallbackResult);
+      return NextResponse.json({ tasks: fallbackResult });
     }
 
     // Get current date in Pacific Time
@@ -267,7 +314,7 @@ export async function POST(request: Request) {
     } catch (importError) {
       console.error("Failed to import OpenAI:", importError);
       const fallbackResult = fallbackProcessVoiceInput(rawInput);
-      return NextResponse.json(fallbackResult);
+      return NextResponse.json({ tasks: fallbackResult });
     }
 
     try {
@@ -295,19 +342,35 @@ export async function POST(request: Request) {
 
 Current date: ${today} (Pacific Time)
 
-Return JSON:
+**IMPORTANT**: The user may describe MULTIPLE tasks in one input. Detect and extract ALL tasks mentioned.
+
+Return JSON with a "tasks" array:
 {
-  "taskName": "Main task name",
-  "description": "Detailed description", 
-  "date": "YYYY-MM-DD or null",
-  "time": "HH:MM in 24-hour format or null",
-  "tags": ["hashtags", "only"]
+  "tasks": [
+    {
+      "taskName": "Main task name",
+      "description": "Detailed description", 
+      "date": "YYYY-MM-DD or null",
+      "time": "HH:MM in 24-hour format or null",
+      "tags": ["hashtags", "only"]
+    }
+  ]
 }
+
+Multiple Tasks Detection:
+- Look for separators: "and", "then", "also", commas, semicolons
+- Examples:
+  * "Zed concert at 4pm tomorrow and Noc2 concert at 6pm Friday" → 2 tasks
+  * "Buy milk, pick up kids, call dentist" → 3 tasks
+  * "Meeting at 2pm then coffee at 4pm" → 2 tasks
+- Each task should have its own entry in the "tasks" array
+- If only ONE task is mentioned, return array with ONE task
 
 Date Intelligence:
 - Understand relative dates: "tomorrow", "today", "next Monday", "Friday", etc.
 - Understand date formats: "11/25", "Nov 25", "November 25th"
 - Calculate from current date (${today})
+- Handle different dates for different tasks
 
 Time Intelligence:
 - Understand natural language times:
@@ -317,7 +380,7 @@ Time Intelligence:
   * "afternoon" = "14:00"
   * "evening" = "18:00"
   * "night" = "20:00"
-- Convert 12-hour to 24-hour: "2pm" = "14:00", "9am" = "09:00"
+- Convert 12-hour to 24-hour: "2pm" = "14:00", "9am" = "09:00", "4 p.m" = "16:00"
 - Handle variations: "2:30pm", "two thirty", "half past two"
 - If time is ambiguous or unclear, set to null
 
@@ -325,14 +388,15 @@ Tags:
 - ONLY extract words with # prefix (e.g., #work, #personal)
 - Do NOT create or suggest tags
 - Empty array if no hashtags present
+- Tags can be global (apply to all tasks) or task-specific
 
 Task Name:
 - Concise, descriptive, properly capitalized
 - **IMPORTANT**: Remove ALL date/time/temporal information from the task name
 - Extract the core action, not the timing
 - Examples:
-  * "call mom at 8pm" → taskName: "Call mom", time: "20:00"
-  * "meeting tomorrow at 3pm" → taskName: "Meeting", date: [tomorrow's date], time: "15:00"
+  * "Zed concert at 4pm tomorrow" → taskName: "Zed concert", date: [tomorrow], time: "16:00"
+  * "meeting at 3pm" → taskName: "Meeting", time: "15:00"
   * "buy groceries on Friday" → taskName: "Buy groceries", date: [Friday's date]
   * "submit report by Monday morning" → taskName: "Submit report", date: [Monday's date], time: "09:00"
 
@@ -352,31 +416,42 @@ If date/time unclear or not mentioned: set to null`,
       if (!content) {
         console.warn("Empty response from AI, using fallback");
         const fallbackResult = fallbackProcessVoiceInput(rawInput);
-        return NextResponse.json(fallbackResult);
+        return NextResponse.json({ tasks: fallbackResult });
       }
 
       try {
         const result = JSON.parse(content);
         
         // Validate the result structure
-        if (!result.taskName || typeof result.taskName !== 'string') {
-          console.warn("Invalid AI response structure, using fallback");
+        if (!result.tasks || !Array.isArray(result.tasks) || result.tasks.length === 0) {
+          console.warn("Invalid AI response structure (expected tasks array), using fallback");
           const fallbackResult = fallbackProcessVoiceInput(rawInput);
-          return NextResponse.json(fallbackResult);
+          return NextResponse.json({ tasks: fallbackResult });
         }
         
-        return NextResponse.json(result);
+        // Validate each task has at least a taskName
+        const validTasks = result.tasks.filter((task: any) => 
+          task.taskName && typeof task.taskName === 'string'
+        );
+        
+        if (validTasks.length === 0) {
+          console.warn("No valid tasks in AI response, using fallback");
+          const fallbackResult = fallbackProcessVoiceInput(rawInput);
+          return NextResponse.json({ tasks: fallbackResult });
+        }
+        
+        return NextResponse.json({ tasks: validTasks });
       } catch (parseError) {
         console.error("Failed to parse AI response:", parseError);
         console.error("Raw content that failed to parse:", content);
         const fallbackResult = fallbackProcessVoiceInput(rawInput);
-        return NextResponse.json(fallbackResult);
+        return NextResponse.json({ tasks: fallbackResult });
       }
     } catch (aiError) {
       // Handle any OpenAI errors (including timeout and network errors)
       console.warn("OpenAI API error, using fallback:", aiError);
       const fallbackResult = fallbackProcessVoiceInput(rawInput);
-      return NextResponse.json(fallbackResult);
+      return NextResponse.json({ tasks: fallbackResult });
     }
   } catch (error) {
     console.error("Error processing voice input:", error);

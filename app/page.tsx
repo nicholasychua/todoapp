@@ -730,9 +730,7 @@ export default function TaskManager() {
   const [editCategoriesMode, setEditCategoriesMode] = useState(false);
   const [draggedCatIdx, setDraggedCatIdx] = useState<number | null>(null);
   const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
-  const [processedTask, setProcessedTask] = useState<ProcessedTask | null>(
-    null
-  );
+  const [processedTasks, setProcessedTasks] = useState<ProcessedTask[]>([]);
   const [manualTaskText, setManualTaskText] = useState("");
   const [showBacklog, setShowBacklog] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
@@ -755,7 +753,7 @@ export default function TaskManager() {
   const [textareaHeight, setTextareaHeight] = useState(40);
   const [speechDraft, setSpeechDraft] = useState("");
   const [isAILoading, setIsAILoading] = useState(false);
-  const [voicePreviewTags, setVoicePreviewTags] = useState<string[]>([]);
+  const [voicePreviewTags, setVoicePreviewTags] = useState<string[][]>([]);
   const [originalVoiceRaw, setOriginalVoiceRaw] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
   // Track tasks that should be temporarily visible on Home even if their category is hidden
@@ -1311,39 +1309,47 @@ export default function TaskManager() {
       // Process the typed input text to extract task details including date.
       // This uses a lightweight, text-only parser and does NOT hit the
       // voice-processing endpoint to keep behavior predictable for typing.
-      const result = await processTextInput(taskText);
+      const results = await processTextInput(taskText);
 
-      // Create task with extracted information
-      if (result) {
-        // Format the task with any tags
-        const taskText = `${result.taskName} ${(result.tags || [])
-          .map((tag) => `#${tag}`)
-          .join(" ")}`;
+      // Create tasks with extracted information
+      if (results && results.length > 0) {
+        for (const result of results) {
+          // Format the task with any tags
+          const taskText = `${result.taskName} ${(result.tags || [])
+            .map((tag) => `#${tag}`)
+            .join(" ")}`;
 
-        // Extract date from the result
-        let taskDate: Date | undefined = undefined;
-        if (result.date) {
-          const timeString = result.time || "00:00";
-          taskDate = new Date(`${result.date}T${timeString}`);
+          // Extract date from the result
+          let taskDate: Date | undefined = undefined;
+          if (result.date) {
+            const timeString = result.time || "00:00";
+            taskDate = new Date(`${result.date}T${timeString}`);
+          }
+
+          // Auto-categorize tags using the user's categories
+          const finalTags = await autoCategorizeTags(
+            result.taskName,
+            result.tags || []
+          );
+
+          // Add the task
+          const created = await createTask({
+            text: taskText,
+            completed: false,
+            tags: finalTags,
+            createdAt: taskDate || new Date(),
+            group: "master",
+          });
+
+          // Track task creation analytics
+          analytics.taskCreated(taskText, finalTags.length > 0, !!taskDate);
+
+          // If added into a hidden category, temporarily reveal on Home
+          const primary = finalTags[0];
+          if (primary && hiddenCategoryNames.includes(primary) && created?.id) {
+            startTemporaryVisibility(created.id);
+          }
         }
-
-        // Auto-categorize tags using the user's categories
-        const finalTags = await autoCategorizeTags(
-          result.taskName,
-          result.tags || []
-        );
-
-        // Add the task
-        const created = await createTask({
-          text: taskText,
-          completed: false,
-          tags: finalTags,
-          createdAt: taskDate || new Date(),
-          group: "master",
-        });
-
-        // Track task creation analytics
-        analytics.taskCreated(taskText, finalTags.length > 0, !!taskDate);
 
         // Track onboarding step - only mark add-task for Shift+Enter
         // (dictation step is tracked separately in voice menu)
@@ -1353,11 +1359,10 @@ export default function TaskManager() {
 
         // Clear the input text
         setNewTaskText("");
-
-        // If added into a hidden category, temporarily reveal on Home
-        const primary = finalTags[0];
-        if (primary && hiddenCategoryNames.includes(primary) && created?.id) {
-          startTemporaryVisibility(created.id);
+        
+        // Show success message if multiple tasks were created
+        if (results.length > 1) {
+          toast.success(`${results.length} tasks added successfully`);
         }
       }
     } catch (error) {
@@ -1632,9 +1637,9 @@ export default function TaskManager() {
 
       try {
         const result = await processVoiceInput(capitalizedTranscript);
-        if (result) {
+        if (result && result.length > 0) {
           // Show the confirmation screen instead of directly creating the task
-          setProcessedTask(result);
+          setProcessedTasks(result);
           setShowVoiceMenu(true);
           setVoiceStep("confirm");
         }
@@ -1668,7 +1673,7 @@ export default function TaskManager() {
 
     try {
       const result = await processVoiceInput(manualTaskText);
-      setProcessedTask(result);
+      setProcessedTasks(result);
       setVoiceRaw(manualTaskText);
       setOriginalVoiceRaw(manualTaskText);
       setVoiceStep("confirm");
@@ -1689,7 +1694,7 @@ export default function TaskManager() {
     setIsRegenerating(true);
     try {
       const result = await processVoiceInput(text);
-      setProcessedTask(result);
+      setProcessedTasks(result);
       setOriginalVoiceRaw(text);
     } catch (error) {
       // Don't show error for AbortError (timeout) - fallback is already handled
@@ -2416,11 +2421,11 @@ export default function TaskManager() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCategoryPopup]);
 
-  // Compute voice preview tags (auto-categorized) whenever processedTask or categories change
+  // Compute voice preview tags (auto-categorized) whenever processedTasks or categories change
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!processedTask) {
+      if (processedTasks.length === 0) {
         setVoicePreviewTags([]);
         return;
       }
@@ -2428,17 +2433,17 @@ export default function TaskManager() {
       // The task name is categorized using autoCategorizeTags, which uses the same
       // categorizeTask API endpoint that regular typing uses
       // Date and time are already extracted and will be preserved when creating the task
-      const tags = await autoCategorizeTags(
-        processedTask.taskName,
-        processedTask.tags || []
+      const allTagsPromises = processedTasks.map(task => 
+        autoCategorizeTags(task.taskName, task.tags || [])
       );
-      if (!cancelled) setVoicePreviewTags(tags);
+      const allTags = await Promise.all(allTagsPromises);
+      if (!cancelled) setVoicePreviewTags(allTags);
     };
     run();
     return () => {
       cancelled = true;
     };
-  }, [processedTask, categories]);
+  }, [processedTasks, categories]);
 
   // Track session start analytics
   useEffect(() => {
@@ -3812,117 +3817,122 @@ export default function TaskManager() {
                           </div>
                         </div>
 
-                        {processedTask && (
+                        {processedTasks.length > 0 && (
                           <div>
                             <div className="text-sm font-medium mb-2 text-gray-700">
-                              Processed Task
+                              {processedTasks.length === 1 ? "Processed Task" : `Processed Tasks (${processedTasks.length})`}
                             </div>
 
                             <div className="space-y-3">
-                              <div className="relative">
-                                <div className="flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
-                                  <input
-                                    type="checkbox"
-                                    className="mr-2 mt-1"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-start justify-between gap-3">
+                              {processedTasks.map((task, idx) => {
+                                const taskTags = voicePreviewTags[idx] || [];
+                                return (
+                                  <div key={idx} className="relative">
+                                    <div className="flex items-start gap-2 border border-gray-200/50 rounded-xl p-3 bg-white/90 backdrop-blur-sm shadow-sm">
+                                      <input
+                                        type="checkbox"
+                                        className="mr-2 mt-1"
+                                      />
                                       <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-gray-900">
-                                          {processedTask.taskName
-                                            .charAt(0)
-                                            .toUpperCase() +
-                                            processedTask.taskName.slice(1)}
-                                        </div>
-                                        {(processedTask.date ||
-                                          processedTask.time ||
-                                          voicePreviewTags.length > 0) && (
-                                          <div className="flex items-center justify-between gap-3 mt-2">
-                                            <div className="flex items-center gap-4 flex-wrap">
-                                              {processedTask.date && (
-                                                <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                                                  {(() => {
-                                                    const date = new Date(
-                                                      processedTask.date +
-                                                        "T00:00:00"
-                                                    );
-                                                    const now = new Date();
-                                                    const isCurrentYear =
-                                                      date.getFullYear() ===
-                                                      now.getFullYear();
-                                                    return date.toLocaleDateString(
-                                                      "en-US",
-                                                      {
-                                                        month: "short",
-                                                        day: "numeric",
-                                                        ...(isCurrentYear
-                                                          ? {}
-                                                          : {
-                                                              year: "numeric",
-                                                            }),
-                                                        timeZone:
-                                                          "America/Los_Angeles",
-                                                      }
-                                                    );
-                                                  })()}
-                                                </div>
-                                              )}
-                                              {processedTask.time && (
-                                                <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                                                  {(() => {
-                                                    const [hours, minutes] =
-                                                      processedTask.time.split(
-                                                        ":"
-                                                      );
-                                                    const d = new Date(0);
-                                                    d.setHours(
-                                                      parseInt(hours, 10)
-                                                    );
-                                                    d.setMinutes(
-                                                      parseInt(minutes, 10)
-                                                    );
-                                                    return d.toLocaleTimeString(
-                                                      "en-US",
-                                                      {
-                                                        hour: "numeric",
-                                                        minute: "numeric",
-                                                        hour12: true,
-                                                        timeZone:
-                                                          "America/Los_Angeles",
-                                                      }
-                                                    );
-                                                  })()}
-                                                </div>
-                                              )}
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-gray-900">
+                                              {task.taskName
+                                                .charAt(0)
+                                                .toUpperCase() +
+                                                task.taskName.slice(1)}
                                             </div>
-                                            {voicePreviewTags.length > 0 && (
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {voicePreviewTags.map((tag) => (
-                                                  <span
-                                                    key={tag}
-                                                    className="text-xs font-medium flex items-center gap-0.5"
-                                                  >
-                                                    <span
-                                                      className={getTagTextColor(
-                                                        tag
-                                                      )}
-                                                    >
-                                                      #
-                                                    </span>
-                                                    <span className="text-gray-500">
-                                                      {tag}
-                                                    </span>
-                                                  </span>
-                                                ))}
+                                            {(task.date ||
+                                              task.time ||
+                                              taskTags.length > 0) && (
+                                              <div className="flex items-center justify-between gap-3 mt-2">
+                                                <div className="flex items-center gap-4 flex-wrap">
+                                                  {task.date && (
+                                                    <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                      {(() => {
+                                                        const date = new Date(
+                                                          task.date +
+                                                            "T00:00:00"
+                                                        );
+                                                        const now = new Date();
+                                                        const isCurrentYear =
+                                                          date.getFullYear() ===
+                                                          now.getFullYear();
+                                                        return date.toLocaleDateString(
+                                                          "en-US",
+                                                          {
+                                                            month: "short",
+                                                            day: "numeric",
+                                                            ...(isCurrentYear
+                                                              ? {}
+                                                              : {
+                                                                  year: "numeric",
+                                                                }),
+                                                            timeZone:
+                                                              "America/Los_Angeles",
+                                                          }
+                                                        );
+                                                      })()}
+                                                    </div>
+                                                  )}
+                                                  {task.time && (
+                                                    <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                                                      {(() => {
+                                                        const [hours, minutes] =
+                                                          task.time.split(
+                                                            ":"
+                                                          );
+                                                        const d = new Date(0);
+                                                        d.setHours(
+                                                          parseInt(hours, 10)
+                                                        );
+                                                        d.setMinutes(
+                                                          parseInt(minutes, 10)
+                                                        );
+                                                        return d.toLocaleTimeString(
+                                                          "en-US",
+                                                          {
+                                                            hour: "numeric",
+                                                            minute: "numeric",
+                                                            hour12: true,
+                                                            timeZone:
+                                                              "America/Los_Angeles",
+                                                          }
+                                                        );
+                                                      })()}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                                {taskTags.length > 0 && (
+                                                  <div className="flex flex-wrap gap-1.5">
+                                                    {taskTags.map((tag) => (
+                                                      <span
+                                                        key={tag}
+                                                        className="text-xs font-medium flex items-center gap-0.5"
+                                                      >
+                                                        <span
+                                                          className={getTagTextColor(
+                                                            tag
+                                                          )}
+                                                        >
+                                                          #
+                                                        </span>
+                                                        <span className="text-gray-500">
+                                                          {tag}
+                                                        </span>
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                )}
                                               </div>
                                             )}
                                           </div>
-                                        )}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -3938,29 +3948,35 @@ export default function TaskManager() {
                         </Button>
                         <Button
                           onClick={async () => {
-                            if (processedTask) {
-                              // Use voicePreviewTags (existing categories) instead of processedTask.tags
-                              const tagsToUse =
-                                voicePreviewTags.length > 0
-                                  ? voicePreviewTags
-                                  : processedTask.tags || [];
+                            if (processedTasks.length > 0) {
+                              // Create all tasks
+                              for (let i = 0; i < processedTasks.length; i++) {
+                                const task = processedTasks[i];
+                                const taskTags = voicePreviewTags[i] || [];
+                                
+                                // Use voicePreviewTags (existing categories) instead of task.tags
+                                const tagsToUse =
+                                  taskTags.length > 0
+                                    ? taskTags
+                                    : task.tags || [];
 
-                              const taskText = `${
-                                processedTask.taskName
-                              } ${tagsToUse.map((tag) => `#${tag}`).join(" ")}`;
+                                const taskText = `${
+                                  task.taskName
+                                } ${tagsToUse.map((tag) => `#${tag}`).join(" ")}`;
 
-                              let taskDate: Date | undefined = undefined;
-                              if (processedTask.date) {
-                                const timeString =
-                                  processedTask.time || "00:00";
-                                taskDate = new Date(
-                                  `${processedTask.date}T${timeString}`
-                                );
+                                let taskDate: Date | undefined = undefined;
+                                if (task.date) {
+                                  const timeString =
+                                    task.time || "00:00";
+                                  taskDate = new Date(
+                                    `${task.date}T${timeString}`
+                                  );
+                                }
+
+                                addTask(taskText, taskDate);
                               }
 
-                              addTask(taskText, taskDate);
-
-                              // Mark dictation onboarding step complete after task is added
+                              // Mark dictation onboarding step complete after tasks are added
                               if (
                                 showOnboarding &&
                                 !onboardingCompletedSteps.includes(
@@ -3971,12 +3987,17 @@ export default function TaskManager() {
                                   "try-dictation"
                                 );
                               }
+                              
+                              // Show success message
+                              if (processedTasks.length > 1) {
+                                toast.success(`${processedTasks.length} tasks added successfully`);
+                              }
                             }
                             setShowVoiceMenu(false);
                           }}
                           className="bg-gray-900 hover:bg-gray-800 text-white"
                         >
-                          Add Task
+                          {processedTasks.length > 1 ? `Add ${processedTasks.length} Tasks` : "Add Task"}
                         </Button>
                       </div>
                     </motion.div>
