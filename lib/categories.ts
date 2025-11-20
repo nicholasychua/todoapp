@@ -27,19 +27,33 @@ export function subscribeToCategories(userId: string, callback: (categories: Cat
     collection(db, 'categories'),
     where('userId', '==', userId)
   );
-  return onSnapshot(categoriesQuery, (querySnapshot) => {
-    const categories = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt.toDate(),
-      hiddenOnHome: doc.data().hiddenOnHome ?? false,
-      description: doc.data().description,
-      keywords: doc.data().keywords || [],
-    })) as Category[];
-    // Sort in memory to avoid needing a composite index
-    categories.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    callback(categories);
-  });
+  return onSnapshot(
+    categoriesQuery, 
+    (querySnapshot) => {
+      try {
+        const categories = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt.toDate(),
+          hiddenOnHome: doc.data().hiddenOnHome ?? false,
+          description: doc.data().description,
+          keywords: doc.data().keywords || [],
+        })) as Category[];
+        // Sort in memory to avoid needing a composite index
+        categories.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        callback(categories);
+      } catch (error) {
+        console.error('Error processing categories snapshot:', error);
+        // Still call callback with empty array to prevent undefined state
+        callback([]);
+      }
+    },
+    (error) => {
+      console.error('Error in categories subscription:', error);
+      // Call callback with empty array on error to prevent undefined state
+      callback([]);
+    }
+  );
 }
 
 export async function addCategory(

@@ -42,7 +42,6 @@ import {
   motion,
   AnimatePresence,
   Reorder,
-  useDragControls,
 } from "framer-motion";
 import { analytics } from "@/lib/analytics";
 import { Calendar } from "@/components/ui/calendar";
@@ -455,17 +454,6 @@ function Sidebar({
           <button
             className={cn(
               "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
-              showCalendar
-                ? "text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            )}
-            onClick={() => handleMenuClick(handleCalendarToggle)}
-          >
-            Calendar
-          </button>
-          <button
-            className={cn(
-              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
               showBacklog
                 ? "text-gray-900"
                 : "text-gray-500 hover:text-gray-700"
@@ -473,6 +461,17 @@ function Sidebar({
             onClick={() => handleMenuClick(handleBacklogToggle)}
           >
             Subspaces
+          </button>
+          <button
+            className={cn(
+              "text-left px-4 py-1.5 text-[13px] transition-colors font-normal",
+              showCalendar
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+            onClick={() => handleMenuClick(handleCalendarToggle)}
+          >
+            Calendar
           </button>
           <button
             className={cn(
@@ -520,7 +519,7 @@ function CategoryPopup({
   const [customInput, setCustomInput] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const filteredCategories = categories.filter((cat) =>
+  const filteredCategories = (categories || []).filter((cat) =>
     cat.name.toLowerCase().includes(inputValue.toLowerCase())
   );
 
@@ -874,7 +873,7 @@ export default function TaskManager() {
 
   // Compute names of categories hidden from the Home view
   const hiddenCategoryNames = useMemo(
-    () => categories.filter((c) => c.hiddenOnHome).map((c) => c.name),
+    () => (categories || []).filter((c) => c.hiddenOnHome).map((c) => c.name),
     [categories]
   );
 
@@ -1039,7 +1038,7 @@ export default function TaskManager() {
     try {
       const cleanText = formatTextWithTags(baseText);
       // Pass category names and userId for AI categorization
-      const categoryNames = categories.map((cat) => cat.name);
+      const categoryNames = (categories || []).map((cat) => cat.name);
       const result = await categorizeTask(cleanText, categoryNames, user!.uid);
       const suggested = result?.suggestedCategory;
 
@@ -1780,7 +1779,7 @@ export default function TaskManager() {
 
   // Merge tags from tasks and categories
   const allTags = Array.from(
-    new Set([...Object.keys(tagCounts), ...categories.map((cat) => cat.name)])
+    new Set([...Object.keys(tagCounts), ...(categories || []).map((cat) => cat.name)])
   )
     .filter((tag) => tag !== "tag" && tag !== "shopping")
     .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
@@ -3279,7 +3278,7 @@ export default function TaskManager() {
                                         </div>
                                       </div>
                                       <div className="space-y-1">
-                                        {categories.map((category) => {
+                                        {(categories || []).map((category) => {
                                           const colorName = getColorName(
                                             category.name
                                           );
@@ -4431,7 +4430,7 @@ function BacklogView({
             .replace(/#\w+/g, "")
             .replace(/\s{2,}/g, " ")
             .trim();
-          const categoryNames = categories.map((cat) => cat.name);
+          const categoryNames = (categories || []).map((cat) => cat.name);
           const result = await categorizeTask(
             cleanText,
             categoryNames,
@@ -4470,7 +4469,7 @@ function BacklogView({
     if (!user || !taskText.trim() || categories.length === 0) return;
 
     try {
-      const categoryNames = categories.map((cat) => cat.name);
+      const categoryNames = (categories || []).map((cat) => cat.name);
       const result = await categorizeTask(taskText, categoryNames, user.uid);
 
       if (result.suggestedCategory) {
@@ -4707,12 +4706,12 @@ function BacklogView({
 
   // In BacklogView, add state for card order using unique ids
   const UNCATEGORIZED_ID = "__uncategorized__";
-  const initialOrder = [...categories.map((c) => c.id), UNCATEGORIZED_ID];
+  const initialOrder = [...(categories || []).map((c) => c.id), UNCATEGORIZED_ID];
   const [categoryOrder, setCategoryOrder] = useState<string[]>(initialOrder);
 
   // Keep order in sync with categories
   useEffect(() => {
-    setCategoryOrder([...categories.map((c) => c.id), UNCATEGORIZED_ID]);
+    setCategoryOrder([...(categories || []).map((c) => c.id), UNCATEGORIZED_ID]);
   }, [categories]);
 
   // Prevent body scroll when modal is open
@@ -4733,7 +4732,6 @@ function BacklogView({
   }, [selectedCategory]);
 
   // Create a single drag control for all cards
-  const dragControls = useDragControls();
 
   // Helper function to distribute items into columns
   const distributeIntoColumns = (items: string[], numColumns: number = 2) => {
@@ -4832,7 +4830,7 @@ function BacklogView({
               const isUncategorized = catId === UNCATEGORIZED_ID;
               const catName = isUncategorized
                 ? "Uncategorized"
-                : categories.find((c) => c.id === catId)?.name || "Unnamed";
+                : (categories || []).find((c) => c.id === catId)?.name || "Unnamed";
               const catTasks = isUncategorized
                 ? boardTasks.filter((t) => t.tags.length === 0)
                 : boardTasks.filter((t) => t.tags[0] === catName);
@@ -4843,7 +4841,6 @@ function BacklogView({
                   key={`${catId}-${columnIndex}-${localIdx}`}
                   value={catId}
                   dragListener={false}
-                  dragControls={dragControls}
                   whileDrag={{
                     scale: 1.01,
                     boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
@@ -4868,7 +4865,7 @@ function BacklogView({
                       {/* Hide on Home toggle (not for Uncategorized) */}
                       {!isUncategorized &&
                         (() => {
-                          const category = categories.find(
+                          const category = (categories || []).find(
                             (c) => c.name === catName
                           );
                           const hidden = category?.hiddenOnHome ?? false;
@@ -4924,7 +4921,7 @@ function BacklogView({
                           aria-label={`Delete ${catName}`}
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const category = categories.find(
+                            const category = (categories || []).find(
                               (c) => c.name === catName
                             );
                             if (!category) return;
@@ -5109,7 +5106,7 @@ function BacklogView({
               <div className="flex items-center gap-3">
                 {selectedCategory !== "Uncategorized" &&
                   (() => {
-                    const cat = categories.find(
+                    const cat = (categories || []).find(
                       (c) => c.name === selectedCategory
                     );
                     const hidden = cat?.hiddenOnHome ?? false;
@@ -5747,7 +5744,7 @@ function PomodoroTimer({
                                     </div>
                                   </div>
                                   <div className="space-y-1">
-                                    {categories.map((category) => {
+                                    {(categories || []).map((category) => {
                                       const colorName = getColorName(
                                         category.name
                                       );
