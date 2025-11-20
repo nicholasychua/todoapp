@@ -274,8 +274,35 @@ function getFallbackVoiceProcessing(rawInput: string): ProcessedTask {
     }
   }
   
+  // Remove temporal information from task name
+  let taskNameClean = cleanText;
+  
+  // Remove time patterns with prepositions (e.g., "at 8pm", "by 5pm", "around noon")
+  taskNameClean = taskNameClean.replace(/\s+(at|by|around|@)\s+\d{1,2}(:\d{2})?\s*(am|pm)/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(at|by|around|@)\s+(noon|midnight|morning|afternoon|evening|night)/gi, '');
+  
+  // Remove standalone time patterns (e.g., "3pm", "8:30am") at the end or with light context
+  taskNameClean = taskNameClean.replace(/\s+\d{1,2}(:\d{2})?\s*(am|pm)\b/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(noon|midnight|morning|afternoon|evening|night)\b/gi, '');
+  
+  // Remove date patterns (e.g., "tomorrow", "today", "on Friday", "next Monday")
+  taskNameClean = taskNameClean.replace(/\s+(on|by|this|next)?\s*(tomorrow|tmr|today)/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(on|by|this|next)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b/gi, '');
+  taskNameClean = taskNameClean.replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '');
+  
+  // Remove common temporal prepositions that might be left over
+  taskNameClean = taskNameClean.replace(/\s+(at|by|on|around|@)\s*$/gi, '');
+  
+  // Clean up extra spaces
+  taskNameClean = taskNameClean.replace(/\s+/g, ' ').trim();
+  
+  // Capitalize first letter of task name
+  const capitalizedTaskName = taskNameClean.length > 0 
+    ? taskNameClean.charAt(0).toUpperCase() + taskNameClean.slice(1)
+    : taskNameClean;
+  
   return {
-    taskName: cleanText.length > 50 ? cleanText.substring(0, 50) + '...' : cleanText,
+    taskName: capitalizedTaskName.length > 50 ? capitalizedTaskName.substring(0, 50) + '...' : capitalizedTaskName,
     description: cleanText,
     date,
     time,

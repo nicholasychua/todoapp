@@ -139,10 +139,32 @@ const fallbackProcessVoiceInput = (rawInput: string) => {
     }
   }
   
+  // Remove temporal information from task name
+  let taskNameClean = cleanText;
+  
+  // Remove time patterns with prepositions (e.g., "at 8pm", "by 5pm", "around noon")
+  taskNameClean = taskNameClean.replace(/\s+(at|by|around|@)\s+\d{1,2}(:\d{2})?\s*(am|pm)/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(at|by|around|@)\s+(noon|midnight|morning|afternoon|evening|night)/gi, '');
+  
+  // Remove standalone time patterns (e.g., "3pm", "8:30am") at the end or with light context
+  taskNameClean = taskNameClean.replace(/\s+\d{1,2}(:\d{2})?\s*(am|pm)\b/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(noon|midnight|morning|afternoon|evening|night)\b/gi, '');
+  
+  // Remove date patterns (e.g., "tomorrow", "today", "on Friday", "next Monday")
+  taskNameClean = taskNameClean.replace(/\s+(on|by|this|next)?\s*(tomorrow|tmr|today)/gi, '');
+  taskNameClean = taskNameClean.replace(/\s+(on|by|this|next)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\b/gi, '');
+  taskNameClean = taskNameClean.replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '');
+  
+  // Remove common temporal prepositions that might be left over
+  taskNameClean = taskNameClean.replace(/\s+(at|by|on|around|@)\s*$/gi, '');
+  
+  // Clean up extra spaces
+  taskNameClean = taskNameClean.replace(/\s+/g, ' ').trim();
+  
   // Capitalize first letter of task name
-  const capitalizedTaskName = cleanText.length > 0 
-    ? cleanText.charAt(0).toUpperCase() + cleanText.slice(1)
-    : cleanText;
+  const capitalizedTaskName = taskNameClean.length > 0 
+    ? taskNameClean.charAt(0).toUpperCase() + taskNameClean.slice(1)
+    : taskNameClean;
   
   return {
     taskName: capitalizedTaskName.length > 50 ? capitalizedTaskName.substring(0, 50) + '...' : capitalizedTaskName,
@@ -297,7 +319,13 @@ Tags:
 
 Task Name:
 - Concise, descriptive, properly capitalized
-- Remove date/time/tag information from the task name itself
+- **IMPORTANT**: Remove ALL date/time/temporal information from the task name
+- Extract the core action, not the timing
+- Examples:
+  * "call mom at 8pm" → taskName: "Call mom", time: "20:00"
+  * "meeting tomorrow at 3pm" → taskName: "Meeting", date: [tomorrow's date], time: "15:00"
+  * "buy groceries on Friday" → taskName: "Buy groceries", date: [Friday's date]
+  * "submit report by Monday morning" → taskName: "Submit report", date: [Monday's date], time: "09:00"
 
 If date/time unclear or not mentioned: set to null`,
             },
