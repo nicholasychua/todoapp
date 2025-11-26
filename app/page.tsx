@@ -38,11 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import {
-  motion,
-  AnimatePresence,
-  Reorder,
-} from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { analytics } from "@/lib/analytics";
 import { Calendar } from "@/components/ui/calendar";
 import { useTheme } from "next-themes";
@@ -1256,11 +1252,22 @@ export default function TaskManager() {
       setNewTaskDate(undefined);
       setNewTaskTime(null);
 
-      // If the task routes to a hidden category, temporarily reveal on Home
+      // If the task routes to a hidden category, inform user and provide quick navigation
       const primary = finalTags[0];
       const isHiddenTarget = primary && hiddenCategoryNames.includes(primary);
-      if (isHiddenTarget && created?.id) {
-        startTemporaryVisibility(created.id);
+      if (isHiddenTarget) {
+        toast.success(`Added to hidden list "${primary}"`, {
+          action: {
+            label: "Open Subspaces",
+            onClick: () => setShowBacklog(true),
+          },
+        } as any);
+        // Temporarily reveal this task on Home for a few seconds
+        if (created?.id) {
+          startTemporaryVisibility(created.id);
+        }
+      } else {
+        toast.success("Task added successfully!");
       }
     } catch (error) {
       toast.error("Failed to add task");
@@ -1294,6 +1301,8 @@ export default function TaskManager() {
       setSpeechDraft("");
       setNewTaskDate(undefined);
       setNewTaskTime(null);
+
+      toast.success("Task added successfully!");
     } catch (error) {
       toast.error("Failed to add task");
     }
@@ -1359,10 +1368,23 @@ export default function TaskManager() {
 
         // Clear the input text
         setNewTaskText("");
-        
-        // Show success message if multiple tasks were created
+
+        // Show success message
         if (results.length > 1) {
           toast.success(`${results.length} tasks added successfully`);
+        } else if (results.length === 1) {
+          // Check if it was added to a hidden category
+          const finalTags = await autoCategorizeTags(
+            results[0].taskName,
+            results[0].tags || []
+          );
+          const primary = finalTags[0];
+          const isHiddenTarget =
+            primary && hiddenCategoryNames.includes(primary);
+
+          if (!isHiddenTarget) {
+            toast.success("Task created");
+          }
         }
       }
     } catch (error) {
@@ -1784,7 +1806,10 @@ export default function TaskManager() {
 
   // Merge tags from tasks and categories
   const allTags = Array.from(
-    new Set([...Object.keys(tagCounts), ...(categories || []).map((cat) => cat.name)])
+    new Set([
+      ...Object.keys(tagCounts),
+      ...(categories || []).map((cat) => cat.name),
+    ])
   )
     .filter((tag) => tag !== "tag" && tag !== "shopping")
     .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
@@ -2317,12 +2342,20 @@ export default function TaskManager() {
   // Handle keyboard events for voice control
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Control" && !isRecording) {
-        startRecording();
+      if (e.key === "Control") {
+        // If already recording, stop it (manual override for when it glitches)
+        if (isRecording) {
+          stopRecording();
+        }
+        // Otherwise start recording if voice menu is not open
+        else if (!showVoiceMenu) {
+          startRecording();
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Primary way to stop: release Control key
       if (e.key === "Control" && isRecording) {
         stopRecording();
       }
@@ -2335,7 +2368,7 @@ export default function TaskManager() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isRecording]);
+  }, [isRecording, showVoiceMenu]);
 
   // Subscribe to tasks
   useEffect(() => {
@@ -2433,7 +2466,7 @@ export default function TaskManager() {
       // The task name is categorized using autoCategorizeTags, which uses the same
       // categorizeTask API endpoint that regular typing uses
       // Date and time are already extracted and will be preserved when creating the task
-      const allTagsPromises = processedTasks.map(task => 
+      const allTagsPromises = processedTasks.map((task) =>
         autoCategorizeTags(task.taskName, task.tags || [])
       );
       const allTags = await Promise.all(allTagsPromises);
@@ -3478,10 +3511,17 @@ export default function TaskManager() {
 
                   {tasksLoaded &&
                     filteredTasks.length === 0 &&
-                    !showVoiceMenu && (
-                      <div className="relative flex flex-col items-center justify-center py-24 text-center">
+                    !showVoiceMenu &&
+                    !isRecording && (
+                      <div
+                        className="relative flex flex-col items-center justify-center py-24 text-center"
+                        style={{ zIndex: 1 }}
+                      >
                         {/* Skeleton Cards Background */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 opacity-20 pointer-events-none">
+                        <div
+                          className="absolute inset-0 flex flex-col items-center justify-center space-y-4 opacity-20 pointer-events-none"
+                          style={{ zIndex: 1 }}
+                        >
                           {[1, 2, 3].map((i) => (
                             <motion.div
                               key={i}
@@ -3601,13 +3641,14 @@ export default function TaskManager() {
 
       {/* Voice Menu Modal */}
       {showVoiceMenu && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center isolate">
           {/* Backdrop with blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[51] bg-black/40 backdrop-blur-lg"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+            style={{ isolation: "isolate" }}
           />
 
           {/* Main modal container */}
@@ -3621,10 +3662,10 @@ export default function TaskManager() {
               damping: 30,
               duration: 0.4,
             }}
-            className="relative z-[60] w-full max-w-xl mx-4"
+            className="relative z-50 w-full max-w-xl mx-4"
           >
             {/* Glass container */}
-            <div className="relative overflow-hidden rounded-3xl bg-white backdrop-blur-sm border border-gray-200/50 shadow-xl">
+            <div className="relative overflow-hidden rounded-3xl bg-white border border-gray-200/50 shadow-2xl">
               {/* Content */}
               <div className="relative p-8">
                 <AnimatePresence mode="wait" initial={false}>
@@ -3820,7 +3861,9 @@ export default function TaskManager() {
                         {processedTasks.length > 0 && (
                           <div>
                             <div className="text-sm font-medium mb-2 text-gray-700">
-                              {processedTasks.length === 1 ? "Processed Task" : `Processed Tasks (${processedTasks.length})`}
+                              {processedTasks.length === 1
+                                ? "Processed Task"
+                                : `Processed Tasks (${processedTasks.length})`}
                             </div>
 
                             <div className="space-y-3">
@@ -3879,9 +3922,7 @@ export default function TaskManager() {
                                                     <div className="text-xs text-gray-600 font-medium whitespace-nowrap">
                                                       {(() => {
                                                         const [hours, minutes] =
-                                                          task.time.split(
-                                                            ":"
-                                                          );
+                                                          task.time.split(":");
                                                         const d = new Date(0);
                                                         d.setHours(
                                                           parseInt(hours, 10)
@@ -3953,21 +3994,20 @@ export default function TaskManager() {
                               for (let i = 0; i < processedTasks.length; i++) {
                                 const task = processedTasks[i];
                                 const taskTags = voicePreviewTags[i] || [];
-                                
+
                                 // Use voicePreviewTags (existing categories) instead of task.tags
                                 const tagsToUse =
                                   taskTags.length > 0
                                     ? taskTags
                                     : task.tags || [];
 
-                                const taskText = `${
-                                  task.taskName
-                                } ${tagsToUse.map((tag) => `#${tag}`).join(" ")}`;
+                                const taskText = `${task.taskName} ${tagsToUse
+                                  .map((tag) => `#${tag}`)
+                                  .join(" ")}`;
 
                                 let taskDate: Date | undefined = undefined;
                                 if (task.date) {
-                                  const timeString =
-                                    task.time || "00:00";
+                                  const timeString = task.time || "00:00";
                                   taskDate = new Date(
                                     `${task.date}T${timeString}`
                                   );
@@ -3987,17 +4027,21 @@ export default function TaskManager() {
                                   "try-dictation"
                                 );
                               }
-                              
+
                               // Show success message
                               if (processedTasks.length > 1) {
-                                toast.success(`${processedTasks.length} tasks added successfully`);
+                                toast.success(
+                                  `${processedTasks.length} tasks added successfully`
+                                );
                               }
                             }
                             setShowVoiceMenu(false);
                           }}
                           className="bg-gray-900 hover:bg-gray-800 text-white"
                         >
-                          {processedTasks.length > 1 ? `Add ${processedTasks.length} Tasks` : "Add Task"}
+                          {processedTasks.length > 1
+                            ? `Add ${processedTasks.length} Tasks`
+                            : "Add Task"}
                         </Button>
                       </div>
                     </motion.div>
@@ -4010,9 +4054,17 @@ export default function TaskManager() {
                       transition={{ duration: 0.2 }}
                       className="flex flex-col space-y-6"
                     >
-                      <h2 className="text-2xl font-semibold text-gray-900">
-                        Manual Input
-                      </h2>
+                      <div className="space-y-2">
+                        <h2 className="text-2xl font-semibold text-gray-900">
+                          Manual Input
+                        </h2>
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                          <p className="text-xs text-blue-800">
+                            We couldn't pick up your voice. Type your task below
+                            instead.
+                          </p>
+                        </div>
+                      </div>
                       <div className="space-y-4">
                         <div>
                           <div className="text-sm font-medium mb-2 text-gray-700">
@@ -4480,6 +4532,8 @@ function BacklogView({
       setNewTaskText("");
       setNewTaskDate(undefined);
       setNewTaskTime(null);
+
+      toast.success("Task added to backlog!");
     } catch (error) {
       toast.error("Failed to add task");
     }
@@ -4497,6 +4551,7 @@ function BacklogView({
         // Add the suggested category as a tag
         const categorizedText = taskText + ` #${result.suggestedCategory}`;
         setCardState(selectedCategory || "", { input: categorizedText });
+        toast.success(`Categorized as: ${result.suggestedCategory}`);
       }
     } catch (error) {
       console.error("Error categorizing task:", error);
@@ -4727,12 +4782,18 @@ function BacklogView({
 
   // In BacklogView, add state for card order using unique ids
   const UNCATEGORIZED_ID = "__uncategorized__";
-  const initialOrder = [...(categories || []).map((c) => c.id), UNCATEGORIZED_ID];
+  const initialOrder = [
+    ...(categories || []).map((c) => c.id),
+    UNCATEGORIZED_ID,
+  ];
   const [categoryOrder, setCategoryOrder] = useState<string[]>(initialOrder);
 
   // Keep order in sync with categories
   useEffect(() => {
-    setCategoryOrder([...(categories || []).map((c) => c.id), UNCATEGORIZED_ID]);
+    setCategoryOrder([
+      ...(categories || []).map((c) => c.id),
+      UNCATEGORIZED_ID,
+    ]);
   }, [categories]);
 
   // Prevent body scroll when modal is open
@@ -4851,7 +4912,8 @@ function BacklogView({
               const isUncategorized = catId === UNCATEGORIZED_ID;
               const catName = isUncategorized
                 ? "Uncategorized"
-                : (categories || []).find((c) => c.id === catId)?.name || "Unnamed";
+                : (categories || []).find((c) => c.id === catId)?.name ||
+                  "Unnamed";
               const catTasks = isUncategorized
                 ? boardTasks.filter((t) => t.tags.length === 0)
                 : boardTasks.filter((t) => t.tags[0] === catName);
@@ -5263,7 +5325,7 @@ function BacklogView({
                               {task.text}
                             </span>
                           )}
-                          
+
                           {/* Date display with popover to edit */}
                           {(() => {
                             const hasDate = task.createdAt instanceof Date;
@@ -5272,7 +5334,9 @@ function BacklogView({
                             let isPastOrToday = false;
                             if (hasDate) {
                               const d = task.createdAt;
-                              dateString = `${d.getMonth() + 1}/${d.getDate()}/${d
+                              dateString = `${
+                                d.getMonth() + 1
+                              }/${d.getDate()}/${d
                                 .getFullYear()
                                 .toString()
                                 .slice(-2)}`;
@@ -5353,11 +5417,15 @@ function BacklogView({
                     return;
 
                   // Use the selected date or default to today's date
-                  const taskDate = cardStates[selectedCategory]?.date || new Date();
+                  const taskDate =
+                    cardStates[selectedCategory]?.date || new Date();
                   taskDate.setHours(0, 0, 0, 0);
 
-                  // Force Enter/Add submissions into Uncategorized
-                  const tags: string[] = [];
+                  // Add the selected category as a tag (unless it's Uncategorized)
+                  const tags: string[] =
+                    selectedCategory === "Uncategorized"
+                      ? []
+                      : [selectedCategory];
                   const taskText = cardStates[selectedCategory]?.input || "";
                   await createTask({
                     text: taskText,
@@ -5374,6 +5442,8 @@ function BacklogView({
                     input: "",
                     date: undefined,
                   });
+
+                  toast.success(`Task added to ${selectedCategory}!`);
                 }}
               >
                 <div className="flex-1 relative">
@@ -5609,7 +5679,7 @@ function PomodoroTimer({
         <div className="w-px bg-gray-200 h-3/4" />
         {/* Right: Task List */}
         <div className="flex flex-1 items-center justify-start pl-32">
-          <Card className="w-[440px] rounded-2xl border border-gray-200 shadow-none flex flex-col justify-center gap-0">
+          <div className="w-[440px] flex flex-col justify-center gap-0">
             <div className="py-0 flex flex-col gap-0">
               <AnimatePresence initial={false} mode="popLayout">
                 {filteredTasks.map((task, idx) => {
@@ -5890,7 +5960,7 @@ function PomodoroTimer({
                 })}
               </AnimatePresence>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>
