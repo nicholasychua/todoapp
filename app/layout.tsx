@@ -30,18 +30,23 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Subspace",
-    description:
-      "AI-powered task manager for focused work. Plan, track, and ship faster.",
     url: "/",
     siteName: "Subspace",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/newlog.png",
+        width: 1200,
+        height: 630,
+        alt: "Subspace - AI-powered task manager",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Subspace",
-    description:
-      "AI-powered task manager for focused work. Plan, track, and ship faster.",
+    images: ["/newlog.png"],
   },
   robots: {
     index: true,
