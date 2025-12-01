@@ -18,8 +18,7 @@ export const metadata: Metadata = {
     default: "Subspace",
     template: "%s • Subspace",
   },
-  description:
-    "AI-powered task manager for focused work. Plan, track, and ship faster.",
+  description: "Subspace",
   keywords: [
     "task manager",
     "productivity",
@@ -30,8 +29,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Subspace",
-    description:
-      "AI-powered task manager for focused work. Plan, track, and ship faster.",
+    description: "Subspace",
     url: "/",
     siteName: "Subspace",
     locale: "en_US",
@@ -41,15 +39,14 @@ export const metadata: Metadata = {
         url: "/newlog.png?v=2",
         width: 1200,
         height: 630,
-        alt: "Subspace - AI-powered task manager",
+        alt: "Subspace",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Subspace",
-    description:
-      "AI-powered task manager for focused work. Plan, track, and ship faster.",
+    description: "Subspace",
     images: ["/newlog.png?v=2"],
   },
   robots: {
