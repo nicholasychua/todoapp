@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/newlog.png",
+        url: "/newlog.png?v=2",
         width: 1200,
         height: 630,
         alt: "Subspace - AI-powered task manager",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     title: "Subspace",
     description:
       "AI-powered task manager for focused work. Plan, track, and ship faster.",
-    images: ["/newlog.png"],
+    images: ["/newlog.png?v=2"],
   },
   robots: {
     index: true,
