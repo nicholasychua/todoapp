@@ -88,6 +88,15 @@ import { TaskCreationDialog } from "@/components/ui/TaskCreationDialog";
 import { TaskEditDialog } from "@/components/ui/TaskEditDialog";
 import { Onboarding } from "@/components/ui/Onboarding";
 import { SubspacesOnboarding } from "@/components/ui/SubspacesOnboarding";
+import { TodaysPlan } from "@/components/ui/TodaysPlan";
+import {
+  type DailyPlanItem,
+  subscribeToDailyPlan,
+  createDailyPlanItem,
+  updateDailyPlanItem,
+  deleteDailyPlanItem,
+  reorderDailyPlanItems,
+} from "@/lib/daily-plan";
 import {
   shouldShowOnboarding,
   getOnboardingState,
@@ -782,6 +791,10 @@ export default function TaskManager() {
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Today's Plan state
+  const [showTodaysPlan, setShowTodaysPlan] = useState(false);
+  const [dailyPlanItems, setDailyPlanItems] = useState<DailyPlanItem[]>([]);
+
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingHasStarted, setOnboardingHasStarted] = useState(false);
@@ -1056,6 +1069,64 @@ export default function TaskManager() {
     } catch (error) {
       analytics.aiCategorizationFallback(baseText, "error");
       return existingTags;
+    }
+  };
+
+  // Today's Plan handlers
+  const handleAddPlanItem = async (text: string) => {
+    if (!user) return;
+    try {
+      await createDailyPlanItem(
+        { text, completed: false, order: dailyPlanItems.length },
+        user.uid
+      );
+    } catch (error) {
+      console.error("Failed to add plan item:", error);
+    }
+  };
+
+  const handleTogglePlanItem = async (id: string, completed: boolean) => {
+    try {
+      await updateDailyPlanItem(id, { completed });
+      const planItem = dailyPlanItems.find((i) => i.id === id);
+      if (planItem?.linkedTaskId) {
+        await updateTask(planItem.linkedTaskId, { completed });
+      }
+    } catch (error) {
+      console.error("Failed to toggle plan item:", error);
+    }
+  };
+
+  const handleDeletePlanItem = async (id: string) => {
+    try {
+      await deleteDailyPlanItem(id);
+    } catch (error) {
+      console.error("Failed to delete plan item:", error);
+    }
+  };
+
+  const handleReorderPlanItems = (newOrder: DailyPlanItem[]) => {
+    setDailyPlanItems(newOrder);
+    const updates = newOrder.map((item, idx) => ({ id: item.id, order: idx }));
+    reorderDailyPlanItems(updates).catch((error) =>
+      console.error("Failed to reorder plan items:", error)
+    );
+  };
+
+  const handleAddExistingTaskToPlan = async (task: Task) => {
+    if (!user) return;
+    try {
+      await createDailyPlanItem(
+        {
+          text: task.text,
+          completed: false,
+          order: dailyPlanItems.length,
+          linkedTaskId: task.id,
+        },
+        user.uid
+      );
+    } catch (error) {
+      console.error("Failed to add existing task to plan:", error);
     }
   };
 
@@ -2385,6 +2456,15 @@ export default function TaskManager() {
     return () => unsubscribe();
   }, [user]);
 
+  // Subscribe to daily plan items
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToDailyPlan(user.uid, (items) => {
+      setDailyPlanItems(items);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   // Subscribe to tab groups
   useEffect(() => {
     if (!user) return;
@@ -3025,11 +3105,37 @@ export default function TaskManager() {
                 </div>
               </div>
 
-              {/* Filter Dropdown */}
+              {/* Filter Row */}
               <div
-                className="pl-4 pb-3 flex justify-end"
+                className="px-4 pb-3 flex items-center justify-end gap-2"
                 style={{ marginTop: "3px" }}
               >
+                {/* Today's Plan toggle */}
+                <button
+                  onClick={() => setShowTodaysPlan(!showTodaysPlan)}
+                  className={cn(
+                    "h-8 px-3 py-1 text-xs font-medium border rounded-lg shadow-sm transition-all flex items-center gap-1.5",
+                    showTodaysPlan
+                      ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Today&apos;s Plan
+                  {dailyPlanItems.length > 0 && (
+                    <span
+                      className={cn(
+                        "ml-0.5 text-[10px] font-semibold",
+                        showTodaysPlan ? "text-gray-300" : "text-gray-400"
+                      )}
+                    >
+                      {dailyPlanItems.filter((i) => i.completed).length}/
+                      {dailyPlanItems.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Filter Dropdown */}
                 <FilterDropdown
                   options={[
                     {
@@ -3097,6 +3203,17 @@ export default function TaskManager() {
                   })()}
                 </FilterDropdown>
               </div>
+
+              {/* Today's Plan Panel */}
+              <TodaysPlan
+                isOpen={showTodaysPlan}
+                items={dailyPlanItems}
+                onAddItem={handleAddPlanItem}
+                onToggleItem={handleTogglePlanItem}
+                onDeleteItem={handleDeletePlanItem}
+                onReorder={handleReorderPlanItems}
+                onClose={() => setShowTodaysPlan(false)}
+              />
 
               {/* Task List */}
               <div className="flex-1 pb-8">
@@ -3473,17 +3590,53 @@ export default function TaskManager() {
                             </div>
                           )}
 
-                          {/* Delete button (show on hover) - top right */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTask(task.id);
-                            }}
-                            className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
-                            aria-label="Delete task"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                          {/* Top-right button: Add to Plan (replaces X when plan is open) or Delete */}
+                          <AnimatePresence mode="wait">
+                            {showTodaysPlan && !task.completed && !dailyPlanItems.some((p) => p.linkedTaskId === task.id) ? (
+                              <motion.button
+                                key="add-to-plan"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                transition={{ duration: 0.15 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddExistingTaskToPlan(task);
+                                }}
+                                className="absolute right-3 top-2 p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
+                                aria-label="Add to today's plan"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </motion.button>
+                            ) : showTodaysPlan && dailyPlanItems.some((p) => p.linkedTaskId === task.id) ? (
+                              <motion.span
+                                key="in-plan"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-3 top-2.5 text-[10px] font-medium text-gray-400 select-none"
+                              >
+                                In plan
+                              </motion.span>
+                            ) : (
+                              <motion.button
+                                key="delete"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteTask(task.id);
+                                }}
+                                className="absolute right-3 top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 focus:outline-none"
+                                aria-label="Delete task"
+                              >
+                                <X className="w-4 h-4" />
+                              </motion.button>
+                            )}
+                          </AnimatePresence>
                           {/* Bottom progress bar for temporary visibility */}
                           {(() => {
                             const entry = temporaryVisibleTasks[task.id];
