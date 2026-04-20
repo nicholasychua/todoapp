@@ -2,8 +2,15 @@
 
 # dependencies
 /node_modules
+/node_modules.bak
 /.pnp
 .pnp.js
+
+# iCloud / sync conflict duplicates
+* [0-9].json
+* [0-9].ts
+* [0-9].tsx
+* [0-9].js
 
 # testing
 /coverage

@@ -24,6 +24,7 @@ import {
   EyeOff,
   Sparkles,
   Tag,
+  Mountain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +98,19 @@ import {
   deleteDailyPlanItem,
   reorderDailyPlanItems,
 } from "@/lib/daily-plan";
+import { Rocks } from "@/components/ui/Rocks";
+import {
+  type Rock,
+  type RockPeriod,
+  subscribeToRocks,
+  createRock,
+  updateRock,
+  deleteRock,
+  reorderRocks,
+  getCurrentWeekKey,
+  getCurrentQuarterKey,
+  getCurrentYearKey,
+} from "@/lib/rocks";
 import {
   shouldShowOnboarding,
   getOnboardingState,
@@ -795,6 +809,23 @@ export default function TaskManager() {
   const [showTodaysPlan, setShowTodaysPlan] = useState(false);
   const [dailyPlanItems, setDailyPlanItems] = useState<DailyPlanItem[]>([]);
 
+  // Rocks state
+  const [showRocks, setShowRocks] = useState(false);
+  const [weeklyRocks, setWeeklyRocks] = useState<Rock[]>([]);
+  const [quarterlyRocks, setQuarterlyRocks] = useState<Rock[]>([]);
+  const [yearlyRocks, setYearlyRocks] = useState<Rock[]>([]);
+  // Selected period keys — drive which week/quarter/year of rocks is displayed.
+  // Default to the current period. Monday-based ISO week.
+  const [selectedWeekKey, setSelectedWeekKey] = useState<string>(() =>
+    getCurrentWeekKey()
+  );
+  const [selectedQuarterKey, setSelectedQuarterKey] = useState<string>(() =>
+    getCurrentQuarterKey()
+  );
+  const [selectedYearKey, setSelectedYearKey] = useState<string>(() =>
+    getCurrentYearKey()
+  );
+
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingHasStarted, setOnboardingHasStarted] = useState(false);
@@ -1128,6 +1159,62 @@ export default function TaskManager() {
     } catch (error) {
       console.error("Failed to add existing task to plan:", error);
     }
+  };
+
+  // Rocks handlers
+  const handleAddRock = async (text: string, period: RockPeriod) => {
+    if (!user) return;
+    try {
+      const rocks =
+        period === "week"
+          ? weeklyRocks
+          : period === "quarter"
+            ? quarterlyRocks
+            : yearlyRocks;
+      const periodKey =
+        period === "week"
+          ? selectedWeekKey
+          : period === "quarter"
+            ? selectedQuarterKey
+            : selectedYearKey;
+      await createRock(
+        { text, completed: false, period, order: rocks.length },
+        user.uid,
+        periodKey
+      );
+    } catch (error) {
+      console.error("Failed to add rock:", error);
+    }
+  };
+
+  const handleToggleRock = async (id: string, completed: boolean) => {
+    try {
+      await updateRock(id, { completed });
+    } catch (error) {
+      console.error("Failed to toggle rock:", error);
+    }
+  };
+
+  const handleDeleteRock = async (id: string) => {
+    try {
+      await deleteRock(id);
+    } catch (error) {
+      console.error("Failed to delete rock:", error);
+    }
+  };
+
+  const handleReorderRocks = (newOrder: Rock[], period: RockPeriod) => {
+    if (period === 'week') {
+      setWeeklyRocks(newOrder);
+    } else if (period === 'quarter') {
+      setQuarterlyRocks(newOrder);
+    } else {
+      setYearlyRocks(newOrder);
+    }
+    const updates = newOrder.map((rock, idx) => ({ id: rock.id, order: idx }));
+    reorderRocks(updates).catch((error) =>
+      console.error("Failed to reorder rocks:", error)
+    );
   };
 
   // Function to handle logout
@@ -2465,6 +2552,28 @@ export default function TaskManager() {
     return () => unsubscribe();
   }, [user]);
 
+  // Subscribe to rocks — one effect per period so changing the selected key
+  // for one (e.g. navigating to last week) doesn't churn the others.
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToRocks(user.uid, "week", selectedWeekKey, setWeeklyRocks);
+  }, [user, selectedWeekKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToRocks(
+      user.uid,
+      "quarter",
+      selectedQuarterKey,
+      setQuarterlyRocks
+    );
+  }, [user, selectedQuarterKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    return subscribeToRocks(user.uid, "year", selectedYearKey, setYearlyRocks);
+  }, [user, selectedYearKey]);
+
   // Subscribe to tab groups
   useEffect(() => {
     if (!user) return;
@@ -3135,6 +3244,31 @@ export default function TaskManager() {
                   )}
                 </button>
 
+                {/* Rocks toggle */}
+                <button
+                  onClick={() => setShowRocks(!showRocks)}
+                  className={cn(
+                    "h-8 px-3 py-1 text-xs font-medium border rounded-lg shadow-sm transition-all flex items-center gap-1.5",
+                    showRocks
+                      ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  )}
+                >
+                  <Mountain className="h-3.5 w-3.5" />
+                  Rocks
+                  {(weeklyRocks.length > 0 || quarterlyRocks.length > 0 || yearlyRocks.length > 0) && (
+                    <span
+                      className={cn(
+                        "ml-0.5 text-[10px] font-semibold",
+                        showRocks ? "text-gray-300" : "text-gray-400"
+                      )}
+                    >
+                      {[...weeklyRocks, ...quarterlyRocks, ...yearlyRocks].filter((r) => r.completed).length}/
+                      {weeklyRocks.length + quarterlyRocks.length + yearlyRocks.length}
+                    </span>
+                  )}
+                </button>
+
                 {/* Filter Dropdown */}
                 <FilterDropdown
                   options={[
@@ -3213,6 +3347,25 @@ export default function TaskManager() {
                 onDeleteItem={handleDeletePlanItem}
                 onReorder={handleReorderPlanItems}
                 onClose={() => setShowTodaysPlan(false)}
+              />
+
+              {/* Rocks Panel */}
+              <Rocks
+                isOpen={showRocks}
+                weeklyRocks={weeklyRocks}
+                quarterlyRocks={quarterlyRocks}
+                yearlyRocks={yearlyRocks}
+                selectedWeekKey={selectedWeekKey}
+                selectedQuarterKey={selectedQuarterKey}
+                selectedYearKey={selectedYearKey}
+                onSelectWeekKey={setSelectedWeekKey}
+                onSelectQuarterKey={setSelectedQuarterKey}
+                onSelectYearKey={setSelectedYearKey}
+                onAddRock={handleAddRock}
+                onToggleRock={handleToggleRock}
+                onDeleteRock={handleDeleteRock}
+                onReorderRocks={handleReorderRocks}
+                onClose={() => setShowRocks(false)}
               />
 
               {/* Task List */}

@@ -12,13 +12,14 @@ const geist = Geist({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://usesubspace.live"
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   ),
   title: {
     default: "Subspace",
     template: "%s • Subspace",
   },
-  description: "Subspace",
+  description:
+    "AI-powered task manager for focused work. Plan, track, and ship faster.",
   keywords: [
     "task manager",
     "productivity",
@@ -29,25 +30,23 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Subspace",
-    description: "Subspace",
     url: "/",
     siteName: "Subspace",
     locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/newlog.png?v=2",
+        url: "/newlog.png",
         width: 1200,
         height: 630,
-        alt: "Subspace",
+        alt: "Subspace - AI-powered task manager",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Subspace",
-    description: "Subspace",
-    images: ["/newlog.png?v=2"],
+    images: ["/newlog.png"],
   },
   robots: {
     index: true,
